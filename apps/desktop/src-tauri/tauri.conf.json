@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "CRIMSON",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "identifier": "com.laoy.crimson",
   "build": {
     "frontendDist": "../dist",
@@ -40,7 +40,10 @@
     ],
     "externalBin": [
       "bin/crimson-server"
-    ]
+    ],
+    "nsis": {
+      "installMode": "perUser"
+    }
   },
   "plugins": {
     "shell": {
@@ -52,7 +55,7 @@
         "https://github.com/Ryan-DPC/Crimson/releases/latest/download/latest.json"
       ],
       "windows": {
-        "installMode": "passive"
+        "installMode": "quiet"
       }
     }
   }
