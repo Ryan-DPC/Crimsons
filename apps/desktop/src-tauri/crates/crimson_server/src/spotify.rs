@@ -5,6 +5,9 @@ use tokio::sync::RwLock;
 use std::sync::Arc;
 use crate::events::WsSender;
 use serde_json::json;
+use sysinfo::{System, ProcessRefreshKind, RefreshKind};
+use base64::engine::general_purpose::STANDARD;
+use base64::Engine;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct SpotifyState {
@@ -95,73 +98,170 @@ impl SpotifyService {
         self.sender.0.subscribe()
     }
 
+    pub fn broadcast_external_event(&self, event: String) -> Result<usize, tokio::sync::broadcast::error::SendError<String>> {
+        self.sender.0.send(event)
+    }
+
+    pub async fn ensure_valid_token(&self) -> Option<String> {
+        let (access, refresh, expires_at, id, secret) = {
+            let lock = self.client.read().await;
+            (lock.access_token.clone(), lock.refresh_token.clone(), lock.expires_at, lock.client_id.clone(), lock.client_secret.clone())
+        };
+
+        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+        
+        // If we have a token and it's not expired (with 30s buffer), return it
+        if let Some(token) = access {
+            if expires_at > 0 && now < expires_at.saturating_sub(30) {
+                return Some(token);
+            }
+        }
+
+        // Otherwise try to refresh
+        if let (Some(r_token), id, secret) = (refresh, id, secret) {
+            if !id.is_empty() && !secret.is_empty() {
+                let client = reqwest::Client::new();
+                let auth_str = format!("{}:{}", id, secret);
+                let b64 = STANDARD.encode(auth_str.as_bytes());
+                let params = [("grant_type", "refresh_token"), ("refresh_token", &r_token)];
+                
+                if let Ok(resp) = client.post("https://accounts.spotify.com/api/token")
+                    .header(AUTHORIZATION, format!("Basic {}", b64))
+                    .form(&params)
+                    .send()
+                    .await {
+                    if resp.status().is_success() {
+                        if let Ok(json) = resp.json::<serde_json::Value>().await {
+                            if let (Some(acc), Some(expire)) = (json["access_token"].as_str(), json["expires_in"].as_u64()) {
+                                let new_refresh = json["refresh_token"].as_str().unwrap_or(&r_token).to_string();
+                                let mut lock = self.client.write().await;
+                                lock.access_token = Some(acc.to_string());
+                                lock.refresh_token = Some(new_refresh);
+                                lock.expires_at = now + expire;
+                                lock.save();
+                                return Some(acc.to_string());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    pub fn is_spotify_running(&self) -> bool {
+        let mut sys = System::new_with_specifics(
+            RefreshKind::new().with_processes(ProcessRefreshKind::new())
+        );
+        sys.refresh_processes();
+        sys.processes_by_exact_name("Spotify.exe").next().is_some() ||
+        sys.processes_by_exact_name("spotify.exe").next().is_some()
+    }
+
     pub async fn start_background_polling(&self) {
-        let client_ptr = self.client.clone();
-        let sender = self.sender.clone();
-        let last_state: Arc<tokio::sync::Mutex<Option<SpotifyState>>> = Arc::new(tokio::sync::Mutex::new(None));
+        let self_access_token = self.client.clone();
+        let self_sender = self.sender.clone();
 
         tokio::spawn(async move {
-            let mut last_state_json = String::new();
+            let mut last_state: Option<SpotifyState> = None;
             let mut first_poll = true;
+            let mut poll_count = 0u64;
             
             loop {
-                let (access_token, refresh_token, client_id, client_secret, expires_at) = {
-                    let lock = client_ptr.read().await;
-                    (lock.access_token.clone(), lock.refresh_token.clone(), lock.client_id.clone(), lock.client_secret.clone(), lock.expires_at)
+                poll_count = poll_count.wrapping_add(1);
+                
+                // --- TOKEN MANAGEMENT ---
+                let access_token = {
+                    let (access, refresh, expires_at, id, secret) = {
+                        let lock = self_access_token.read().await;
+                        (lock.access_token.clone(), lock.refresh_token.clone(), lock.expires_at, lock.client_id.clone(), lock.client_secret.clone())
+                    };
+                    let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+                    
+                    if let (Some(token), Some(r_token), id, secret) = (access, refresh, id, secret) {
+                        if expires_at == 0 || now >= expires_at.saturating_sub(60) {
+                             // Refresh logic inlined here since we don't have Arc<SpotifyService>
+                             let client = reqwest::Client::new();
+                             let auth_str = format!("{}:{}", id, secret);
+                             use base64::engine::general_purpose::STANDARD;
+                             use base64::Engine;
+                             let b64 = STANDARD.encode(auth_str.as_bytes());
+                             let params = [("grant_type", "refresh_token"), ("refresh_token", &r_token)];
+                             
+                             if let Ok(resp) = client.post("https://accounts.spotify.com/api/token").header(AUTHORIZATION, format!("Basic {}", b64)).form(&params).send().await {
+                                 if resp.status().is_success() {
+                                     if let Ok(json) = resp.json::<serde_json::Value>().await {
+                                         if let (Some(acc), Some(expire)) = (json["access_token"].as_str(), json["expires_in"].as_u64()) {
+                                             let new_refresh = json["refresh_token"].as_str().unwrap_or(&r_token).to_string();
+                                             let mut lock = self_access_token.write().await;
+                                             lock.access_token = Some(acc.to_string());
+                                             lock.refresh_token = Some(new_refresh);
+                                             lock.expires_at = now + expire;
+                                             lock.save();
+                                             Some(acc.to_string())
+                                         } else { None }
+                                     } else { None }
+                                 } else { None }
+                             } else { None }
+                        } else {
+                            Some(token)
+                        }
+                    } else {
+                        None
+                    }
                 };
 
-                // Auto-refresh token if expired (within 60s)
-                let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
-                if let (Some(token), Some(r_token), id, secret) = (&access_token, &refresh_token, &client_id, &client_secret) {
-                    if expires_at > 0 && now >= expires_at.saturating_sub(60) {
-                        if !id.is_empty() && !secret.is_empty() {
-                            let client = reqwest::Client::new();
-                            let auth_str = format!("{}:{}", id, secret);
-                            use base64::{Engine as _, engine::general_purpose::STANDARD};
-                            let b64 = STANDARD.encode(auth_str.as_bytes());
-                            let params = [("grant_type", "refresh_token"), ("refresh_token", r_token)];
+                // --- DATA POLLING ---
+                if let Some(token) = access_token {
+                    if let Ok(state) = Self::fetch_current_playback(&token).await {
+                        let is_idle = state.track_id.is_empty();
+                        
+                        // AUTO-WAKE: If idle but Spotify is running, حاول تفعيل أول جهاز متاح
+                        if is_idle && poll_count % 10 == 0 {
+                            let mut sys = System::new_with_specifics(RefreshKind::new().with_processes(ProcessRefreshKind::new()));
+                            sys.refresh_processes();
+                            let is_running = sys.processes_by_exact_name("Spotify.exe").next().is_some() || sys.processes_by_exact_name("spotify.exe").next().is_some();
                             
-                            if let Ok(resp) = client.post("https://accounts.spotify.com/api/token").header(AUTHORIZATION, format!("Basic {}", b64)).form(&params).send().await {
-                                if resp.status().is_success() {
+                            if is_running {
+                                let client = reqwest::Client::new();
+                                if let Ok(resp) = client.get("https://api.spotify.com/v1/me/player/devices").header(AUTHORIZATION, format!("Bearer {}", token)).send().await {
                                     if let Ok(json) = resp.json::<serde_json::Value>().await {
-                                        if let (Some(acc), Some(expire)) = (json["access_token"].as_str(), json["expires_in"].as_u64()) {
-                                            let new_refresh = json["refresh_token"].as_str().unwrap_or(r_token).to_string();
-                                            let mut lock = client_ptr.write().await;
-                                            lock.access_token = Some(acc.to_string());
-                                            lock.refresh_token = Some(new_refresh);
-                                            lock.expires_at = now + expire;
-                                            lock.save();
+                                        if let Some(devices) = json["devices"].as_array() {
+                                            if !devices.is_empty() {
+                                                if let Some(pc) = devices.iter().find(|d| d["type"].as_str() == Some("Computer")) {
+                                                    let id = pc["id"].as_str().unwrap_or("");
+                                                    let _ = client.put("https://api.spotify.com/v1/me/player")
+                                                        .header(AUTHORIZATION, format!("Bearer {}", token))
+                                                        .json(&json!({ "device_ids": [id], "play": false }))
+                                                        .send().await;
+                                                }
+                                            }
                                         }
                                     }
                                 }
                             }
                         }
-                    }
-                }
 
-                if let Some(token) = access_token {
-                    if let Ok(state) = Self::fetch_current_playback(&token).await {
                         let state_json = json!({
                             "type": "SPOTIFY_STATE",
                             "data": state
                         }).to_string();
 
                         let changed = {
-                            let mut last = last_state.lock().await;
-                            let diff = if let Some(l) = &*last {
+                            let diff = if let Some(l) = &last_state {
                                 l.is_playing != state.is_playing ||
                                 l.track_id != state.track_id ||
                                 l.progress_ms.abs_diff(state.progress_ms) > 1500 ||
                                 l.shuffle_state != state.shuffle_state ||
                                 l.smart_shuffle != state.smart_shuffle ||
                                 l.repeat_state != state.repeat_state ||
-                                l.is_liked != state.is_liked
+                                l.is_liked != state.is_liked ||
+                                l.has_token != state.has_token
                             } else {
                                 true
                             };
                             if diff {
-                                *last = Some(state.clone());
-                                // Persist state to disk for cold boots
+                                last_state = Some(state.clone());
                                 let path = std::path::Path::new(std::env::var("APPDATA").unwrap_or_default().as_str()).join("Crimson").join("spotify_state.json");
                                 if let Ok(json_str) = serde_json::to_string(&state) {
                                     let _ = std::fs::write(path, json_str);
@@ -171,24 +271,23 @@ impl SpotifyService {
                         };
 
                         if first_poll || changed {
-                            let _ = sender.0.send(state_json.clone());
-                            last_state_json = state_json;
+                            let _ = self_sender.0.send(state_json.clone());
                             first_poll = false;
                         }
                     }
                 }
 
-                tokio::time::sleep(Duration::from_millis(1000)).await;
+                // --- SMART SLEEP (BURST MODE) ---
+                // If it's the first minute (approx 240 polls at 250ms), poll faster
+                let sleep_ms = if poll_count < 240 { 250 } else { 1000 };
+                tokio::time::sleep(Duration::from_millis(sleep_ms)).await;
             }
         });
     }
 
     /// Convenience method: fetch current playback and return (album_art_url, timer_str) for immediate UI delivery.
     pub async fn get_current_state(&self) -> Option<(String, String)> {
-        let token_opt = {
-            let c = self.client.read().await;
-            c.access_token.clone()
-        };
+        let token_opt = self.ensure_valid_token().await;
 
         if let Some(token) = token_opt {
             if let Ok(state) = Self::fetch_current_playback(&token).await {
@@ -215,10 +314,7 @@ impl SpotifyService {
     }
 
     pub async fn get_top_track(&self) -> Option<(String, String)> {
-        let token = {
-            let c = self.client.read().await;
-            c.access_token.clone()?
-        };
+        let token = self.ensure_valid_token().await?;
         let client = reqwest::Client::new();
         let resp = client.get("https://api.spotify.com/v1/me/top/tracks?time_range=short_term&limit=1")
             .header(AUTHORIZATION, format!("Bearer {}", token))
@@ -293,7 +389,7 @@ impl SpotifyService {
     }
 
     pub async fn get_user_playlists(&self) -> Option<Vec<serde_json::Value>> {
-        let token = self.client.read().await.access_token.clone()?;
+        let token = self.ensure_valid_token().await?;
         let client = reqwest::Client::new();
         let resp = client.get("https://api.spotify.com/v1/me/playlists")
             .header(reqwest::header::AUTHORIZATION, format!("Bearer {}", token))
@@ -315,7 +411,7 @@ impl SpotifyService {
     }
 
     pub async fn get_user_devices(&self) -> Option<Vec<serde_json::Value>> {
-        let token = self.client.read().await.access_token.clone()?;
+        let token = self.ensure_valid_token().await?;
         let client = reqwest::Client::new();
         let resp = client.get("https://api.spotify.com/v1/me/player/devices")
             .header(reqwest::header::AUTHORIZATION, format!("Bearer {}", token))
@@ -337,7 +433,7 @@ impl SpotifyService {
     }
 
     pub async fn get_playlist_cover(&self, playlist_uri: &str) -> Option<String> {
-        let token = self.client.read().await.access_token.clone()?;
+        let token = self.ensure_valid_token().await?;
         let id = playlist_uri.split(':').last()?;
         let client = reqwest::Client::new();
         let resp = client.get(format!("https://api.spotify.com/v1/playlists/{}", id))
@@ -350,12 +446,7 @@ impl SpotifyService {
     }
 
     pub async fn handle_command(&self, endpoint: &str, params: Option<serde_json::Value>) -> Result<(), Box<dyn std::error::Error>> {
-        let access_token = {
-            let lock = self.client.read().await;
-            lock.access_token.clone()
-        };
-
-        let token = match access_token {
+        let token = match self.ensure_valid_token().await {
             Some(t) => t,
             None => return Err("No token".into()),
         };
@@ -564,7 +655,6 @@ impl SpotifyService {
 
         let client = reqwest::Client::new();
         let auth_str = format!("{}:{}", client_id, client_secret);
-        use base64::{Engine as _, engine::general_purpose::STANDARD};
         let b64 = STANDARD.encode(auth_str.as_bytes());
 
         let params = [

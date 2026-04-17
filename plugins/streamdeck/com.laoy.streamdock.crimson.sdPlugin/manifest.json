@@ -98,6 +98,22 @@
       "UUID": "com.laoy.streamdock.crimson.infoboard"
     },
     {
+      "Icon": "static/icon/stats",
+      "Name": "LoL Game Link (Info)",
+      "Controllers": ["Information"],
+      "States": [
+        {
+          "Image": "static/icon/stats",
+          "Title": "WAITING"
+        },
+        {
+          "Image": "static/icon/stats",
+          "Title": "CONNECTED"
+        }
+      ],
+      "UUID": "com.laoy.streamdock.crimson.infoboard_lol"
+    },
+    {
       "Icon": "static/icon/spotify_play",
       "Name": "Spotify: Play/Pause",
       "Controllers": ["Keypad"],

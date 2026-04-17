@@ -20,7 +20,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut port = None;
     let mut plugin_uuid = None;
     let mut register_event = None;
-    let mut info = None;
 
     let env_args: Vec<String> = std::env::args().collect();
     let mut i = 0;
@@ -37,38 +36,30 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 if i + 1 < env_args.len() { register_event = Some(env_args[i + 1].clone()); i += 1; }
             }
             "-info" => {
-                if i + 1 < env_args.len() { info = Some(env_args[i + 1].clone()); i += 1; }
+                if i + 1 < env_args.len() { i += 1; }
             }
             _ => {}
         }
         i += 1;
     }
 
-    if is_streamdock_plugin {
-        println!("Starting in StreamDock Plugin Mode...");
-        // In plugin mode, we don't care about single instance checking, 
-        // because StreamDock launches us as a background sidecar.
-        let (tx, _) = broadcast::channel(100);
-        let sender = WsSender(tx);
-        let spotify_service = Arc::new(spotify::SpotifyService::new(sender.clone()));
-        // Note: we don't need polling since the main server instance probably does it,
-        // but let's start it just in case this is running standalone.
-        spotify_service.start_background_polling().await;
-
-        if let (Some(p), Some(uuid), Some(reg_evt)) = (port, plugin_uuid, register_event) { // Use matched string to avoid variable collision
-            crimson_server::streamdock::start_streamdock_client(p, uuid, reg_evt, spotify_service).await;
-        }
-        return Ok(());
-    }
-
     let instance = single_instance::SingleInstance::new("com.laoy.crimson.server").unwrap();
-    if !instance.is_single() {
-        eprintln!("Another instance of Crimson Server is already running. Exiting.");
-        return Ok(());
+    let is_primary = instance.is_single();
+
+    if !is_primary {
+        if is_streamdock_plugin {
+            println!("Another instance running. Starting in StreamDock PROXY Mode...");
+            if let (Some(p), Some(uuid), Some(reg_evt)) = (port, plugin_uuid, register_event) { 
+                crimson_server::proxy::start_proxy_bridge(p, uuid, reg_evt).await;
+            }
+            return Ok(());
+        } else {
+            eprintln!("Another instance of Crimson Server is already running. Exiting.");
+            return Ok(());
+        }
     }
 
-    let _args = Args::parse();
-    println!("Starting Crimson Phantom Server...");
+    println!("Starting Crimson Phantom Server (Primary)...");
 
     // Setup broadcast channel for internal communications
     let (tx, _) = broadcast::channel(100);
@@ -86,6 +77,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Start Spotify Service
     let spotify_service = Arc::new(spotify::SpotifyService::new(sender.clone()));
     spotify_service.start_background_polling().await;
+
+    // If we were ALSO started with StreamDock flags, start the bridge too
+    if is_streamdock_plugin {
+        if let (Some(p), Some(uuid), Some(reg_evt)) = (port, plugin_uuid, register_event) {
+            let spotify_clone = spotify_service.clone();
+            tokio::spawn(async move {
+                crimson_server::streamdock::start_streamdock_client(p, uuid, reg_evt, spotify_clone).await;
+            });
+        }
+    }
 
     // Start External WebSocket Server (Sidecar -> UI/StreamDeck)
     println!("WebSocket server listening on 127.0.0.1:40509");

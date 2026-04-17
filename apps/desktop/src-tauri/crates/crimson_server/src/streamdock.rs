@@ -82,8 +82,6 @@ pub async fn start_streamdock_client(port: u16, uuid: String, register_event: St
         is_playing: bool,
         polled_at: std::time::Instant,
         track_name: String,
-        artist_name: String,
-        top_track_img: Option<String>,
         scroll_counter: u32,
     }
 
@@ -92,15 +90,11 @@ pub async fn start_streamdock_client(port: u16, uuid: String, register_event: St
     let render_state_render = render_state.clone();
 
     // ─── API Poll Loop: updates shared state, handles non-timer buttons ───────
-    let spotify_polling_clone = spotify.clone();
     tokio::spawn(async move {
         let mut last_album_url = String::new();
         let mut last_base64_jpeg: Vec<u8> = Vec::new();
         let mut scroll_counter = 0u32;
-        let mut top_track_img: Option<String> = None;
-        let mut top_track_bytes: Vec<u8> = Vec::new();
-        let mut top_track_name = String::new();
-        let mut last_top_fetch = std::time::Instant::now() - std::time::Duration::from_secs(3600);
+        let top_track_img: Option<String> = None;
 
         while let Ok(state_json) = rx_spotify.recv().await {
             scroll_counter = scroll_counter.wrapping_add(1);
@@ -111,7 +105,7 @@ pub async fn start_streamdock_client(port: u16, uuid: String, register_event: St
 
                     // Note: Top track fetch moved to a separate task.
 
-                    if let Some(album_art_url) = data["album_art"].as_str() {
+                    let has_art = if let Some(album_art_url) = data["album_art"].as_str() {
                         if !album_art_url.is_empty() {
                             if album_art_url != last_album_url {
                                 let client = reqwest::Client::new();
@@ -122,76 +116,84 @@ pub async fn start_streamdock_client(port: u16, uuid: String, register_event: St
                                     }
                                 }
                             }
+                            true
+                        } else { false }
+                    } else { false };
 
-                            if !last_base64_jpeg.is_empty() {
-                                // Update shared render state with fresh API data + timestamp
-                                {
-                                    let mut rs = render_state_poll.lock().await;
-                                    *rs = Some(RenderState {
-                                        album_jpeg: last_base64_jpeg.clone(),
-                                        progress_ms_at_poll: data["progress_ms"].as_u64().unwrap_or(0),
-                                        duration_ms: data["duration_ms"].as_u64().unwrap_or(0),
-                                        is_playing: data["is_playing"].as_bool().unwrap_or(false),
-                                        polled_at: std::time::Instant::now(),
-                                        track_name: data["track_name"].as_str().unwrap_or("").to_string(),
-                                        artist_name: data["artist_name"].as_str().unwrap_or("").to_string(),
-                                        top_track_img: top_track_img.clone(),
-                                        scroll_counter,
-                                    });
-                                }
+                    // If no art, try to load default Spotify icon as fallback for display
+                    if !has_art || last_base64_jpeg.is_empty() {
+                        let icon_path = std::path::Path::new(std::env::var("APPDATA").unwrap_or_default().as_str())
+                            .join("HotSpot").join("StreamDock").join("plugins")
+                            .join("com.mirabox.streamdock.spotify.sdPlugin").join("static").join("btn").join("btn_spotify_144_spot.png");
+                        if let Ok(bytes) = std::fs::read(icon_path) {
+                            last_base64_jpeg = bytes;
+                            last_album_url = "default_spot".to_string();
+                        }
+                    }
 
-                                // Handle non-timer buttons from the API loop
-                                let active_ctx = contexts_clone.lock().await.clone();
-                                for (ctx, action_name) in &active_ctx {
-                                    if action_name.ends_with("likesong") {
-                                        let is_liked = data["is_liked"].as_bool().unwrap_or(false);
-                                        let msg = json!({ "event": "setState", "context": ctx, "payload": { "state": if is_liked { 1 } else { 0 } }}).to_string();
-                                        let _ = tx_ws_clone.send(msg).await;
-                                    }
+                    // Always update shared render state if we have some image (even fallback)
+                    if !last_base64_jpeg.is_empty() {
+                        let mut rs = render_state_poll.lock().await;
+                        *rs = Some(RenderState {
+                            album_jpeg: last_base64_jpeg.clone(),
+                            progress_ms_at_poll: data["progress_ms"].as_u64().unwrap_or(0),
+                            duration_ms: data["duration_ms"].as_u64().unwrap_or(0),
+                            is_playing: data["is_playing"].as_bool().unwrap_or(false),
+                            polled_at: std::time::Instant::now(),
+                            track_name: data["track_name"].as_str().unwrap_or("Spotify").to_string(),
+                            scroll_counter,
+                        });
+                    }
 
-                                    if action_name.ends_with("info_toptrack") {
-                                        if let Some(ref img) = top_track_img {
-                                            let msg = json!({ "event": "setImage", "context": ctx, "payload": { "image": img, "target": 0 }}).to_string();
-                                            let _ = tx_ws_clone.send(msg).await;
-                                        }
-                                    }
+                    // Handle non-timer buttons - ALWAYS update if context is active
+                    let active_ctx = contexts_clone.lock().await.clone();
+                    for (ctx, action_name) in &active_ctx {
+                        if action_name.ends_with("likesong") {
+                            let is_liked = data["is_liked"].as_bool().unwrap_or(false);
+                            let msg = json!({ "event": "setState", "context": ctx, "payload": { "state": if is_liked { 1 } else { 0 } }}).to_string();
+                            let _ = tx_ws_clone.send(msg).await;
+                        }
 
-                                    if action_name.ends_with("info_artist") {
-                                        let artist = data["artist_name"].as_str().unwrap_or("Artist");
-                                        let img = compose_info_image(artist, Some(&last_base64_jpeg));
-                                        let msg = json!({ "event": "setImage", "context": ctx, "payload": { "image": img, "target": 0 }}).to_string();
-                                        let _ = tx_ws_clone.send(msg).await;
-                                    }
-
-                                    if action_name.ends_with("shuffle") {
-                                        let shuffle_state = data["shuffle_state"].as_bool().unwrap_or(false);
-                                        let smart_shuffle = data["smart_shuffle"].as_bool().unwrap_or(false);
-                                        let icon_name = if smart_shuffle {
-                                            "btn_spotify_144_smart_shuffle.png"
-                                        } else if shuffle_state {
-                                            "btn_spotify_144_shuffle.png"
-                                        } else {
-                                            "btn_spotify_144_shuffle_off.png"
-                                        };
-                                        let icon_path = std::path::Path::new(std::env::var("APPDATA").unwrap_or_default().as_str())
-                                            .join("HotSpot").join("StreamDock").join("plugins")
-                                            .join("com.mirabox.streamdock.spotify.sdPlugin").join("static").join("btn").join(icon_name);
-                                        if let Ok(bytes) = std::fs::read(icon_path) {
-                                            use base64::{Engine as _, engine::general_purpose::STANDARD};
-                                            let b64 = STANDARD.encode(&bytes);
-                                            let msg = json!({ "event": "setImage", "context": ctx, "payload": { "image": format!("data:image/png;base64,{}", b64), "target": 0 }}).to_string();
-                                            let _ = tx_ws_clone.send(msg).await;
-                                        }
-                                    }
-
-                                    if action_name.ends_with("repeat") {
-                                        let repeat_state = data["repeat_state"].as_str().unwrap_or("off");
-                                        let state_idx = match repeat_state { "context" => 1, "track" => 2, _ => 0 };
-                                        let msg = json!({ "event": "setState", "context": ctx, "payload": { "state": state_idx }}).to_string();
-                                        let _ = tx_ws_clone.send(msg).await;
-                                    }
-                                }
+                        if action_name.ends_with("info_toptrack") {
+                            if let Some(ref img) = top_track_img {
+                                let msg = json!({ "event": "setImage", "context": ctx, "payload": { "image": img, "target": 0 }}).to_string();
+                                let _ = tx_ws_clone.send(msg).await;
                             }
+                        }
+
+                        if action_name.ends_with("info_artist") {
+                            let artist = data["artist_name"].as_str().unwrap_or("Ready");
+                            let img = compose_info_image(artist, if last_base64_jpeg.is_empty() { None } else { Some(&last_base64_jpeg) });
+                            let msg = json!({ "event": "setImage", "context": ctx, "payload": { "image": img, "target": 0 }}).to_string();
+                            let _ = tx_ws_clone.send(msg).await;
+                        }
+
+                        if action_name.ends_with("shuffle") {
+                            let shuffle_state = data["shuffle_state"].as_bool().unwrap_or(false);
+                            let smart_shuffle = data["smart_shuffle"].as_bool().unwrap_or(false);
+                            let icon_name = if smart_shuffle {
+                                "btn_spotify_144_smart_shuffle.png"
+                            } else if shuffle_state {
+                                "btn_spotify_144_shuffle.png"
+                            } else {
+                                "btn_spotify_144_shuffle_off.png"
+                            };
+                            let icon_path = std::path::Path::new(std::env::var("APPDATA").unwrap_or_default().as_str())
+                                .join("HotSpot").join("StreamDock").join("plugins")
+                                .join("com.mirabox.streamdock.spotify.sdPlugin").join("static").join("btn").join(icon_name);
+                            if let Ok(bytes) = std::fs::read(icon_path) {
+                                use base64::{Engine as _, engine::general_purpose::STANDARD};
+                                let b64 = STANDARD.encode(&bytes);
+                                let msg = json!({ "event": "setImage", "context": ctx, "payload": { "image": format!("data:image/png;base64,{}", b64), "target": 0 }}).to_string();
+                                let _ = tx_ws_clone.send(msg).await;
+                            }
+                        }
+
+                        if action_name.ends_with("repeat") {
+                            let repeat_state = data["repeat_state"].as_str().unwrap_or("off");
+                            let state_idx = match repeat_state { "context" => 1, "track" => 2, _ => 0 };
+                            let msg = json!({ "event": "setState", "context": ctx, "payload": { "state": state_idx }}).to_string();
+                            let _ = tx_ws_clone.send(msg).await;
                         }
                     }
                 }
