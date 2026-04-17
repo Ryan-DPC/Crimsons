@@ -1,6 +1,6 @@
 [package]
 name = "crimson-server"
-version = "1.0.4"
+version = "1.0.5"
 edition = "2021"
 build = "build.rs"
 
@@ -32,9 +32,3 @@ sysinfo = "0.30"
 [build-dependencies]
 winres = "0.1"
 
-[profile.release]
-opt-level = "s"         # Optimize for size
-lto = "fat"             # Link-Time Optimization (full)
-codegen-units = 1       # Slower compile, better optimization
-panic = "abort"         # Strip unwinding code
-strip = true            # Strip symbols
