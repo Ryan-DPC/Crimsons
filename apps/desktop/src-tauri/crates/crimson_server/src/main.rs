@@ -43,23 +43,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         i += 1;
     }
 
-    let instance = single_instance::SingleInstance::new("com.laoy.crimson.server").unwrap();
+    let current_pid = std::process::id();
+    let instance = single_instance::SingleInstance::new("crimson_server_unification_lock").unwrap();
     let is_primary = instance.is_single();
 
     if !is_primary {
         if is_streamdock_plugin {
-            println!("Another instance running. Starting in StreamDock PROXY Mode...");
+            println!("[PID {}] Primary instance detected. Entering Handover mode...", current_pid);
             if let (Some(p), Some(uuid), Some(reg_evt)) = (port, plugin_uuid, register_event) { 
                 crimson_server::proxy::start_proxy_bridge(p, uuid, reg_evt).await;
             }
             return Ok(());
         } else {
-            eprintln!("Another instance of Crimson Server is already running. Exiting.");
+            println!("[PID {}] Another instance is already running. Exiting.", current_pid);
             return Ok(());
         }
     }
 
-    println!("Starting Crimson Phantom Server (Primary)...");
+    println!("[PID {}] Starting Crimson Phantom Server (PRIMARY)...", current_pid);
 
     // Setup broadcast channel for internal communications
     let (tx, _) = broadcast::channel(100);

@@ -99,7 +99,7 @@ async fn handle_connection(stream: TcpStream, sender: WsSender, spotify: Arc<Spo
 
                                     if value["type"] == "REGISTER_STREAMDOCK" {
                                         if let (Some(p), Some(u), Some(r)) = (value["port"].as_u64(), value["uuid"].as_str(), value["register_event"].as_str()) {
-                                            println!("Handover received for StreamDock client: {} on port {}", u, p);
+                                            println!("WebSocket: Handover REQUEST received for StreamDock context {} on port {}", u, p);
                                             let s_clone = spotify.clone();
                                             let uuid_str = u.to_string();
                                             let reg_str = r.to_string();
@@ -113,6 +113,7 @@ async fn handle_connection(stream: TcpStream, sender: WsSender, spotify: Arc<Spo
                                                 "status": "ok"
                                             });
                                             let _ = ws_stream.send(tokio_tungstenite::tungstenite::Message::Text(response_json.to_string().into())).await;
+                                            println!("WebSocket: Handover ACK sent to client.");
                                             continue;
                                         }
                                     }
