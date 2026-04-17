@@ -52,7 +52,7 @@
         "https://github.com/Ryan-DPC/Crimson/releases/latest/download/latest.json"
       ],
       "windows": {
-        "installMode": "quiet"
+        "installMode": "passive"
       }
     }
   }

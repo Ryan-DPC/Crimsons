@@ -1,5 +1,6 @@
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_updater::UpdaterExt;
+use sysinfo::{System, ProcessRefreshKind, RefreshKind};
 
 #[tauri::command]
 pub async fn download_and_install_update(app: AppHandle, _url: String) -> Result<(), String> {
@@ -24,16 +25,34 @@ pub async fn download_and_install_update(app: AppHandle, _url: String) -> Result
         }
     ).await.map_err(|e| e.to_string())?;
 
-    // Just before installing, we should ensure we are ready to quit.
-    // In Tauri 2.0, install() will launch the installer and then the app should quit.
-    // CRITICAL: We MUST kill the sidecar (crimson_server) because it locks its own binary,
-    // which prevents the installer from overwriting the files.
-    let sidecar_state = app.state::<crate::SidecarChild>();
-    let child_mutex = sidecar_state.0.clone();
-    let mut lock = child_mutex.lock().await;
-    if let Some(mut child) = lock.take() {
-        let _ = child.kill();
+    // --- CRITICAL CLEANUP ---
+    // Kill ALL instances of the sidecar by name using sysinfo.
+    // This is more robust than just killing the one in state because
+    // there might be orphaned or detached processes locking the binary.
+    {
+        let mut sys = System::new_with_specifics(
+            RefreshKind::new().with_processes(ProcessRefreshKind::new())
+        );
+        sys.refresh_processes();
+        
+        // Match both 'crimson-server' and 'crimson-server.exe'
+        for process in sys.processes().values() {
+            let name = process.name().to_lowercase();
+            if name.contains("crimson-server") {
+                let _ = process.kill();
+            }
+        }
+        
+        // Also take the one in state just in case it's a direct child we have a handle for
+        let sidecar_state = app.state::<crate::SidecarChild>();
+        let mut lock = sidecar_state.0.lock().await;
+        if let Some(mut child) = lock.take() {
+            let _ = child.kill();
+        }
     }
+
+    // Give the OS 500ms to release file locks
+    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
 
     update.install(bytes).map_err(|e| e.to_string())?;
 
