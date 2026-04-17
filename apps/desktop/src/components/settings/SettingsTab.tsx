@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useLCU } from '../../contexts/LCUContext';
 import { invoke } from '@tauri-apps/api/core';
 import { getVersion } from '@tauri-apps/api/app';
-import { Settings as SettingsIcon, Shield, Bell, Eye, Cpu, Check, Loader2, RefreshCw, Download, Zap } from 'lucide-react';
+import { Settings as SettingsIcon, Shield, Bell, Eye, Cpu, Check, Loader2, RefreshCw, Download, Zap, Music } from 'lucide-react';
 
 // Reusable animated toggle component
 const Toggle = ({ value, onChange, label, description }: {
@@ -35,6 +35,9 @@ const SettingsTab = () => {
     const [status, setStatus] = useState<'idle' | 'loading' | 'success'>('idle');
     const [isEditingKey, setIsEditingKey] = useState(!appData?.geminiApiKey);
     const [currentVersion, setCurrentVersion] = useState<string>('0.0.0');
+    const { spotifyConnected, spotifyState, loginSpotify } = useLCU();
+    const [spotifyClientId, setSpotifyClientId] = useState(appData?.spotifyClientId || '');
+    const [spotifyClientSecret, setSpotifyClientSecret] = useState(appData?.spotifyClientSecret || '');
 
     useEffect(() => {
         getVersion().then(setCurrentVersion).catch(console.error);
@@ -230,6 +233,72 @@ const SettingsTab = () => {
                                 onChange={(v) => updateSetting('closeToTray', v)}
                             />
                         </div>
+                    </div>
+                </div>
+
+                {/* Spotify Integration */}
+                <div className="bg-[#111115] border border-white/5 p-8 rounded-2xl shadow-2xl relative overflow-hidden">
+                    <div className="absolute top-0 right-0 p-4 opacity-5">
+                        <Music className="w-24 h-24" />
+                    </div>
+                    <div className="relative z-10">
+                        <div className="flex items-center gap-3 mb-6">
+                            <Music className={`w-5 h-5 ${spotifyConnected ? 'text-green-500' : 'text-red-500'}`} />
+                            <h3 className="text-sm font-black text-white uppercase tracking-widest">Spotify Integration</h3>
+                        </div>
+                        <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest mb-6 leading-relaxed max-w-md">
+                            Connectez votre compte Spotify pour contrôler votre musique directement depuis Crimson et Stream Dock.
+                        </p>
+                        
+                        {!spotifyConnected ? (
+                            <div className="space-y-4 max-w-lg">
+                                <div className="grid grid-cols-1 gap-4">
+                                    <div className="flex flex-col gap-1.5">
+                                        <label className="text-[9px] text-white/20 uppercase font-black tracking-widest">Client ID</label>
+                                        <input 
+                                            type="text"
+                                            value={spotifyClientId}
+                                            onChange={(e) => setSpotifyClientId(e.target.value)}
+                                            placeholder="SPOTIFY CLIENT ID..."
+                                            className="bg-black/40 border border-white/5 px-4 py-2.5 text-xs font-mono focus:border-red-500/50 outline-none text-white/50 transition-all rounded-xl"
+                                        />
+                                    </div>
+                                    <div className="flex flex-col gap-1.5">
+                                        <label className="text-[9px] text-white/20 uppercase font-black tracking-widest">Client Secret</label>
+                                        <input 
+                                            type="password"
+                                            value={spotifyClientSecret}
+                                            onChange={(e) => setSpotifyClientSecret(e.target.value)}
+                                            placeholder="SPOTIFY CLIENT SECRET..."
+                                            className="bg-black/40 border border-white/5 px-4 py-2.5 text-xs font-mono focus:border-red-500/50 outline-none text-white/50 transition-all rounded-xl"
+                                        />
+                                    </div>
+                                </div>
+                                <button 
+                                    onClick={() => loginSpotify(spotifyClientId, spotifyClientSecret)}
+                                    className="w-full py-3 bg-red-600 hover:bg-red-500 text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all shadow-[0_0_15px_rgba(239,68,68,0.2)]"
+                                >
+                                    Connexion avec Spotify
+                                </button>
+                                <p className="text-[8px] text-white/10 uppercase tracking-widest text-center">
+                                    Redirection vers accounts.spotify.com
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="flex items-center gap-4 bg-green-500/5 border border-green-500/10 p-4 rounded-2xl max-w-lg">
+                                {spotifyState?.album_art && (
+                                    <img src={spotifyState.album_art} alt="Cover" className="w-12 h-12 rounded-lg shadow-lg" />
+                                )}
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-[10px] font-black text-white truncate uppercase tracking-widest">{spotifyState?.track_name || 'En attente...'}</p>
+                                    <p className="text-[9px] text-white/30 truncate uppercase font-bold tracking-widest">{spotifyState?.artist_name || 'Spotify Connecté'}</p>
+                                </div>
+                                <div className="flex items-center gap-2 px-3 py-1 bg-green-500/20 rounded-full border border-green-500/30">
+                                    <span className="text-[8px] font-black text-green-500 uppercase tracking-widest font-mono">LIVE</span>
+                                    <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
 

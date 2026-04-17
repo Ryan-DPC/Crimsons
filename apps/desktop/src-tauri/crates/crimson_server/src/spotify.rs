@@ -1,0 +1,595 @@
+use serde::{Deserialize, Serialize};
+use reqwest::header::{AUTHORIZATION, CONTENT_TYPE};
+use std::time::{SystemTime, UNIX_EPOCH, Duration};
+use tokio::sync::RwLock;
+use std::sync::Arc;
+use crate::events::WsSender;
+use serde_json::json;
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub struct SpotifyState {
+    pub is_playing: bool,
+    pub track_name: String,
+    pub artist_name: String,
+    pub album_art: String,
+    pub progress_ms: u32,
+    pub duration_ms: u32,
+    pub has_token: bool,
+    pub volume_percent: u32,
+    pub shuffle_state: bool,
+    pub smart_shuffle: bool,
+    pub repeat_state: String,
+    pub track_uri: String,
+    pub track_id: String,
+    pub is_liked: bool,
+}
+
+pub struct SpotifyClient {
+    pub access_token: Option<String>,
+    pub refresh_token: Option<String>,
+    pub expires_at: u64,
+    pub client_id: String,
+    pub client_secret: String,
+}
+
+impl SpotifyClient {
+    pub fn new() -> Self {
+        let mut client = Self {
+            access_token: None,
+            refresh_token: None,
+            expires_at: 0,
+            client_id: String::new(),
+            client_secret: String::new(),
+        };
+        client.load();
+        client
+    }
+
+    pub fn load(&mut self) {
+        let path = std::path::Path::new(std::env::var("APPDATA").unwrap_or_default().as_str()).join("Crimson").join("spotify_cache.json");
+        if let Ok(data) = std::fs::read_to_string(path) {
+            if let Ok(json) = serde_json::from_str::<serde_json::Value>(&data) {
+                self.access_token = json["access_token"].as_str().map(|s| s.to_string());
+                self.refresh_token = json["refresh_token"].as_str().map(|s| s.to_string());
+                self.expires_at = json["expires_at"].as_u64().unwrap_or(0);
+                self.client_id = json["client_id"].as_str().unwrap_or("").to_string();
+                self.client_secret = json["client_secret"].as_str().unwrap_or("").to_string();
+            }
+        }
+    }
+
+    pub fn save(&self) {
+        let path = std::path::Path::new(std::env::var("APPDATA").unwrap_or_default().as_str()).join("Crimson").join("spotify_cache.json");
+        if let Some(parent) = path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        let json = json!({
+            "access_token": self.access_token,
+            "refresh_token": self.refresh_token,
+            "expires_at": self.expires_at,
+            "client_id": self.client_id,
+            "client_secret": self.client_secret
+        });
+        let _ = std::fs::write(path, json.to_string());
+    }
+}
+
+pub struct SpotifyService {
+    client: Arc<RwLock<SpotifyClient>>,
+    sender: WsSender,
+}
+
+impl SpotifyService {
+    pub fn new(sender: WsSender) -> Self {
+        Self {
+            client: Arc::new(RwLock::new(SpotifyClient::new())),
+            sender,
+        }
+    }
+
+    pub fn get_client(&self) -> Arc<RwLock<SpotifyClient>> {
+        self.client.clone()
+    }
+
+    pub fn subscribe_events(&self) -> tokio::sync::broadcast::Receiver<String> {
+        self.sender.0.subscribe()
+    }
+
+    pub async fn start_background_polling(&self) {
+        let client_ptr = self.client.clone();
+        let sender = self.sender.clone();
+        let last_state: Arc<tokio::sync::Mutex<Option<SpotifyState>>> = Arc::new(tokio::sync::Mutex::new(None));
+
+        tokio::spawn(async move {
+            let mut last_state_json = String::new();
+            let mut first_poll = true;
+            
+            loop {
+                let (access_token, refresh_token, client_id, client_secret, expires_at) = {
+                    let lock = client_ptr.read().await;
+                    (lock.access_token.clone(), lock.refresh_token.clone(), lock.client_id.clone(), lock.client_secret.clone(), lock.expires_at)
+                };
+
+                // Auto-refresh token if expired (within 60s)
+                let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+                if let (Some(token), Some(r_token), id, secret) = (&access_token, &refresh_token, &client_id, &client_secret) {
+                    if expires_at > 0 && now >= expires_at.saturating_sub(60) {
+                        if !id.is_empty() && !secret.is_empty() {
+                            let client = reqwest::Client::new();
+                            let auth_str = format!("{}:{}", id, secret);
+                            use base64::{Engine as _, engine::general_purpose::STANDARD};
+                            let b64 = STANDARD.encode(auth_str.as_bytes());
+                            let params = [("grant_type", "refresh_token"), ("refresh_token", r_token)];
+                            
+                            if let Ok(resp) = client.post("https://accounts.spotify.com/api/token").header(AUTHORIZATION, format!("Basic {}", b64)).form(&params).send().await {
+                                if resp.status().is_success() {
+                                    if let Ok(json) = resp.json::<serde_json::Value>().await {
+                                        if let (Some(acc), Some(expire)) = (json["access_token"].as_str(), json["expires_in"].as_u64()) {
+                                            let new_refresh = json["refresh_token"].as_str().unwrap_or(r_token).to_string();
+                                            let mut lock = client_ptr.write().await;
+                                            lock.access_token = Some(acc.to_string());
+                                            lock.refresh_token = Some(new_refresh);
+                                            lock.expires_at = now + expire;
+                                            lock.save();
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if let Some(token) = access_token {
+                    if let Ok(state) = Self::fetch_current_playback(&token).await {
+                        let state_json = json!({
+                            "type": "SPOTIFY_STATE",
+                            "data": state
+                        }).to_string();
+
+                        let changed = {
+                            let mut last = last_state.lock().await;
+                            let diff = if let Some(l) = &*last {
+                                l.is_playing != state.is_playing ||
+                                l.track_id != state.track_id ||
+                                l.progress_ms.abs_diff(state.progress_ms) > 1500 ||
+                                l.shuffle_state != state.shuffle_state ||
+                                l.smart_shuffle != state.smart_shuffle ||
+                                l.repeat_state != state.repeat_state ||
+                                l.is_liked != state.is_liked
+                            } else {
+                                true
+                            };
+                            if diff {
+                                *last = Some(state.clone());
+                                // Persist state to disk for cold boots
+                                let path = std::path::Path::new(std::env::var("APPDATA").unwrap_or_default().as_str()).join("Crimson").join("spotify_state.json");
+                                if let Ok(json_str) = serde_json::to_string(&state) {
+                                    let _ = std::fs::write(path, json_str);
+                                }
+                            }
+                            diff
+                        };
+
+                        if first_poll || changed {
+                            let _ = sender.0.send(state_json.clone());
+                            last_state_json = state_json;
+                            first_poll = false;
+                        }
+                    }
+                }
+
+                tokio::time::sleep(Duration::from_millis(1000)).await;
+            }
+        });
+    }
+
+    /// Convenience method: fetch current playback and return (album_art_url, timer_str) for immediate UI delivery.
+    pub async fn get_current_state(&self) -> Option<(String, String)> {
+        let token_opt = {
+            let c = self.client.read().await;
+            c.access_token.clone()
+        };
+
+        if let Some(token) = token_opt {
+            if let Ok(state) = Self::fetch_current_playback(&token).await {
+                if !state.album_art.is_empty() {
+                    let remaining_s = (state.duration_ms.saturating_sub(state.progress_ms)) / 1000;
+                    let timer_str = format!("{:}:{:02}", remaining_s / 60, remaining_s % 60);
+                    return Some((state.album_art, timer_str));
+                }
+            }
+        }
+
+        // Fallback to disk persistence if API fails or token is missing
+        let path = std::path::Path::new(std::env::var("APPDATA").unwrap_or_default().as_str()).join("Crimson").join("spotify_state.json");
+        if let Ok(data) = std::fs::read_to_string(path) {
+            if let Ok(state) = serde_json::from_str::<SpotifyState>(&data) {
+                if !state.album_art.is_empty() {
+                    let remaining_s = (state.duration_ms.saturating_sub(state.progress_ms)) / 1000;
+                    let timer_str = format!("{:}:{:02}", remaining_s / 60, remaining_s % 60);
+                    return Some((state.album_art, timer_str));
+                }
+            }
+        }
+        None
+    }
+
+    pub async fn get_top_track(&self) -> Option<(String, String)> {
+        let token = {
+            let c = self.client.read().await;
+            c.access_token.clone()?
+        };
+        let client = reqwest::Client::new();
+        let resp = client.get("https://api.spotify.com/v1/me/top/tracks?time_range=short_term&limit=1")
+            .header(AUTHORIZATION, format!("Bearer {}", token))
+            .send()
+            .await
+            .ok()?;
+        
+        let json: serde_json::Value = resp.json().await.ok()?;
+        let track = json["items"].get(0)?;
+        let name = track["name"].as_str()?.to_string();
+        let art = track["album"]["images"].get(0)?["url"].as_str()?.to_string();
+        Some((art, name))
+    }
+
+    pub async fn fetch_current_playback(token: &str) -> Result<SpotifyState, Box<dyn std::error::Error + Send + Sync>> {
+        let client = reqwest::Client::new();
+        let resp = client.get("https://api.spotify.com/v1/me/player")
+            .header(AUTHORIZATION, format!("Bearer {}", token))
+            .send()
+            .await?;
+
+        if resp.status() == 204 {
+            return Ok(SpotifyState { has_token: true, ..Default::default() });
+        }
+
+        if !resp.status().is_success() {
+            return Ok(SpotifyState { has_token: false, ..Default::default() });
+        }
+
+        let json: serde_json::Value = resp.json().await?;
+        
+        // Debug: Log full playback JSON for Smart Shuffle analysis
+        let log_path = std::path::Path::new(std::env::var("APPDATA").unwrap_or_default().as_str()).join("Crimson").join("streamdock.log");
+        if let Ok(mut log_file) = std::fs::OpenOptions::new().create(true).append(true).open(log_path) {
+            use std::io::Write;
+            let _ = writeln!(log_file, "Spotify Playback JSON: {}", json.to_string());
+        }
+        
+        let track = &json["item"];
+        let mut state = SpotifyState {
+            is_playing: json["is_playing"].as_bool().unwrap_or(false),
+            track_name: track["name"].as_str().unwrap_or("Unknown").to_string(),
+            artist_name: track["artists"][0]["name"].as_str().unwrap_or("UnknownArtist").to_string(),
+            album_art: track["album"]["images"][0]["url"].as_str().unwrap_or("").to_string(),
+            progress_ms: json["progress_ms"].as_u64().unwrap_or(0) as u32,
+            duration_ms: track["duration_ms"].as_u64().unwrap_or(0) as u32,
+            has_token: true,
+            volume_percent: json["device"]["volume_percent"].as_u64().unwrap_or(50) as u32,
+            shuffle_state: json["shuffle_state"].as_bool().unwrap_or(false),
+            smart_shuffle: json["smart_shuffle"].as_bool().unwrap_or(false),
+            repeat_state: json["repeat_state"].as_str().unwrap_or("off").to_string(),
+            track_uri: track["uri"].as_str().unwrap_or("").to_string(),
+            track_id: track["id"].as_str().unwrap_or("").to_string(),
+            is_liked: false,
+        };
+
+        // Fetch liked status if we have a track ID
+        if !state.track_id.is_empty() {
+            let liked_resp = client.get("https://api.spotify.com/v1/me/tracks/contains")
+                .header(AUTHORIZATION, format!("Bearer {}", token))
+                .query(&[("ids", &state.track_id)])
+                .send()
+                .await?;
+            if let Ok(liked_json) = liked_resp.json::<Vec<bool>>().await {
+                if !liked_json.is_empty() {
+                    state.is_liked = liked_json[0];
+                }
+            }
+        }
+
+        Ok(state)
+    }
+
+    pub async fn get_user_playlists(&self) -> Option<Vec<serde_json::Value>> {
+        let token = self.client.read().await.access_token.clone()?;
+        let client = reqwest::Client::new();
+        let resp = client.get("https://api.spotify.com/v1/me/playlists")
+            .header(reqwest::header::AUTHORIZATION, format!("Bearer {}", token))
+            .send().await.ok()?;
+        
+        let json: serde_json::Value = resp.json().await.ok()?;
+        let items = json["items"].as_array()?;
+        
+        let mut lists = Vec::new();
+        for item in items {
+            let img = item["images"].as_array().and_then(|imgs| imgs.get(0)).and_then(|img| img["url"].as_str()).unwrap_or("");
+            lists.push(json!({
+                "uri": item["uri"].as_str().unwrap_or(""),
+                "name": item["name"].as_str().unwrap_or(""),
+                "image": img
+            }));
+        }
+        Some(lists)
+    }
+
+    pub async fn get_user_devices(&self) -> Option<Vec<serde_json::Value>> {
+        let token = self.client.read().await.access_token.clone()?;
+        let client = reqwest::Client::new();
+        let resp = client.get("https://api.spotify.com/v1/me/player/devices")
+            .header(reqwest::header::AUTHORIZATION, format!("Bearer {}", token))
+            .send().await.ok()?;
+        
+        let json: serde_json::Value = resp.json().await.ok()?;
+        let devices = json["devices"].as_array()?;
+        
+        let mut d_list = Vec::new();
+        for d in devices {
+            d_list.push(json!({
+                "id": d["id"].as_str().unwrap_or(""),
+                "name": d["name"].as_str().unwrap_or(""),
+                "type": d["type"].as_str().unwrap_or("Computer"),
+                "is_active": d["is_active"].as_bool().unwrap_or(false)
+            }));
+        }
+        Some(d_list)
+    }
+
+    pub async fn get_playlist_cover(&self, playlist_uri: &str) -> Option<String> {
+        let token = self.client.read().await.access_token.clone()?;
+        let id = playlist_uri.split(':').last()?;
+        let client = reqwest::Client::new();
+        let resp = client.get(format!("https://api.spotify.com/v1/playlists/{}", id))
+            .header(reqwest::header::AUTHORIZATION, format!("Bearer {}", token))
+            .send().await.ok()?;
+        
+        let json: serde_json::Value = resp.json().await.ok()?;
+        let img = json["images"].as_array().and_then(|imgs| imgs.get(0)).and_then(|img| img["url"].as_str()).unwrap_or("");
+        Some(img.to_string())
+    }
+
+    pub async fn handle_command(&self, endpoint: &str, params: Option<serde_json::Value>) -> Result<(), Box<dyn std::error::Error>> {
+        let access_token = {
+            let lock = self.client.read().await;
+            lock.access_token.clone()
+        };
+
+        let token = match access_token {
+            Some(t) => t,
+            None => return Err("No token".into()),
+        };
+
+        let client = reqwest::Client::new();
+        let mut url = format!("https://api.spotify.com/v1/me/player/{}", endpoint);
+        let mut payload_json: Option<serde_json::Value> = None;
+        
+        // Handle specific logic for complex commands (volume, shuffle, repeat)
+        let method = match endpoint {
+            "play" => {
+                // Determine if we need to put a uri context
+                if let Some(uri) = params.as_ref().and_then(|p| p["payload"]["settings"]["playlist"].as_str().or(p["payload"]["settings"]["uri"].as_str())) {
+                    if uri.contains("spotify:track:") {
+                        payload_json = Some(json!({ "uris": [uri] }));
+                    } else if !uri.is_empty() {
+                        payload_json = Some(json!({ "context_uri": uri }));
+                    }
+                }
+                "PUT"
+            },
+            "pause" | "next" | "previous" => {
+                if endpoint == "next" || endpoint == "previous" { "POST" } else { "PUT" }
+            },
+            "playpause" => {
+                // Actively fetch state instead of guessing from token
+                let is_playing = Self::fetch_current_playback(&token).await.unwrap_or_default().is_playing;
+                url = if is_playing { format!("https://api.spotify.com/v1/me/player/pause") } else { format!("https://api.spotify.com/v1/me/player/play") };
+                "PUT"
+            },
+            "volumeup" | "volumedown" | "volumeset" | "mute" => {
+                let current_playback = Self::fetch_current_playback(&token).await.unwrap_or_default();
+                let current_vol = current_playback.volume_percent;
+                
+                let target_vol: u32 = match endpoint {
+                    "volumeset" => {
+                        params.as_ref().and_then(|p| p["payload"]["settings"]["volume"].as_u64()).unwrap_or(50) as u32
+                    },
+                    "volumeup" | "volumedown" | "volumecontrol" => {
+                        let mut step = params.as_ref().and_then(|p| p["payload"]["settings"]["step"].as_u64()).unwrap_or(10) as i32;
+                        
+                        // Handle dial rotation ticks if present
+                        if let Some(ticks) = params.as_ref().and_then(|p| p["payload"]["ticks"].as_i64()) {
+                            step = (ticks as i32) * (step as i32);
+                        } else if endpoint == "volumedown" {
+                            step = -(step as i32);
+                        }
+                        
+                        let new_vol = (current_vol as i32 + step).clamp(0, 100) as u32;
+                        new_vol
+                    },
+                    "mute" => {
+                         if current_vol > 0 {
+                             // This is a rough way to cache it since we are stateless on each call, 
+                             // but we can try to guess or use the global state if we had one.
+                             // For now, let's just use 0 or 50.
+                             0
+                         } else {
+                             50 // Restore to 50% if we don't know previous
+                         }
+                    },
+                    _ => current_vol
+                };
+
+                url = format!("https://api.spotify.com/v1/me/player/volume?volume_percent={}", target_vol);
+                "PUT"
+            },
+            "skip" => {
+                // Dial rotation logic
+                if let Some(ticks) = params.as_ref().and_then(|p| p["payload"]["ticks"].as_i64()) {
+                    if ticks > 0 { url = format!("https://api.spotify.com/v1/me/player/next"); }
+                    else { url = format!("https://api.spotify.com/v1/me/player/previous"); }
+                }
+                "POST"
+            },
+            "shuffle" => {
+                let current_shuffle = Self::fetch_current_playback(&token).await.unwrap_or_default().shuffle_state;
+                url = format!("https://api.spotify.com/v1/me/player/shuffle?state={}", !current_shuffle);
+                "PUT"
+            },
+            "repeat" => {
+                if let Some(state) = params.as_ref().and_then(|p| p["payload"]["state"].as_str()) {
+                    url = format!("https://api.spotify.com/v1/me/player/repeat?state={}", state);
+                }
+                "PUT"
+            },
+            "add-to-playlist" => {
+                // This is a special case, uses /v1/playlists/{playlist_id}/tracks
+                if let (Some(pid), Some(uri)) = (params.as_ref().and_then(|p| p["payload"]["playlist_id"].as_str()), params.as_ref().and_then(|p| p["payload"]["track_uri"].as_str())) {
+                    url = format!("https://api.spotify.com/v1/playlists/{}/tracks?uris={}", pid, uri);
+                }
+                "POST"
+            },
+            "like" | "unlike" => {
+                 let mut id = params.as_ref().and_then(|p| p["payload"]["track_id"].as_str()).map(|s| s.to_string());
+                 
+                 // Fallback to current track if no ID provided (common for the heart button)
+                 if id.is_none() {
+                     if let Ok(playback) = Self::fetch_current_playback(&token).await {
+                         if !playback.track_id.is_empty() {
+                             id = Some(playback.track_id);
+                         }
+                     }
+                 }
+
+                 if let Some(track_id) = id {
+                    url = format!("https://api.spotify.com/v1/me/tracks?ids={}", track_id);
+                 } else {
+                    return Err("No active track to like/unlike".into());
+                 }
+                 if endpoint == "like" { "PUT" } else { "DELETE" }
+            },
+            "switch-device" => {
+                // Custom logic: Fetch devices first, then transfer
+                let devices_resp = client.get("https://api.spotify.com/v1/me/player/devices")
+                    .header(AUTHORIZATION, format!("Bearer {}", token))
+                    .send().await?;
+                if let Ok(d_json) = devices_resp.json::<serde_json::Value>().await {
+                    if let Some(devices) = d_json["devices"].as_array() {
+                        if !devices.is_empty() {
+                            // Find current active, pick next
+                            let current_idx = devices.iter().position(|d| d["is_active"].as_bool().unwrap_or(false)).unwrap_or(0);
+                            let next_idx = (current_idx + 1) % devices.len();
+                            let next_id = devices[next_idx]["id"].as_str().unwrap_or("");
+                            
+                            url = "https://api.spotify.com/v1/me/player".to_string();
+                            let rb = client.put(url)
+                                .header(AUTHORIZATION, format!("Bearer {}", token))
+                                .header(CONTENT_TYPE, "application/json")
+                                .json(&json!({ "device_ids": [next_id], "play": true }));
+                            rb.send().await?;
+                            return Ok(());
+                        }
+                    }
+                }
+                return Err("No devices available".into());
+            },
+            _ => return Err("Invalid endpoint".into()),
+        };
+
+        let device_id = params.as_ref().and_then(|p| p["payload"]["settings"]["device_id"].as_str());
+        if let Some(dev) = device_id {
+            if !dev.is_empty() {
+                if url.contains('?') {
+                    url.push_str(&format!("&device_id={}", dev));
+                } else {
+                    url.push_str(&format!("?device_id={}", dev));
+                }
+            }
+        }
+
+        let mut rb = if method == "PUT" { client.put(&url) } else { client.post(&url) };
+
+        rb = rb.header(AUTHORIZATION, format!("Bearer {}", token))
+               .header(CONTENT_TYPE, "application/json");
+
+        if let Some(json) = payload_json {
+            rb = rb.json(&json);
+        } else {
+            rb = rb.header(reqwest::header::CONTENT_LENGTH, "0");
+            rb = rb.body("");
+        }
+
+        let r = rb.send().await?;
+        
+        // Dump the response to the log file so we can see why it fails
+        let log_path = std::path::Path::new(std::env::var("APPDATA").unwrap_or_default().as_str()).join("Crimson").join("streamdock.log");
+        use std::io::Write;
+        if let Ok(mut log_file) = std::fs::OpenOptions::new().create(true).append(true).open(log_path) {
+            let status = r.status();
+            let body_text = match r.text().await {
+                Ok(t) => t,
+                Err(_) => "Error reading body".to_string()
+            };
+            let _ = writeln!(log_file, "Spotify API {} {} returned {} - Body: {}", method, url, status, body_text);
+        }
+
+        Ok(())
+    }
+
+    pub async fn update_tokens(&self, access: String, refresh: String, expires_in: u64) {
+        let mut lock = self.client.write().await;
+        lock.access_token = Some(access);
+        lock.refresh_token = Some(refresh);
+        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+        lock.expires_at = now + expires_in;
+        lock.save();
+    }
+
+    pub async fn set_client_credentials(&self, client_id: String, client_secret: String) {
+        let mut lock = self.client.write().await;
+        lock.client_id = client_id;
+        lock.client_secret = client_secret;
+        lock.save();
+    }
+
+    pub async fn exchange_code(&self, code: String) -> Result<(), Box<dyn std::error::Error>> {
+        let (client_id, client_secret) = {
+            let lock = self.client.read().await;
+            (lock.client_id.clone(), lock.client_secret.clone())
+        };
+
+        if client_id.is_empty() || client_secret.is_empty() {
+            return Err("Missing client credentials".into());
+        }
+
+        let client = reqwest::Client::new();
+        let auth_str = format!("{}:{}", client_id, client_secret);
+        use base64::{Engine as _, engine::general_purpose::STANDARD};
+        let b64 = STANDARD.encode(auth_str.as_bytes());
+
+        let params = [
+            ("grant_type", "authorization_code"),
+            ("code", &code),
+            ("redirect_uri", "http://127.0.0.1:26433/callback"),
+        ];
+
+        let resp = client.post("https://accounts.spotify.com/api/token")
+            .header(AUTHORIZATION, format!("Basic {}", b64))
+            .form(&params)
+            .send()
+            .await?;
+
+        if resp.status().is_success() {
+            let json: serde_json::Value = resp.json().await?;
+            if let (Some(acc), Some(expire)) = (json["access_token"].as_str(), json["expires_in"].as_u64()) {
+                let refresh = json["refresh_token"].as_str().unwrap_or("").to_string();
+                self.update_tokens(acc.to_string(), refresh, expire).await;
+                println!("Spotify OAuth succeeded! Access token retrieved.");
+            }
+        } else {
+            eprintln!("Failed to exchange Spotify code: {:?}", resp.text().await?);
+        }
+
+        Ok(())
+    }
+}

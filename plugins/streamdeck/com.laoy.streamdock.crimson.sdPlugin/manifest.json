@@ -96,6 +96,155 @@
         }
       ],
       "UUID": "com.laoy.streamdock.crimson.infoboard"
+    },
+    {
+      "Icon": "static/icon/spotify_play",
+      "Name": "Spotify: Play/Pause",
+      "Controllers": ["Keypad"],
+      "States": [
+        {
+          "Image": "static/icon/spotify_play"
+        }
+      ],
+      "UUID": "com.laoy.streamdock.crimson.spotify.play"
+    },
+    {
+      "Icon": "static/icon/spotify_next",
+      "Name": "Spotify: Next",
+      "Controllers": ["Keypad"],
+      "States": [
+        {
+          "Image": "static/icon/spotify_next"
+        }
+      ],
+      "UUID": "com.laoy.streamdock.crimson.spotify.next"
+    },
+    {
+      "Icon": "static/icon/spotify_prev",
+      "Name": "Spotify: Previous",
+      "Controllers": ["Keypad"],
+      "States": [
+        {
+          "Image": "static/icon/spotify_prev"
+        }
+      ],
+      "UUID": "com.laoy.streamdock.crimson.spotify.prev"
+    },
+    {
+      "Icon": "static/icon/spotify_info",
+      "Name": "Spotify: Info",
+      "Controllers": ["Information"],
+      "States": [
+        {
+          "Image": "static/icon/spotify_info",
+          "Title": "NO TRACK"
+        }
+      ],
+      "UUID": "com.laoy.streamdock.crimson.spotify.display"
+    },
+    {
+      "Icon": "static/icon/spotify_volume_up",
+      "Name": "Spotify: Vol Up",
+      "Controllers": ["Keypad"],
+      "States": [
+        {
+          "Image": "static/icon/spotify_volume_up"
+        }
+      ],
+      "UUID": "com.laoy.streamdock.crimson.spotify.vol_up"
+    },
+    {
+      "Icon": "static/icon/spotify_volume_down",
+      "Name": "Spotify: Vol Down",
+      "Controllers": ["Keypad"],
+      "States": [
+        {
+          "Image": "static/icon/spotify_volume_down"
+        }
+      ],
+      "UUID": "com.laoy.streamdock.crimson.spotify.vol_down"
+    },
+    {
+      "Icon": "static/icon/spotify_shuffle",
+      "Name": "Spotify: Shuffle",
+      "Controllers": ["Keypad"],
+      "States": [
+        {
+          "Image": "static/icon/spotify_shuffle"
+        }
+      ],
+      "UUID": "com.laoy.streamdock.crimson.spotify.shuffle"
+    },
+    {
+      "Icon": "static/icon/spotify_repeat",
+      "Name": "Spotify: Repeat",
+      "Controllers": ["Keypad"],
+      "States": [
+        {
+          "Image": "static/icon/spotify_repeat"
+        }
+      ],
+      "UUID": "com.laoy.streamdock.crimson.spotify.repeat"
+    },
+    {
+      "Icon": "static/icon/spotify_add_playlist",
+      "Name": "Spotify: Add to List",
+      "Controllers": ["Keypad"],
+      "States": [
+        {
+          "Image": "static/icon/spotify_add_playlist"
+        }
+      ],
+      "UUID": "com.laoy.streamdock.crimson.spotify.add_playlist"
+    },
+    {
+      "Icon": "static/icon/spotify_heart_empty",
+      "Name": "Spotify: Like/Unlike",
+      "Controllers": ["Keypad"],
+      "States": [
+        {
+          "Image": "static/icon/spotify_heart_empty",
+          "Title": "LOVED"
+        },
+        {
+          "Image": "static/icon/spotify_heart_filled",
+          "Title": "LIKE"
+        }
+      ],
+      "UUID": "com.laoy.streamdock.crimson.spotify.likesong"
+    },
+    {
+      "Icon": "static/icon/spotify_device",
+      "Name": "Spotify: Switch Device",
+      "Controllers": ["Keypad"],
+      "States": [
+        {
+          "Image": "static/icon/spotify_device"
+        }
+      ],
+      "UUID": "com.laoy.streamdock.crimson.spotify.changedevice"
+    },
+    {
+      "Icon": "static/icon/spotify_volume_up",
+      "Name": "Spotify: Volume Dial",
+      "Controllers": ["Knob"],
+      "States": [
+        {
+          "Image": "static/icon/spotify_volume_up"
+        }
+      ],
+      "UUID": "com.laoy.streamdock.crimson.spotify.volume_dial"
+    },
+    {
+      "Icon": "static/icon/spotify_next",
+      "Name": "Spotify: Next/Prev Dial",
+      "Controllers": ["Knob"],
+      "States": [
+        {
+          "Image": "static/icon/spotify_next"
+        }
+      ],
+      "UUID": "com.laoy.streamdock.crimson.spotify.skip_dial"
     }
   ],
   "Author": "Laoy",

@@ -29,6 +29,17 @@ interface LCUContextType {
     availableVersion: string | null;
     remoteUpdateAssetUrl: string | null;
     
+    // Spotify State
+    spotifyState: {
+        track_name: string;
+        artist_name: string;
+        album_art: string;
+        is_playing: boolean;
+        progress_ms: number;
+        duration_ms: number;
+    } | null;
+    spotifyConnected: boolean;
+    
     // Connection Status
     serverConnected: boolean;
     lolConnected: boolean;
@@ -47,6 +58,8 @@ interface LCUContextType {
     handleShardClick: (buildIndex: number, rIdx: number, shardId: number) => void;
     checkUpdates: () => Promise<void>;
     installUpdate: (url?: string) => Promise<void>;
+    loginSpotify: (clientId: string, clientSecret: string) => Promise<void>;
+    spotifyCommand: (endpoint: string) => void;
 }
 
 const LCUContext = createContext<LCUContextType | undefined>(undefined);
@@ -88,6 +101,10 @@ export const LCUProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const [serverConnected, setServerConnected] = useState(false);
     const [lolConnected, setLolConnected] = useState(false);
+    const [spotifyConnected, setSpotifyConnected] = useState(false);
+    const [spotifyState, setSpotifyState] = useState<any>(null);
+    const wsRef = useRef<WebSocket | null>(null);
+    const buildsRef = useRef<(RuneBuild | null)[]>([]);
 
     const scannedLobbyId = useRef<string>('');
     const lastFetchParams = useRef<string>('');
@@ -431,8 +448,49 @@ export const LCUProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             } else if (msg.type === 'HEARTBEAT_STATUS') {
                 setServerConnected(msg.server);
                 setLolConnected(msg.lol);
+            } else if (msg.type === 'SPOTIFY_STATE') {
+                setSpotifyState(msg.data);
+                setSpotifyConnected(msg.data?.has_token || false);
+            } else if (msg.type === 'TOGGLE_AUTO_ACCEPT') {
+                const d = await invoke<any>('get_app_data');
+                d.autoAccept = !d.autoAccept;
+                await invoke('set_app_data', { data: d });
+                setAppData(d);
+                // Echo the new state back
+                wsRef.current?.send(JSON.stringify({ type: 'AUTO_ACCEPT_STATE', enabled: d.autoAccept }));
+            } else if (msg.type === 'TOGGLE_AUTO_BAN') {
+                // No champion id from streamdock — toggle off if active
+                const d = await invoke<any>('get_app_data');
+                d.autoBan = d.autoBan ? null : (d.rememberedAutoBan || null);
+                await invoke('set_app_data', { data: d });
+                setAppData(d);
+            } else if (msg.type === 'TOGGLE_AUTO_PICK') {
+                const d = await invoke<any>('get_app_data');
+                d.autoPick = d.autoPick ? null : (d.rememberedAutoPick || null);
+                await invoke('set_app_data', { data: d });
+                setAppData(d);
+            } else if (msg.type === 'INJECT_BUILD') {
+                const idx = (msg.index || 1) - 1;
+                const build = buildsRef.current[idx];
+                if (build) {
+                    doImport(build, idx);
+                }
+            } else if (msg.type === 'SPOTIFY_CALLBACK_CODE') {
+                const clientId = localStorage.getItem('spotify_client_id');
+                const clientSecret = localStorage.getItem('spotify_client_secret');
+                if (clientId && clientSecret) {
+                    invoke('exchange_spotify_token', { 
+                        code: msg.code, 
+                        clientId, 
+                        clientSecret 
+                    }).then(() => {
+                        console.log("Spotify Connected Successfully");
+                    }).catch(console.error);
+                }
             }
         };
+
+        wsRef.current = ws;
 
         ws.onopen = () => setServerConnected(true);
         ws.onclose = () => {
@@ -470,6 +528,12 @@ export const LCUProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, [simMode]);
 
     const [builds, setBuilds] = useState<(RuneBuild | null)[]>([]);
+
+    // Keep buildsRef in sync so WS INJECT_BUILD handler can access latest builds without stale closure
+    useEffect(() => {
+        buildsRef.current = builds;
+    }, [builds]);
+
 
     useEffect(() => {
         const cname = getChampName(simMode ? 517 : myChamp, champs);
@@ -512,6 +576,22 @@ export const LCUProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 fetchOne(3, 3000)
             ]).finally(() => {
                 setIsLoadingBuilds(false);
+                // Broadcast completed builds to StreamDock
+                const completedBuilds = buildsRef.current;
+                if (wsRef.current?.readyState === WebSocket.OPEN) {
+                    const enriched = completedBuilds.map(b => {
+                        if (!b) return null;
+                        const pTree = (runesDataJson as any[]).find((t: any) => t.id === b.primaryStyleId);
+                        const sTree = (runesDataJson as any[]).find((t: any) => t.id === b.subStyleId);
+                        const base = 'https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/';
+                        return {
+                            ...b,
+                            pIcon: pTree ? base + pTree.icon.toLowerCase() : null,
+                            sIcon: sTree ? base + sTree.icon.toLowerCase() : null,
+                        };
+                    });
+                    wsRef.current.send(JSON.stringify({ type: 'RUNE_BUILDS_READY', builds: enriched }));
+                }
             });
         };
         fetchRunes();
@@ -595,12 +675,40 @@ export const LCUProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const toggleSimMode = () => setSimMode(prev => !prev);
 
+    const loginSpotify = async (clientId: string, clientSecret: string) => {
+        // Save credentials for the callback handler
+        localStorage.setItem('spotify_client_id', clientId);
+        localStorage.setItem('spotify_client_secret', clientSecret);
+
+        const redirectUri = 'http://127.0.0.1:40509/callback';
+        const scopes = 'user-read-playback-state user-modify-playback-state user-read-currently-playing playlist-modify-public playlist-modify-private playlist-read-private';
+        const authUrl = `https://accounts.spotify.com/authorize?response_type=code&client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scopes)}`;
+        
+        const { open } = await import('@tauri-apps/plugin-shell');
+        await open(authUrl);
+        
+        // Note: The callback handling should happen in the Crimson server or via a custom protocol.
+        // For simplicity, we'll suggest the user to paste the code or use a automated listener.
+    };
+
+    const spotifyCommand = (endpoint: string, params?: any) => {
+        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+            wsRef.current.send(JSON.stringify({
+                type: 'SPOTIFY_COMMAND',
+                endpoint,
+                ...params
+            }));
+        }
+    };
+
     return (
         <LCUContext.Provider value={{
             sum, lobbyState, lobbyMyTeam, lobbyTheirTeam, radar, gamePhase, rank, hist, champs, runesData: runesDataJson, v, myChamp, enemyMid, isLoadingBuilds, builds, isImporting, appData,
             updateStatus, updateProgress, availableVersion, remoteUpdateAssetUrl, checkUpdates, installUpdate,
             serverConnected, lolConnected,
-            setTab, toggleSimMode, simMode, tab, toggleAutoBan, toggleAutoPick, updateGeminiKey, updateSetting, doImport, handleSecondaryClick, handleShardClick
+            spotifyConnected, spotifyState,
+            setTab, toggleSimMode, simMode, tab, toggleAutoBan, toggleAutoPick, updateGeminiKey, updateSetting, doImport, handleSecondaryClick, handleShardClick,
+            loginSpotify, spotifyCommand
         }}>
             {children}
         </LCUContext.Provider>

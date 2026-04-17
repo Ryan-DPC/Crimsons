@@ -8,3 +8,5 @@ pub mod storage;
 pub mod automation;
 pub mod events;
 pub mod sd_commands;
+pub mod spotify;
+pub mod streamdock;

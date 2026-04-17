@@ -116,7 +116,7 @@ fn broadcast_state(sender: &WsSender) -> Result<(), String> {
              let tft_division = tft_queue["division"].as_str().unwrap_or("");
              let tft_lp = tft_queue["leaguePoints"].as_u64().unwrap_or(0);
 
-             let _ = sender.0.send(json!({
+             let rank_payload = json!({
                  "type": "RANK_UPDATE", 
                  "tier": tier, 
                  "division": division, 
@@ -124,9 +124,17 @@ fn broadcast_state(sender: &WsSender) -> Result<(), String> {
                  "tft_tier": tft_tier,
                  "tft_division": tft_division,
                  "tft_lp": tft_lp
-             }).to_string());
+             });
+
+             // Cache rank for cold boot
+             let mut app_data = storage::load_data_from_path(storage::get_data_path_from_env());
+             app_data.other.insert("last_rank".to_string(), rank_payload.clone());
+             storage::save_data_to_path(storage::get_data_path_from_env(), &app_data);
+
+             let _ = sender.0.send(rank_payload.to_string());
          }
     }
 
     Ok(())
 }
+

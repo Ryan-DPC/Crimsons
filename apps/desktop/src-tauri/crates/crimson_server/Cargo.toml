@@ -22,6 +22,11 @@ clap = { version = "4", features = ["derive"] }
 single-instance = "0.3"
 ureq = { version = "2.9", features = ["native-tls"] }
 native-tls = "0.2"
+reqwest = { version = "0.12", features = ["json"] }
+chrono = "0.4.44"
+image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }
+imageproc = "0.25"
+ab_glyph = "0.2"
 
 [build-dependencies]
 winres = "0.1"

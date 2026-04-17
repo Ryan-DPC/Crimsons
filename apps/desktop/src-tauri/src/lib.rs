@@ -23,7 +23,8 @@ pub fn run() {
         lcu::fetch_ddragon_url,
         lcu_commands::updater_cmd::download_and_install_update,
         commands::crimson_quit_app,
-        commands::crimson_toggle_autostart
+        commands::crimson_toggle_autostart,
+        commands::exchange_spotify_token
     ])
     .setup(|app| {
       let handle = app.handle().clone();

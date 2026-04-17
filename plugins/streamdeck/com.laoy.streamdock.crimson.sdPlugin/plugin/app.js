@@ -6,7 +6,21 @@ const actionContexts = {
     "com.laoy.streamdock.crimson.autoban": [],
     "com.laoy.streamdock.crimson.autopick": [],
     "com.laoy.streamdock.crimson.inject": [],
-    "com.laoy.streamdock.crimson.infoboard": []
+    "com.laoy.streamdock.crimson.infoboard": [],
+    "com.laoy.streamdock.crimson.infoboard_lol": [],
+    "com.laoy.streamdock.crimson.spotify.play": [],
+    "com.laoy.streamdock.crimson.spotify.next": [],
+    "com.laoy.streamdock.crimson.spotify.prev": [],
+    "com.laoy.streamdock.crimson.spotify.display": [],
+    "com.laoy.streamdock.crimson.spotify.vol_up": [],
+    "com.laoy.streamdock.crimson.spotify.vol_down": [],
+    "com.laoy.streamdock.crimson.spotify.shuffle": [],
+    "com.laoy.streamdock.crimson.spotify.repeat": [],
+    "com.laoy.streamdock.crimson.spotify.add_playlist": [],
+    "com.laoy.streamdock.crimson.spotify.likesong": [],
+    "com.laoy.streamdock.crimson.spotify.changedevice": [],
+    "com.laoy.streamdock.crimson.spotify.volume_dial": [],
+    "com.laoy.streamdock.crimson.spotify.skip_dial": []
 };
 
 let gameState = {
@@ -17,19 +31,65 @@ let gameState = {
     autoAccept: false,
     autoBan: null,
     autoPick: null,
-    serverConnected: false
+    serverConnected: false,
+    lolConnected: false,
+    runesData: null,
+    spotify: {
+        trackName: "",
+        artistName: "",
+        isPlaying: false,
+        hasToken: false,
+        volume: 50,
+        shuffle: false,
+        repeat: "off",
+        trackUri: "",
+        trackId: "",
+        isLiked: false
+    }
 };
 
-// ==========================================
-// 1. BACKEND LISTENER (Logic Layer)
-// ==========================================
+let injectContextIndexes = {};
+let injectCounter = 1;
+
+const canvas = document.createElement("canvas");
+canvas.width = 144;
+canvas.height = 144;
+const ctx = canvas.getContext("2d");
+
+async function composeRuneImage(context, primaryIconUrl, secondaryIconUrl) {
+    try {
+        ctx.clearRect(0, 0, 144, 144);
+        ctx.fillStyle = "#0a0a0c";
+        ctx.fillRect(0, 0, 144, 144);
+
+        const img1 = new Image();
+        img1.crossOrigin = "Anonymous";
+        const img2 = new Image();
+        img2.crossOrigin = "Anonymous";
+
+        await Promise.all([
+            new Promise((resolve) => { img1.onload = resolve; img1.onerror = resolve; img1.src = primaryIconUrl; }),
+            new Promise((resolve) => { img2.onload = resolve; img2.onerror = resolve; img2.src = secondaryIconUrl; })
+        ]);
+
+        // Draw primary bigger
+        ctx.globalAlpha = 1.0;
+        ctx.drawImage(img1, 20, 10, 80, 80);
+        
+        // Draw secondary smaller at bottom right
+        ctx.drawImage(img2, 70, 60, 60, 60);
+
+        const base64Img = canvas.toDataURL("image/jpeg", 0.9);
+        ui.setImage(context, base64Img);
+    } catch(e) {}
+}
+
 api.onMessage = (data) => {
-    console.log("Crimson Message Received:", data.type, data);
     switch (data.type) {
         case 'AUTO_ACCEPT_STATE':
             gameState.autoAccept = data.enabled;
             updateContexts("com.laoy.streamdock.crimson.autoaccept", data.enabled ? 1 : 0);
-            refreshAllDisplays(); // Dynamic text update
+            refreshAllDisplays(); 
             break;
         case 'GAME_PHASE':
             gameState.phase = data.phase;
@@ -54,28 +114,53 @@ api.onMessage = (data) => {
             updateContexts("com.laoy.streamdock.crimson.autopick", data.championId ? 1 : 0);
             refreshAllDisplays();
             break;
+        case 'RUNE_BUILDS_READY':
+            gameState.runesData = data.builds;
+            refreshAllDisplays();
+            break;
+        case 'HEARTBEAT_STATUS':
+            if (gameState.serverConnected !== data.server || gameState.lolConnected !== data.lol) {
+                gameState.serverConnected = data.server;
+                gameState.lolConnected = data.lol;
+                updateContexts("com.laoy.streamdock.crimson.infoboard", data.server ? 1 : 0);
+                updateContexts("com.laoy.streamdock.crimson.infoboard_lol", data.lol ? 1 : 0);
+                refreshAllDisplays();
+            }
+            break;
+        case 'SPOTIFY_STATE':
+            gameState.spotify.trackName = data.data.track_name;
+            gameState.spotify.artistName = data.data.artist_name;
+            gameState.spotify.isPlaying = data.data.is_playing;
+            gameState.spotify.hasToken = data.data.has_token;
+            gameState.spotify.volume = data.data.volume_percent;
+            gameState.spotify.shuffle = data.data.shuffle_state;
+            gameState.spotify.repeat = data.data.repeat_state;
+            gameState.spotify.trackUri = data.data.track_uri;
+            gameState.spotify.trackId = data.data.track_id;
+            gameState.spotify.isLiked = data.data.is_liked;
+
+            updateContexts("com.laoy.streamdock.crimson.spotify.likesong", data.data.is_liked ? 1 : 0);
+            refreshAllDisplays();
+            break;
     }
 };
 
 api.onStatusChange = (isConnected) => {
-    gameState.serverConnected = isConnected;
-    updateContexts("com.laoy.streamdock.crimson.infoboard", isConnected ? 1 : 0);
-    refreshAllDisplays();
+    if (!isConnected) {
+        gameState.serverConnected = false;
+        gameState.lolConnected = false;
+        updateContexts("com.laoy.streamdock.crimson.infoboard", 0);
+        updateContexts("com.laoy.streamdock.crimson.infoboard_lol", 0);
+        refreshAllDisplays();
+    }
 };
 
-// Heartbeat Polling (Every 3 minutes as requested)
 setInterval(() => {
-    // If we want to force a visual pulse or a re-check
     if (gameState.serverConnected) {
-        console.log("Heartbeat: Server is healthy.");
         refreshAllDisplays();
     }
 }, 3 * 60 * 1000);
 
-
-// ==========================================
-// 2. UI RENDERER GLUE
-// ==========================================
 function updateContexts(action, stateId) {
     const contexts = actionContexts[action] || [];
     contexts.forEach(context => ui.setState(context, stateId));
@@ -92,7 +177,7 @@ function updateDisplayLogic(context, action, controller = "Keypad") {
     
     switch (action) {
         case "com.laoy.streamdock.crimson.autoaccept":
-            title = gameState.autoAccept ? "ACTIVE" : "OFF";
+            title = gameState.autoAccept ? "ON" : "OFF";
             break;
         case "com.laoy.streamdock.crimson.display":
             if (gameState.phase === "ChampSelect") {
@@ -107,13 +192,55 @@ function updateDisplayLogic(context, action, controller = "Keypad") {
             }
             break;
         case "com.laoy.streamdock.crimson.autoban":
-            title = gameState.autoBan ? "BANNING" : "AUTO";
+            title = gameState.autoBan ? "ON" : "OFF";
             break;
         case "com.laoy.streamdock.crimson.autopick":
-            title = gameState.autoPick ? "PICKING" : "AUTO";
+            title = gameState.autoPick ? "ON" : "OFF";
+            break;
+        case "com.laoy.streamdock.crimson.inject":
+            let idx = injectContextIndexes[context] || 1;
+            title = "RUNES " + idx;
+            if (gameState.runesData && gameState.runesData.length >= idx) {
+                let b = gameState.runesData[idx - 1];
+                if (b && b.name) {
+                    title = b.name.replace(/\n| /g, "\n");
+                    if (b.pIcon && b.sIcon) {
+                        composeRuneImage(context, b.pIcon, b.sIcon);
+                    }
+                }
+            }
             break;
         case "com.laoy.streamdock.crimson.infoboard":
             title = gameState.serverConnected ? "LINKED" : "OFFLINE";
+            break;
+        case "com.laoy.streamdock.crimson.infoboard_lol":
+            title = gameState.lolConnected ? "LOL\nCONNECTED" : "WAITING";
+            break;
+        case "com.laoy.streamdock.crimson.spotify.display":
+            if (gameState.spotify.hasToken) {
+                title = `${gameState.spotify.trackName}\n${gameState.spotify.artistName}`;
+            } else {
+                title = "NO TOKEN";
+            }
+            break;
+        case "com.laoy.streamdock.crimson.spotify.vol_up":
+        case "com.laoy.streamdock.crimson.spotify.vol_down":
+            title = `${gameState.spotify.volume}%`;
+            break;
+        case "com.laoy.streamdock.crimson.spotify.shuffle":
+            title = gameState.spotify.shuffle ? "ON" : "OFF";
+            break;
+        case "com.laoy.streamdock.crimson.spotify.repeat":
+            title = gameState.spotify.repeat.toUpperCase();
+            break;
+        case "com.laoy.streamdock.crimson.spotify.changedevice":
+            title = "DEVICE";
+            break;
+        case "com.laoy.streamdock.crimson.spotify.volume_dial":
+            title = `VOL: ${gameState.spotify.volume}%`;
+            break;
+        case "com.laoy.streamdock.crimson.spotify.skip_dial":
+            title = `${gameState.spotify.trackName}`;
             break;
     }
     
@@ -144,11 +271,21 @@ window.connectElgatoStreamDeckSocket = function(inPort, inPluginUUID, inRegister
                 actionContexts[action].push(context);
             }
             
+            // Auto index inject buttons
+            if (action === "com.laoy.streamdock.crimson.inject") {
+                if (!injectContextIndexes[context]) {
+                    injectContextIndexes[context] = injectCounter;
+                    injectCounter = injectCounter >= 3 ? 1 : injectCounter + 1;
+                }
+            }
+            
             // Set initial state for toggles
             if (action === "com.laoy.streamdock.crimson.autoaccept") {
                 ui.setState(context, gameState.autoAccept ? 1 : 0);
             } else if (action === "com.laoy.streamdock.crimson.infoboard") {
                 ui.setState(context, gameState.serverConnected ? 1 : 0);
+            } else if (action === "com.laoy.streamdock.crimson.infoboard_lol") {
+                ui.setState(context, gameState.lolConnected ? 1 : 0);
             }
             
             updateDisplayLogic(context, action, controller);
@@ -158,10 +295,19 @@ window.connectElgatoStreamDeckSocket = function(inPort, inPluginUUID, inRegister
             if (actionContexts[action]) {
                 actionContexts[action] = actionContexts[action].filter(c => c !== context);
             }
+            if (action === "com.laoy.streamdock.crimson.inject") {
+                delete injectContextIndexes[context];
+                injectCounter = 1; // Reset when plugin restarts
+            }
         }
 
-        if (event === "keyDown") {
-            handleActionClick(action);
+        if (event === "keyDown" || event === "dialPress") {
+            handleActionClick(action, context);
+        }
+
+        if (event === "dialRotate") {
+            const ticks = jsonObj['payload']['ticks'];
+            handleDialRotate(action, ticks);
         }
     };
 };
@@ -170,7 +316,7 @@ window.connectElgatoStreamDeckSocket = function(inPort, inPluginUUID, inRegister
 // ==========================================
 // 4. ELGATO INPUT ROUTER
 // ==========================================
-function handleActionClick(action) {
+function handleActionClick(action, context) {
     switch (action) {
         case "com.laoy.streamdock.crimson.autoaccept":
             api.send({ type: 'TOGGLE_AUTO_ACCEPT' });
@@ -185,15 +331,73 @@ function handleActionClick(action) {
             api.send({ type: 'TOGGLE_AUTO_PICK', championId: 0 });
             break;
         case "com.laoy.streamdock.crimson.inject":
+            let idx = injectContextIndexes[context] || 1;
             api.send({ 
                 type: 'INJECT_BUILD', 
+                index: idx,
                 championId: gameState.champion,
                 championName: gameState.championName
             });
             break;
         case "com.laoy.streamdock.crimson.infoboard":
+        case "com.laoy.streamdock.crimson.infoboard_lol":
             // Optional: clicking Info Board could attempt a manual reconnect
             if (!gameState.serverConnected) api.connect();
+            break;
+        case "com.laoy.streamdock.crimson.spotify.play":
+            api.send({ type: 'SPOTIFY_COMMAND', endpoint: gameState.spotify.isPlaying ? 'pause' : 'play' });
+            break;
+        case "com.laoy.streamdock.crimson.spotify.next":
+            api.send({ type: 'SPOTIFY_COMMAND', endpoint: 'next' });
+            break;
+        case "com.laoy.streamdock.crimson.spotify.prev":
+            api.send({ type: 'SPOTIFY_COMMAND', endpoint: 'previous' });
+            break;
+        case "com.laoy.streamdock.crimson.spotify.vol_up":
+            api.send({ type: 'SPOTIFY_COMMAND', endpoint: 'volume', volume_percent: Math.min(100, gameState.spotify.volume + 10) });
+            break;
+        case "com.laoy.streamdock.crimson.spotify.vol_down":
+            api.send({ type: 'SPOTIFY_COMMAND', endpoint: 'volume', volume_percent: Math.max(0, gameState.spotify.volume - 10) });
+            break;
+        case "com.laoy.streamdock.crimson.spotify.shuffle":
+            api.send({ type: 'SPOTIFY_COMMAND', endpoint: 'shuffle', state: !gameState.spotify.shuffle });
+            break;
+        case "com.laoy.streamdock.crimson.spotify.repeat":
+            const modes = ["off", "context", "track"];
+            const nextMode = modes[(modes.indexOf(gameState.spotify.repeat) + 1) % modes.length];
+            api.send({ type: 'SPOTIFY_COMMAND', endpoint: 'repeat', state: nextMode });
+            break;
+        case "com.laoy.streamdock.crimson.spotify.add_playlist":
+            // Prompt user for playlist ID if we don't have one, or use a default
+            const favPlaylistId = "YOUR_PLAYLIST_ID"; // User should replace this or we fetch it
+            api.send({ type: 'SPOTIFY_COMMAND', endpoint: 'add-to-playlist', playlist_id: favPlaylistId, track_uri: gameState.spotify.trackUri });
+            break;
+        case "com.laoy.streamdock.crimson.spotify.likesong":
+            api.send({ type: 'SPOTIFY_COMMAND', endpoint: gameState.spotify.isLiked ? 'unlike' : 'like', track_id: gameState.spotify.trackId });
+            break;
+        case "com.laoy.streamdock.crimson.spotify.changedevice":
+            api.send({ type: 'SPOTIFY_COMMAND', endpoint: 'switch-device' });
+            break;
+        case "com.laoy.streamdock.crimson.spotify.volume_dial":
+        case "com.laoy.streamdock.crimson.spotify.skip_dial":
+            // Dial press toggles Mute or Play/Pause
+            api.send({ type: 'SPOTIFY_COMMAND', endpoint: 'play' }); // Custom logic can go here
+            break;
+    }
+}
+
+function handleDialRotate(action, ticks) {
+    switch (action) {
+        case "com.laoy.streamdock.crimson.spotify.volume_dial":
+            const newVol = Math.max(0, Math.min(100, gameState.spotify.volume + (ticks * 5)));
+            api.send({ type: 'SPOTIFY_COMMAND', endpoint: 'volume', volume_percent: newVol });
+            break;
+        case "com.laoy.streamdock.crimson.spotify.skip_dial":
+            if (ticks > 0) {
+                api.send({ type: 'SPOTIFY_COMMAND', endpoint: 'next' });
+            } else {
+                api.send({ type: 'SPOTIFY_COMMAND', endpoint: 'previous' });
+            }
             break;
     }
 }
