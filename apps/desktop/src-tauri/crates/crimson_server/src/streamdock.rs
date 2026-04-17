@@ -40,8 +40,14 @@ pub async fn start_streamdock_client(port: u16, uuid: String, register_event: St
     let auth_spotify_clone = spotify.clone();
     let auth_tx_ws_clone = tx_ws.clone();
     let auth_uuid_clone = uuid.clone();
+    let uuid_for_log = uuid.clone();
     tokio::spawn(async move {
-        start_mirabox_auth_server(auth_spotify_clone, Some(auth_tx_ws_clone), Some(auth_uuid_clone)).await;
+        static AUTH_SERVER_STARTED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+        if !AUTH_SERVER_STARTED.swap(true, std::sync::atomic::Ordering::SeqCst) {
+            start_mirabox_auth_server(auth_spotify_clone, Some(auth_tx_ws_clone), Some(auth_uuid_clone)).await;
+        } else {
+            println!("Mirabox Auth Server already running, skipping bind for client {}", uuid_for_log);
+        }
     });
 
     let has_token = spotify.get_client().read().await.access_token.is_some();

@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "CRIMSON",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "identifier": "com.laoy.crimson",
   "build": {
     "frontendDist": "../dist",
@@ -41,8 +41,10 @@
     "externalBin": [
       "bin/crimson-server"
     ],
-    "nsis": {
-      "installMode": "perUser"
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser"
+      }
     }
   },
   "plugins": {

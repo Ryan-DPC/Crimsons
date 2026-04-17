@@ -97,6 +97,26 @@ async fn handle_connection(stream: TcpStream, sender: WsSender, spotify: Arc<Spo
                                         continue;
                                     }
 
+                                    if value["type"] == "REGISTER_STREAMDOCK" {
+                                        if let (Some(p), Some(u), Some(r)) = (value["port"].as_u64(), value["uuid"].as_str(), value["register_event"].as_str()) {
+                                            println!("Handover received for StreamDock client: {} on port {}", u, p);
+                                            let s_clone = spotify.clone();
+                                            let uuid_str = u.to_string();
+                                            let reg_str = r.to_string();
+                                            tokio::spawn(async move {
+                                                crate::streamdock::start_streamdock_client(p as u16, uuid_str, reg_str, s_clone).await;
+                                            });
+                                            
+                                            let response_json = json!({
+                                                "type": "COMMAND_ACK",
+                                                "action": "REGISTER_STREAMDOCK",
+                                                "status": "ok"
+                                            });
+                                            let _ = ws_stream.send(tokio_tungstenite::tungstenite::Message::Text(response_json.to_string().into())).await;
+                                            continue;
+                                        }
+                                    }
+
                                     // Broadcast direct action requests from StreamDock so the Tauri UI can handle them
                                     if value["type"] == "TOGGLE_AUTO_ACCEPT" || value["type"] == "TOGGLE_AUTO_BAN" || value["type"] == "TOGGLE_AUTO_PICK" || value["type"] == "INJECT_BUILD" || value["type"] == "DODGE_GAME" || value["type"] == "RUNE_BUILDS_READY" {
                                         let _ = sender.0.send(text.clone());
