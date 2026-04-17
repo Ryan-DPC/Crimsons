@@ -20,6 +20,7 @@
     "autostart:allow-disable",
     "notification:default",
     "shell:default",
+    "shell:allow-open",
     {
       "identifier": "shell:allow-execute",
       "allow": [
