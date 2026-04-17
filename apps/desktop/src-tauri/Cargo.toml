@@ -52,8 +52,8 @@ r2d2_sqlite = "0.25.0"
 sysinfo = "0.30"
 
 [profile.release]
-lto = "thin"
+lto = false
 codegen-units = 16
 panic = "abort"
-opt-level = 3
+opt-level = 2
 strip = true # Automatically strip symbols from the binary
