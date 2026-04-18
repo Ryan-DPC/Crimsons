@@ -146,7 +146,11 @@ api.onMessage = (data) => {
 };
 
 api.onStatusChange = (isConnected) => {
-    if (!isConnected) {
+    if (isConnected) {
+        gameState.serverConnected = true;
+        updateContexts("com.laoy.streamdock.crimson.infoboard", 1);
+        refreshAllDisplays();
+    } else {
         gameState.serverConnected = false;
         gameState.lolConnected = false;
         updateContexts("com.laoy.streamdock.crimson.infoboard", 0);
@@ -211,10 +215,10 @@ function updateDisplayLogic(context, action, controller = "Keypad") {
             }
             break;
         case "com.laoy.streamdock.crimson.infoboard":
-            title = gameState.serverConnected ? "LINKED" : "OFFLINE";
+            title = gameState.serverConnected ? "CONNECTED" : "OFFLINE";
             break;
         case "com.laoy.streamdock.crimson.infoboard_lol":
-            title = gameState.lolConnected ? "LOL\nCONNECTED" : "WAITING";
+            title = gameState.lolConnected ? "CONNECTED" : "WAITING";
             break;
         case "com.laoy.streamdock.crimson.spotify.display":
             if (gameState.spotify.hasToken) {

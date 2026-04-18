@@ -161,14 +161,24 @@ impl SpotifyService {
     pub async fn start_background_polling(&self) {
         let self_access_token = self.client.clone();
         let self_sender = self.sender.clone();
+        let self_arc = Arc::new(Self { client: self.client.clone(), sender: self.sender.clone() });
 
         tokio::spawn(async move {
             let mut last_state: Option<SpotifyState> = None;
             let mut first_poll = true;
             let mut poll_count = 0u64;
+            let mut force_poll = false;
+            let mut last_running_check = std::time::Instant::now() - Duration::from_secs(60);
+            let mut is_running = false;
             
             loop {
                 poll_count = poll_count.wrapping_add(1);
+
+                // Throttled process check (every 5 seconds)
+                if last_running_check.elapsed() > Duration::from_secs(5) {
+                    is_running = self_arc.is_spotify_running();
+                    last_running_check = std::time::Instant::now();
+                }
                 
                 // --- TOKEN MANAGEMENT ---
                 let access_token = {
@@ -179,8 +189,8 @@ impl SpotifyService {
                     let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
                     
                     if let (Some(token), Some(r_token), id, secret) = (access, refresh, id, secret) {
-                        if expires_at == 0 || now >= expires_at.saturating_sub(60) {
-                             // Refresh logic inlined here since we don't have Arc<SpotifyService>
+                        if !id.is_empty() && !secret.is_empty() && (expires_at == 0 || now >= expires_at.saturating_sub(60)) {
+                             // Refresh logic
                              let client = reqwest::Client::new();
                              let auth_str = format!("{}:{}", id, secret);
                              use base64::engine::general_purpose::STANDARD;
@@ -216,24 +226,32 @@ impl SpotifyService {
                     if let Ok(state) = Self::fetch_current_playback(&token).await {
                         let is_idle = state.track_id.is_empty();
                         
-                        // AUTO-WAKE: If idle but Spotify is running, حاول تفعيل أول جهاز متاح
-                        if is_idle && poll_count % 10 == 0 {
-                            let mut sys = System::new_with_specifics(RefreshKind::new().with_processes(ProcessRefreshKind::new()));
-                            sys.refresh_processes();
-                            let is_running = sys.processes_by_exact_name("Spotify.exe").next().is_some() || sys.processes_by_exact_name("spotify.exe").next().is_some();
-                            
-                            if is_running {
-                                let client = reqwest::Client::new();
-                                if let Ok(resp) = client.get("https://api.spotify.com/v1/me/player/devices").header(AUTHORIZATION, format!("Bearer {}", token)).send().await {
-                                    if let Ok(json) = resp.json::<serde_json::Value>().await {
-                                        if let Some(devices) = json["devices"].as_array() {
-                                            if !devices.is_empty() {
-                                                if let Some(pc) = devices.iter().find(|d| d["type"].as_str() == Some("Computer")) {
-                                                    let id = pc["id"].as_str().unwrap_or("");
+                        // AUTO-WAKE: If idle but Spotify is running, try to activate a device
+                        // Frequency: Every poll if we just started, or every 5 polls later
+                        let wake_interval = if poll_count < 60 { 2 } else { 10 };
+                        if is_idle && is_running && poll_count % wake_interval == 0 {
+                            let client = reqwest::Client::new();
+                            if let Ok(resp) = client.get("https://api.spotify.com/v1/me/player/devices").header(AUTHORIZATION, format!("Bearer {}", token)).send().await {
+                                if let Ok(json) = resp.json::<serde_json::Value>().await {
+                                    if let Some(devices) = json["devices"].as_array() {
+                                        if !devices.is_empty() {
+                                            // Prioritize "Computer" (PC), then "Smartphone", then anything
+                                            let target_device = devices.iter().find(|d| d["type"].as_str() == Some("Computer"))
+                                                .or_else(|| devices.iter().find(|d| d["type"].as_str() == Some("Smartphone")))
+                                                .or_else(|| devices.get(0));
+                                            
+                                            if let Some(device) = target_device {
+                                                let id = device["id"].as_str().unwrap_or("");
+                                                if !id.is_empty() {
+                                                    let log_msg = format!("Spotify Auto-Wake: Activating device {} ({})", device["name"].as_str().unwrap_or("Unknown"), id);
+                                                    println!("{}", log_msg);
+                                                    
                                                     let _ = client.put("https://api.spotify.com/v1/me/player")
                                                         .header(AUTHORIZATION, format!("Bearer {}", token))
                                                         .json(&json!({ "device_ids": [id], "play": false }))
                                                         .send().await;
+                                                    
+                                                    force_poll = true; // Trigger immediate re-poll to capture active status
                                                 }
                                             }
                                         }
@@ -256,7 +274,8 @@ impl SpotifyService {
                                 l.smart_shuffle != state.smart_shuffle ||
                                 l.repeat_state != state.repeat_state ||
                                 l.is_liked != state.is_liked ||
-                                l.has_token != state.has_token
+                                l.has_token != state.has_token ||
+                                l.volume_percent != state.volume_percent
                             } else {
                                 true
                             };
@@ -270,16 +289,18 @@ impl SpotifyService {
                             diff
                         };
 
-                        if first_poll || changed {
+                        if first_poll || changed || force_poll {
                             let _ = self_sender.0.send(state_json.clone());
                             first_poll = false;
+                            force_poll = false;
                         }
                     }
                 }
 
-                // --- SMART SLEEP (BURST MODE) ---
-                // If it's the first minute (approx 240 polls at 250ms), poll faster
-                let sleep_ms = if poll_count < 240 { 250 } else { 1000 };
+                // --- DYNAMIC SLEEP ---
+                // Fast poll (250ms) if: Spotify just started, we are in first minute, or we just forced a poll
+                // Otherwise slow poll (1000ms)
+                let sleep_ms = if poll_count < 240 || force_poll { 250 } else { 1000 };
                 tokio::time::sleep(Duration::from_millis(sleep_ms)).await;
             }
         });
@@ -445,7 +466,53 @@ impl SpotifyService {
         Some(img.to_string())
     }
 
+    pub async fn try_activate_any_device(&self) -> bool {
+        let token = match self.ensure_valid_token().await {
+            Some(t) => t,
+            None => return false,
+        };
+
+        let client = reqwest::Client::new();
+        if let Ok(resp) = client.get("https://api.spotify.com/v1/me/player/devices").header(AUTHORIZATION, format!("Bearer {}", token)).send().await {
+            if let Ok(json) = resp.json::<serde_json::Value>().await {
+                if let Some(devices) = json["devices"].as_array() {
+                    if !devices.is_empty() {
+                        let target_device = devices.iter().find(|d| d["type"].as_str() == Some("Computer"))
+                            .or_else(|| devices.iter().find(|d| d["type"].as_str() == Some("Smartphone")))
+                            .or_else(|| devices.get(0));
+                        
+                        if let Some(device) = target_device {
+                            if let Some(id) = device["id"].as_str() {
+                                let _ = client.put("https://api.spotify.com/v1/me/player")
+                                    .header(AUTHORIZATION, format!("Bearer {}", token))
+                                    .json(&json!({ "device_ids": [id], "play": false }))
+                                    .send().await;
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        false
+    }
+
     pub async fn handle_command(&self, endpoint: &str, params: Option<serde_json::Value>) -> Result<(), Box<dyn std::error::Error>> {
+        let (success, status) = self.handle_command_once(endpoint, params.clone()).await?;
+        
+        // If it failed because no active player was found (404/403), try to wake up one and retry
+        if !success && (status == 404 || status == 403) {
+            println!("No active Spotify player found for command {}. Attempting Auto-Wake...", endpoint);
+            if self.try_activate_any_device().await {
+                // Wait a bit for Spotify to register the device as active
+                tokio::time::sleep(std::time::Duration::from_millis(800)).await;
+                self.handle_command_once(endpoint, params).await?;
+            }
+        }
+        Ok(())
+    }
+
+    async fn handle_command_once(&self, endpoint: &str, params: Option<serde_json::Value>) -> Result<(bool, u16), Box<dyn std::error::Error>> {
         let token = match self.ensure_valid_token().await {
             Some(t) => t,
             None => return Err("No token".into()),
@@ -500,9 +567,6 @@ impl SpotifyService {
                     },
                     "mute" => {
                          if current_vol > 0 {
-                             // This is a rough way to cache it since we are stateless on each call, 
-                             // but we can try to guess or use the global state if we had one.
-                             // For now, let's just use 0 or 50.
                              0
                          } else {
                              50 // Restore to 50% if we don't know previous
@@ -573,12 +637,12 @@ impl SpotifyService {
                             let next_id = devices[next_idx]["id"].as_str().unwrap_or("");
                             
                             url = "https://api.spotify.com/v1/me/player".to_string();
-                            let rb = client.put(url)
+                            let _ = client.put(url)
                                 .header(AUTHORIZATION, format!("Bearer {}", token))
                                 .header(CONTENT_TYPE, "application/json")
-                                .json(&json!({ "device_ids": [next_id], "play": true }));
-                            rb.send().await?;
-                            return Ok(());
+                                .json(&json!({ "device_ids": [next_id], "play": true }))
+                                .send().await;
+                            return Ok((true, 200));
                         }
                     }
                 }
@@ -598,7 +662,7 @@ impl SpotifyService {
             }
         }
 
-        let mut rb = if method == "PUT" { client.put(&url) } else { client.post(&url) };
+        let mut rb = if method == "PUT" { client.put(&url) } else if method == "DELETE" { client.delete(&url) } else { client.post(&url) };
 
         rb = rb.header(AUTHORIZATION, format!("Bearer {}", token))
                .header(CONTENT_TYPE, "application/json");
@@ -611,20 +675,16 @@ impl SpotifyService {
         }
 
         let r = rb.send().await?;
+        let status = r.status();
+        let body_text = r.text().await.unwrap_or_default();
         
-        // Dump the response to the log file so we can see why it fails
         let log_path = std::path::Path::new(std::env::var("APPDATA").unwrap_or_default().as_str()).join("Crimson").join("streamdock.log");
         use std::io::Write;
         if let Ok(mut log_file) = std::fs::OpenOptions::new().create(true).append(true).open(log_path) {
-            let status = r.status();
-            let body_text = match r.text().await {
-                Ok(t) => t,
-                Err(_) => "Error reading body".to_string()
-            };
             let _ = writeln!(log_file, "Spotify API {} {} returned {} - Body: {}", method, url, status, body_text);
         }
 
-        Ok(())
+        Ok((status.is_success(), status.as_u16()))
     }
 
     pub async fn update_tokens(&self, access: String, refresh: String, expires_in: u64) {

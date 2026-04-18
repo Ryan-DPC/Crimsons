@@ -1,7 +1,8 @@
 use tokio::sync::broadcast;
 use std::sync::Arc;
 use crimson_server::events::WsSender;
-use crimson_server::{ws, lcu_ws, service, spotify};
+use crimson_server::{ws, lcu_ws, service, spotify, discord};
+
 use clap::Parser;
 
 #[derive(Parser, Debug)]
@@ -44,18 +45,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let current_pid = std::process::id();
-    let instance = single_instance::SingleInstance::new("crimson_server_unification_lock").unwrap();
-    let is_primary = instance.is_single();
+    
+    // 1. Mutex Check (Global namespace to catch cross-session/elevated instances)
+    let instance = single_instance::SingleInstance::new("Global\\crimson_server_v1_lock").unwrap();
+    let mut is_primary = instance.is_single();
+
+    // 2. Port Probe Fallback (If port 40509 is busy, another instance is definitely primary)
+    if is_primary {
+        use std::net::TcpStream;
+        if TcpStream::connect("127.0.0.1:40509").is_ok() {
+            println!("[PID {}] Port 40509 is busy. Mutex might have failed. Forcing proxy/exit mode...", current_pid);
+            is_primary = false;
+        }
+    }
 
     if !is_primary {
         if is_streamdock_plugin {
-            println!("[PID {}] Primary instance detected. Entering Handover mode...", current_pid);
+            println!("[PID {}] Primary instance detected via Lock/Port. Entering Handover mode...", current_pid);
             if let (Some(p), Some(uuid), Some(reg_evt)) = (port, plugin_uuid, register_event) { 
                 crimson_server::proxy::start_proxy_bridge(p, uuid, reg_evt).await;
             }
             return Ok(());
         } else {
-            println!("[PID {}] Another instance is already running. Exiting.", current_pid);
+            println!("[PID {}] Another instance is already running (Detected via Lock/Port). Exiting.", current_pid);
             return Ok(());
         }
     }
@@ -79,19 +91,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let spotify_service = Arc::new(spotify::SpotifyService::new(sender.clone()));
     spotify_service.start_background_polling().await;
 
+    // Start Discord Service
+    let discord_service = Arc::new(discord::DiscordService::new(sender.clone()));
+    discord_service.start_background_polling().await;
+
+
     // If we were ALSO started with StreamDock flags, start the bridge too
     if is_streamdock_plugin {
         if let (Some(p), Some(uuid), Some(reg_evt)) = (port, plugin_uuid, register_event) {
             let spotify_clone = spotify_service.clone();
+            let discord_clone = discord_service.clone();
             tokio::spawn(async move {
-                crimson_server::streamdock::start_streamdock_client(p, uuid, reg_evt, spotify_clone).await;
+                crimson_server::streamdock::start_streamdock_client(p, uuid, reg_evt, spotify_clone, discord_clone).await;
             });
         }
     }
 
+
     // Start External WebSocket Server (Sidecar -> UI/StreamDeck)
     println!("WebSocket server listening on 127.0.0.1:40509");
-    ws::start_ws_server(sender, spotify_service).await;
+    ws::start_ws_server(sender, spotify_service, discord_service).await;
+
 
     Ok(())
 }

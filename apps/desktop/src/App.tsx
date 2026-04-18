@@ -22,7 +22,7 @@ function App() {
     tab, setTab, simMode, toggleSimMode, 
     gamePhase, rank, appData, updateSetting,
     updateStatus, updateProgress, availableVersion, installUpdate,
-    serverConnected, lolConnected
+    serverConnected, lolConnected, discordConnected
   } = useLCU();
 
   const [appVersion, setAppVersion] = useState<string>('1.1.0');
@@ -80,6 +80,11 @@ function App() {
               <div className="flex items-center gap-1.5">
                 <span className={`w-1.5 h-1.5 rounded-full ${lolConnected ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)] animate-pulse' : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.4)]'}`} />
                 <span className={lolConnected ? 'text-white/60' : 'text-red-500/60'}>LEAGUE</span>
+              </div>
+              <div className="w-px h-2 bg-white/10" />
+              <div className="flex items-center gap-1.5">
+                <span className={`w-1.5 h-1.5 rounded-full ${discordConnected ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]' : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.4)]'}`} />
+                <span className={discordConnected ? 'text-white/60' : 'text-red-500/60'}>DISCORD</span>
               </div>
             </div>
           </div>

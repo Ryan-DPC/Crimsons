@@ -10,22 +10,15 @@ pub fn start_auto_accept_service(sender: WsSender) {
         loop {
             interval.tick().await;
 
-            if crate::state::is_low_resource_mode() {
-                // In low resource mode, we wait an extra 4 seconds (effectively 5s polling)
-                tokio::time::sleep(Duration::from_secs(4)).await;
-            }
-            
             let data = storage::load_data_from_path(storage::get_data_path_from_env());
             if data.auto_accept {
                 let _ = check_and_accept(&sender);
             }
             
-            // Only broadcast state if UI is active
-            if !crate::state::is_low_resource_mode() {
-                let _ = broadcast_state(&sender);
-            }
+            // Always broadcast state (v1.0.8 parity: ensure UI & StreamDock stay synchronized)
+            let _ = broadcast_state(&sender);
 
-            // Always broadcast status heartbeat (v2.0.7)
+            // Always broadcast status heartbeat
             let _ = sender.0.send(json!({
                 "type": "HEARTBEAT_STATUS",
                 "server": true,

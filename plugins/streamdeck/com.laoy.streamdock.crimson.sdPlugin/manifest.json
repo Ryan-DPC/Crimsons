@@ -261,8 +261,85 @@
         }
       ],
       "UUID": "com.laoy.streamdock.crimson.spotify.skip_dial"
+    },
+    {
+      "Icon": "static/icon/discord_mute_off",
+      "Name": "Discord: Toggle Mute",
+      "Controllers": ["Keypad"],
+      "States": [
+        {
+          "Image": "static/icon/discord_mute_off",
+          "Title": "MUTED"
+        },
+        {
+          "Image": "static/icon/discord_mute_on",
+          "Title": "ON"
+        }
+      ],
+      "UUID": "com.laoy.streamdock.discord.toggleMute"
+    },
+    {
+      "Icon": "static/icon/discord_deafen_off",
+      "Name": "Discord: Toggle Deafen",
+      "Controllers": ["Keypad"],
+      "States": [
+        {
+          "Image": "static/icon/discord_deafen_off",
+          "Title": "DEAFENED"
+        },
+        {
+          "Image": "static/icon/discord_deafen_on",
+          "Title": "ON"
+        }
+      ],
+      "UUID": "com.laoy.streamdock.discord.toggleDeafen"
+    },
+    {
+      "Icon": "static/icon/accept",
+      "Name": "Discord: Toggle Camera",
+      "Controllers": ["Keypad"],
+      "States": [
+        {
+          "Image": "static/icon/accept"
+        }
+      ],
+      "UUID": "com.laoy.streamdock.discord.toggleCamera"
+    },
+    {
+      "Icon": "static/icon/accept",
+      "Name": "Discord: Join Voice",
+      "Controllers": ["Keypad"],
+      "States": [
+        {
+          "Image": "static/icon/accept"
+        }
+      ],
+      "UUID": "com.laoy.streamdock.discord.joinVoiceChannel"
+    },
+    {
+      "Icon": "static/icon/accept",
+      "Name": "Discord: Soundboard",
+      "Controllers": ["Keypad"],
+      "States": [
+        {
+          "Image": "static/icon/accept"
+        }
+      ],
+      "UUID": "com.laoy.streamdock.discord.playSoundboardSound"
+    },
+    {
+      "Icon": "static/icon/accept",
+      "Name": "Discord: Toggle Share",
+      "Controllers": ["Keypad"],
+      "States": [
+        {
+          "Image": "static/icon/accept"
+        }
+      ],
+      "UUID": "com.laoy.streamdock.discord.toggleScreenshare"
     }
   ],
+
   "Author": "Laoy",
   "Description": "CRIMSON League of Legends Controller",
   "Icon": "static/icon/accept",

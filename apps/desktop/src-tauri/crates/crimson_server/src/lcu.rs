@@ -22,43 +22,60 @@ pub fn get_lcu_info() -> Result<LcuInfo, String> {
         }
     }
 
-    // Method: PowerShell (standard for sidecar)
-    let mut cmd = std::process::Command::new("powershell");
-    cmd.args(["-NoProfile", "-NonInteractive", "-Command",
-              "(Get-Process -Name LeagueClientUx -ErrorAction SilentlyContinue | Select-Object -First 1).CommandLine"]);
-    
-    #[cfg(target_os = "windows")]
-    {
-        use std::os::windows::process::CommandExt;
-        cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
-    }
+    // Method 1: Native Process Scanning (Performance & Reliability)
+    use sysinfo::{System, ProcessRefreshKind, RefreshKind};
+    let mut sys = System::new_with_specifics(
+        RefreshKind::new().with_processes(ProcessRefreshKind::new())
+    );
+    sys.refresh_processes();
 
-    if let Ok(output) = cmd.output() {
-        let cmdline = String::from_utf8_lossy(&output.stdout);
-        let (port, password) = parse_cmdline(&cmdline);
-        if port > 0 && !password.is_empty() {
-            let info = LcuInfo { port, password, protocol: "https".into() };
-            if let Ok(mut cache) = LCU_CACHE.lock() { *cache = Some(info.clone()); }
-            return Ok(info);
+    for (_pid, process) in sys.processes() {
+        let name = process.name();
+        if name == "LeagueClientUx.exe" || name == "LeagueClientUx" {
+            let cmdline = process.cmd().join(" ");
+            let (port, password) = parse_cmdline(&cmdline);
+            if port > 0 && !password.is_empty() {
+                let info = LcuInfo { port, password, protocol: "https".into() };
+                if let Ok(mut cache) = LCU_CACHE.lock() { *cache = Some(info.clone()); }
+                return Ok(info);
+            }
+
+            // Fallback: Check lockfile in the process directory if cmdline parsing failed
+            if let Some(parent) = process.exe().and_then(|p| p.parent()) {
+                let lockfile_path = parent.join("lockfile");
+                if let Ok(content) = fs::read_to_string(&lockfile_path) {
+                    if let Some(info) = parse_lockfile(&content) {
+                        if let Ok(mut cache) = LCU_CACHE.lock() { *cache = Some(info.clone()); }
+                        return Ok(info);
+                    }
+                }
+            }
         }
     }
 
-    // Fallback: Default lockfile path
+    // Method 2: Global Fallback (Default path)
     let lockfile = "C:\\Riot Games\\League of Legends\\lockfile";
     if let Ok(content) = fs::read_to_string(lockfile) {
-        let parts: Vec<&str> = content.split(':').collect();
-        if parts.len() >= 5 {
-            let info = LcuInfo {
-                port: parts[2].trim().parse().unwrap_or(0),
-                password: parts[3].trim().to_string(),
-                protocol: parts[4].trim().to_string(),
-            };
+        if let Some(info) = parse_lockfile(&content) {
             if let Ok(mut cache) = LCU_CACHE.lock() { *cache = Some(info.clone()); }
             return Ok(info);
         }
     }
 
     Err("LCU not found".to_string())
+}
+
+fn parse_lockfile(content: &str) -> Option<LcuInfo> {
+    let parts: Vec<&str> = content.split(':').collect();
+    if parts.len() >= 5 {
+        Some(LcuInfo {
+            port: parts[2].trim().parse().unwrap_or(0),
+            password: parts[3].trim().to_string(),
+            protocol: parts[4].trim().to_string(),
+        })
+    } else {
+        None
+    }
 }
 
 pub fn is_lcu_connected() -> bool {

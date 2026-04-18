@@ -40,6 +40,15 @@ interface LCUContextType {
     } | null;
     spotifyConnected: boolean;
     
+    // Discord State
+    discordState: {
+        is_muted: boolean;
+        is_deaf: boolean;
+        is_camera_on: boolean;
+        connected: boolean;
+    } | null;
+    discordConnected: boolean;
+    
     // Connection Status
     serverConnected: boolean;
     lolConnected: boolean;
@@ -103,6 +112,8 @@ export const LCUProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [lolConnected, setLolConnected] = useState(false);
     const [spotifyConnected, setSpotifyConnected] = useState(false);
     const [spotifyState, setSpotifyState] = useState<any>(null);
+    const [discordConnected, setDiscordConnected] = useState(false);
+    const [discordState, setDiscordState] = useState<any>(null);
     const wsRef = useRef<WebSocket | null>(null);
     const buildsRef = useRef<(RuneBuild | null)[]>([]);
 
@@ -451,6 +462,9 @@ export const LCUProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             } else if (msg.type === 'SPOTIFY_STATE') {
                 setSpotifyState(msg.data);
                 setSpotifyConnected(msg.data?.has_token || false);
+            } else if (msg.type === 'DISCORD_STATE') {
+                setDiscordState(msg.data);
+                setDiscordConnected(msg.data?.connected || false);
             } else if (msg.type === 'TOGGLE_AUTO_ACCEPT') {
                 const d = await invoke<any>('get_app_data');
                 d.autoAccept = !d.autoAccept;
@@ -707,6 +721,7 @@ export const LCUProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             updateStatus, updateProgress, availableVersion, remoteUpdateAssetUrl, checkUpdates, installUpdate,
             serverConnected, lolConnected,
             spotifyConnected, spotifyState,
+            discordConnected, discordState,
             setTab, toggleSimMode, simMode, tab, toggleAutoBan, toggleAutoPick, updateGeminiKey, updateSetting, doImport, handleSecondaryClick, handleShardClick,
             loginSpotify, spotifyCommand
         }}>

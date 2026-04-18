@@ -51,6 +51,8 @@ pub struct AppData {
     #[serde(default)]
     pub launch_on_startup: bool,
     #[serde(default)]
+    pub server_launch_on_startup: bool,
+    #[serde(default)]
     pub window_x: Option<i32>,
     #[serde(default)]
     pub window_y: Option<i32>,
@@ -81,6 +83,7 @@ impl Default for AppData {
             reduced_animations: false,
             close_to_tray: None,
             launch_on_startup: false,
+            server_launch_on_startup: false,
             window_x: None,
             window_y: None,
             window_width: None,

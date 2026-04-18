@@ -1,6 +1,6 @@
 [package]
 name = "crimson-server"
-version = "1.0.7"
+version = "1.0.8"
 edition = "2021"
 build = "build.rs"
 
@@ -28,6 +28,8 @@ image = { version = "0.25", default-features = false, features = ["jpeg", "png"]
 imageproc = "0.25"
 ab_glyph = "0.2"
 sysinfo = "0.30"
+discord-presence = "0.5"
+
 
 [build-dependencies]
 winres = "0.1"

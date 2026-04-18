@@ -4,8 +4,11 @@ use tokio_tungstenite::tungstenite::protocol::Message;
 use futures_util::{StreamExt, SinkExt};
 use serde_json::json;
 use crate::spotify::SpotifyService;
+use crate::discord::DiscordService;
 
-pub async fn start_streamdock_client(port: u16, uuid: String, register_event: String, spotify: Arc<SpotifyService>) {
+
+pub async fn start_streamdock_client(port: u16, uuid: String, register_event: String, spotify: Arc<SpotifyService>, discord: Arc<DiscordService>) {
+
     let ws_url = format!("ws://127.0.0.1:{}", port);
     println!("Connecting to StreamDock at: {}", ws_url);
 
@@ -69,6 +72,8 @@ pub async fn start_streamdock_client(port: u16, uuid: String, register_event: St
     let tx_ws_clone = tx_ws.clone();
     let tx_ws_render = tx_ws.clone();
     let mut rx_spotify = spotify.subscribe_events();
+    let mut rx_discord = discord.subscribe_events();
+
 
     // Shared cache: stores last known Spotify data for immediate delivery on willAppear
     let last_state_cache: Arc<tokio::sync::Mutex<Option<serde_json::Value>>> = Arc::new(tokio::sync::Mutex::new(None));
@@ -128,12 +133,11 @@ pub async fn start_streamdock_client(port: u16, uuid: String, register_event: St
 
                     // If no art, try to load default Spotify icon as fallback for display
                     if !has_art || last_base64_jpeg.is_empty() {
-                        let icon_path = std::path::Path::new(std::env::var("APPDATA").unwrap_or_default().as_str())
-                            .join("HotSpot").join("StreamDock").join("plugins")
-                            .join("com.mirabox.streamdock.spotify.sdPlugin").join("static").join("btn").join("btn_spotify_144_spot.png");
-                        if let Ok(bytes) = std::fs::read(icon_path) {
-                            last_base64_jpeg = bytes;
-                            last_album_url = "default_spot".to_string();
+                        if let Some(icon_path) = get_plugin_asset_path("static/btn/btn_spotify_144_spot.png") {
+                            if let Ok(bytes) = std::fs::read(icon_path) {
+                                last_base64_jpeg = bytes;
+                                last_album_url = "default_spot".to_string();
+                            }
                         }
                     }
 
@@ -184,14 +188,13 @@ pub async fn start_streamdock_client(port: u16, uuid: String, register_event: St
                             } else {
                                 "btn_spotify_144_shuffle_off.png"
                             };
-                            let icon_path = std::path::Path::new(std::env::var("APPDATA").unwrap_or_default().as_str())
-                                .join("HotSpot").join("StreamDock").join("plugins")
-                                .join("com.mirabox.streamdock.spotify.sdPlugin").join("static").join("btn").join(icon_name);
-                            if let Ok(bytes) = std::fs::read(icon_path) {
-                                use base64::{Engine as _, engine::general_purpose::STANDARD};
-                                let b64 = STANDARD.encode(&bytes);
-                                let msg = json!({ "event": "setImage", "context": ctx, "payload": { "image": format!("data:image/png;base64,{}", b64), "target": 0 }}).to_string();
-                                let _ = tx_ws_clone.send(msg).await;
+                            if let Some(icon_path) = get_plugin_asset_path(&format!("static/btn/{}", icon_name)) {
+                                if let Ok(bytes) = std::fs::read(icon_path) {
+                                    use base64::{Engine as _, engine::general_purpose::STANDARD};
+                                    let b64 = STANDARD.encode(&bytes);
+                                    let msg = json!({ "event": "setImage", "context": ctx, "payload": { "image": format!("data:image/png;base64,{}", b64), "target": 0 }}).to_string();
+                                    let _ = tx_ws_clone.send(msg).await;
+                                }
                             }
                         }
 
@@ -207,7 +210,36 @@ pub async fn start_streamdock_client(port: u16, uuid: String, register_event: St
         }
     });
 
+    // ─── Discord State Sync Loop ──────────────────────────────────────────────
+    let discord_ctx = contexts.clone();
+    let discord_tx = tx_ws.clone();
+    tokio::spawn(async move {
+        while let Ok(state_json) = rx_discord.recv().await {
+            let parsed: Result<serde_json::Value, _> = serde_json::from_str(&state_json);
+            if let Ok(v) = parsed {
+                if v["type"] == "DISCORD_STATE" {
+                    let data = &v["data"];
+                    let is_muted = data["is_muted"].as_bool().unwrap_or(false);
+                    let is_deaf = data["is_deaf"].as_bool().unwrap_or(false);
+                    
+                    let active_ctx = discord_ctx.lock().await.clone();
+                    for (ctx, action_name) in &active_ctx {
+                        if action_name.ends_with("toggleMute") {
+                            let msg = json!({ "event": "setState", "context": ctx, "payload": { "state": if is_muted { 1 } else { 0 } }}).to_string();
+                            let _ = discord_tx.send(msg).await;
+                        }
+                        if action_name.ends_with("toggleDeafen") {
+                            let msg = json!({ "event": "setState", "context": ctx, "payload": { "state": if is_deaf { 1 } else { 0 } }}).to_string();
+                            let _ = discord_tx.send(msg).await;
+                        }
+                    }
+                }
+            }
+        }
+    });
+
     // ─── Top Track Fetching Loop ──────────────────────────────────────────────
+
     let top_track_spotify = spotify.clone();
     let top_track_img_cache: Arc<tokio::sync::Mutex<Option<String>>> = Arc::new(tokio::sync::Mutex::new(None));
     let top_track_img_cache_clone = top_track_img_cache.clone();
@@ -311,9 +343,11 @@ pub async fn start_streamdock_client(port: u16, uuid: String, register_event: St
                     
                     if event == "willAppear" || event == "didReceiveSettings" {
                         if action.ends_with("playpause") || action.ends_with("likesong") || action.ends_with("shuffle") || action.ends_with("repeat")
-                            || action.ends_with("info_title") || action.ends_with("info_artist") || action.ends_with("info_progress") || action.ends_with("info_toptrack") {
+                            || action.ends_with("info_title") || action.ends_with("info_artist") || action.ends_with("info_progress") || action.ends_with("info_toptrack")
+                            || action.contains("discord.toggleMute") || action.contains("discord.toggleDeafen") || action.contains("discord.toggleCamera") || action.contains("discord.joinVoiceChannel") {
                             contexts.lock().await.insert(context.to_string(), action.to_string());
                         }
+
 
                         // For playpause: immediately push last composed image on willAppear
                         if action.ends_with("playpause") {
@@ -331,7 +365,7 @@ pub async fn start_streamdock_client(port: u16, uuid: String, register_event: St
                                     let _ = tx_clone.send(msg).await;
                                 });
                             } else {
-                                // Cold start: query Spotify API directly right now
+                                // Cold start: query Spotify API directly
                                 let ctx_clone = context.to_string();
                                 let tx_clone = tx_ws.clone();
                                 let spotify_clone = spotify.clone();
@@ -341,11 +375,17 @@ pub async fn start_streamdock_client(port: u16, uuid: String, register_event: St
                                         if let Ok(resp) = client.get(&art_url).send().await {
                                             if let Ok(bytes) = resp.bytes().await {
                                                 let composed = compose_timer_on_image(&bytes, &timer_str);
-                                                let msg = json!({
-                                                    "event": "setImage",
-                                                    "context": ctx_clone,
-                                                    "payload": { "image": composed, "target": 0 }
-                                                }).to_string();
+                                                let msg = json!({ "event": "setImage", "context": ctx_clone, "payload": { "image": composed, "target": 0 }}).to_string();
+                                                let _ = tx_clone.send(msg).await;
+                                            }
+                                        }
+                                    } else {
+                                        // Push fallback if idle
+                                        if let Some(icon_path) = get_plugin_asset_path("static/btn/btn_spotify_144_spot.png") {
+                                            if let Ok(bytes) = std::fs::read(icon_path) {
+                                                use base64::{Engine as _, engine::general_purpose::STANDARD};
+                                                let b64 = STANDARD.encode(&bytes);
+                                                let msg = json!({ "event": "setImage", "context": ctx_clone, "payload": { "image": format!("data:image/png;base64,{}", b64), "target": 0 }}).to_string();
                                                 let _ = tx_clone.send(msg).await;
                                             }
                                         }
@@ -425,12 +465,13 @@ pub async fn start_streamdock_client(port: u16, uuid: String, register_event: St
                                 let smart_shuffle = last["smart_shuffle"].as_bool().unwrap_or(false);
                                 let shuffle_state = last["shuffle_state"].as_bool().unwrap_or(false);
                                 let icon_name = if smart_shuffle { "btn_spotify_144_smart_shuffle.png" } else if shuffle_state { "btn_spotify_144_shuffle.png" } else { "btn_spotify_144_shuffle_off.png" };
-                                let icon_path = std::path::Path::new(std::env::var("APPDATA").unwrap_or_default().as_str()).join("HotSpot").join("StreamDock").join("plugins").join("com.mirabox.streamdock.spotify.sdPlugin").join("static").join("btn").join(icon_name);
-                                if let Ok(bytes) = std::fs::read(icon_path) {
-                                    use base64::{Engine as _, engine::general_purpose::STANDARD};
-                                    let b64 = STANDARD.encode(&bytes);
-                                    let msg = json!({ "event": "setImage", "context": context, "payload": { "image": format!("data:image/png;base64,{}", b64), "target": 0 }}).to_string();
-                                    let _ = tx_ws.send(msg).await;
+                                if let Some(icon_path) = get_plugin_asset_path(&format!("static/btn/{}", icon_name)) {
+                                    if let Ok(bytes) = std::fs::read(icon_path) {
+                                        use base64::{Engine as _, engine::general_purpose::STANDARD};
+                                        let b64 = STANDARD.encode(&bytes);
+                                        let msg = json!({ "event": "setImage", "context": context, "payload": { "image": format!("data:image/png;base64,{}", b64), "target": 0 }}).to_string();
+                                        let _ = tx_ws.send(msg).await;
+                                    }
                                 }
                             } else if action.ends_with("repeat") {
                                 let repeat_state = last["repeat_state"].as_str().unwrap_or("off");
@@ -506,12 +547,25 @@ pub async fn start_streamdock_client(port: u16, uuid: String, register_event: St
                             "volumecontrol" => "volumeup", // Map dial rotation to volumeup logic which handles ticks later?
                             "mute" => "mute",
                             "previousornext" => "skip", // dial rotation determines if next/prev
+                            
+                            // Discord actions
+                            "toggleMute" => "toggleMute",
+                            "toggleDeafen" => "toggleDeafen",
+                            "toggleCamera" => "toggleCamera",
+                            "joinVoiceChannel" => "joinVoiceChannel",
+                            "playSoundboardSound" => "playSoundboardSound",
+                            "toggleScreenshare" => "toggleScreenshare",
                             _ => ""
                         };
 
                         if !endpoint.is_empty() {
-                            let _ = spotify.handle_command(endpoint, Some(value.clone())).await;
+                            if action.contains("discord") {
+                                let _ = discord.handle_command(endpoint, Some(value.clone())).await;
+                            } else {
+                                let _ = spotify.handle_command(endpoint, Some(value.clone())).await;
+                            }
                         }
+
                     }
                 } else {
                     println!("Failed to parse StreamDock JSON: {}", text_str);
@@ -913,4 +967,25 @@ fn compose_toptrack_image(cover_bytes: &[u8], track_name: &str) -> String {
     let mut png_bytes: Vec<u8> = Vec::new();
     let _ = rgb.write_to(&mut std::io::Cursor::new(&mut png_bytes), image::ImageFormat::Png);
     format!("data:image/png;base64,{}", STANDARD.encode(&png_bytes))
+}
+
+/// Helper to discovery MiraBox/Ajazz plugin asset paths across common variations
+fn get_plugin_asset_path(relative_path: &str) -> Option<std::path::PathBuf> {
+    let appdata = std::env::var("APPDATA").unwrap_or_default();
+    let base = std::path::Path::new(&appdata);
+    
+    // Check known variations of the MiraBox / Ajazz plugin directories
+    let variations = vec![
+        base.join("HotSpot").join("StreamDock").join("plugins"),
+        base.join("Ajazz").join("StreamDock").join("plugins"),
+        base.join("StreamDock").join("plugins"),
+    ];
+
+    for v in variations {
+        let p = v.join("com.mirabox.streamdock.spotify.sdPlugin").join(relative_path);
+        if p.exists() {
+            return Some(p);
+        }
+    }
+    None
 }

@@ -8,14 +8,19 @@ use crate::storage;
 use crate::events::WsSender;
 use crate::sd_commands::StreamDeckCommand;
 use crate::spotify::SpotifyService;
+use crate::discord::DiscordService;
 
-pub async fn start_ws_server(sender: WsSender, spotify_service: Arc<SpotifyService>) {
+
+pub async fn start_ws_server(sender: WsSender, spotify_service: Arc<SpotifyService>, discord_service: Arc<DiscordService>) {
+
     let addr = "127.0.0.1:40509".parse::<SocketAddr>().expect("Invalid address");
     if let Ok(listener) = TcpListener::bind(&addr).await {
         while let Ok((stream, _)) = listener.accept().await {
             let sender_clone = WsSender(sender.0.clone());
             let spotify_clone = spotify_service.clone();
+            let discord_clone = discord_service.clone();
             tokio::spawn(async move {
+
                 // Peek for HTTP GET
                 let mut buffer = [0; 1024];
                 if stream.peek(&mut buffer).await.is_ok() {
@@ -41,22 +46,36 @@ pub async fn start_ws_server(sender: WsSender, spotify_service: Arc<SpotifyServi
                         }
                     }
                 }
-                handle_connection(stream, sender_clone, spotify_clone).await;
+                handle_connection(stream, sender_clone, spotify_clone, discord_clone).await;
             });
+
         }
     }
 }
 
-async fn handle_connection(stream: TcpStream, sender: WsSender, spotify: Arc<SpotifyService>) {
+async fn handle_connection(stream: TcpStream, sender: WsSender, spotify: Arc<SpotifyService>, discord: Arc<DiscordService>) {
+
     if let Ok(mut ws_stream) = accept_async(stream).await {
         println!("Client connected to WebSocket server");
         
-        let data = storage::load_data_from_path(storage::get_data_path_from_env());
+        // Load persistent data to push initial state
+        let data_path = storage::get_data_path_from_env();
+        let data = storage::load_data_from_path(data_path);
+        
+        // Push initial state immediately
         let initial_state = json!({
             "type": "AUTO_ACCEPT_STATE",
             "enabled": data.auto_accept
         });
         let _ = ws_stream.send(tokio_tungstenite::tungstenite::Message::Text(initial_state.to_string().into())).await;
+
+        // Push heartbeat immediately (v1.0.8)
+        let heartbeat = json!({
+            "type": "HEARTBEAT_STATUS",
+            "server": true,
+            "lol": crate::lcu::is_lcu_connected()
+        });
+        let _ = ws_stream.send(tokio_tungstenite::tungstenite::Message::Text(heartbeat.to_string().into())).await;
 
         if let Some(last_rank) = data.other.get("last_rank") {
             let _ = ws_stream.send(tokio_tungstenite::tungstenite::Message::Text(last_rank.to_string().into())).await;
@@ -97,15 +116,24 @@ async fn handle_connection(stream: TcpStream, sender: WsSender, spotify: Arc<Spo
                                         continue;
                                     }
 
+                                    if value["type"] == "DISCORD_COMMAND" {
+                                        if let Some(endpoint) = value["endpoint"].as_str() {
+                                            let _ = discord.handle_command(endpoint, Some(value.clone())).await;
+                                        }
+                                        continue;
+                                    }
+
                                     if value["type"] == "REGISTER_STREAMDOCK" {
                                         if let (Some(p), Some(u), Some(r)) = (value["port"].as_u64(), value["uuid"].as_str(), value["register_event"].as_str()) {
                                             println!("WebSocket: Handover REQUEST received for StreamDock context {} on port {}", u, p);
                                             let s_clone = spotify.clone();
+                                            let d_clone = discord.clone();
                                             let uuid_str = u.to_string();
                                             let reg_str = r.to_string();
                                             tokio::spawn(async move {
-                                                crate::streamdock::start_streamdock_client(p as u16, uuid_str, reg_str, s_clone).await;
+                                                crate::streamdock::start_streamdock_client(p as u16, uuid_str, reg_str, s_clone, d_clone).await;
                                             });
+
                                             
                                             let response_json = json!({
                                                 "type": "COMMAND_ACK",
