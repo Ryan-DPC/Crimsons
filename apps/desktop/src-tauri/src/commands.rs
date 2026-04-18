@@ -1,5 +1,6 @@
 use tauri::Manager;
 use lcu_commands::storage;
+use std::os::windows::process::CommandExt;
 
 #[tauri::command]
 pub fn crimson_quit_app(app: tauri::AppHandle) {
@@ -87,7 +88,6 @@ pub async fn crimson_restart_server(app: tauri::AppHandle) -> Result<(), String>
 }
 
 pub async fn crimson_spawn_server(handle: tauri::AppHandle) {
-    use std::os::windows::process::CommandExt;
     let path_resolver = handle.path();
     let mut log_lines = Vec::new();
 
@@ -124,11 +124,10 @@ pub async fn crimson_spawn_server(handle: tauri::AppHandle) {
             use tauri_plugin_shell::ShellExt;
             for variant in &["bin/crimson-server", "crimson-server"] {
                 if let Ok(sidecar) = handle.shell().sidecar(*variant) {
-                    if let Ok(child) = sidecar.spawn() {
+                    if let Ok(_child) = sidecar.spawn() {
                         log_lines.push(format!("SUCCESS: Native Sidecar [{}] spawned.", variant));
                         // Note: sidecar.spawn() returns a different child type, 
                         // but we don't necessarily need to store it if it's managed by tauri
-                        spawn_success = true;
                         break;
                     }
                 }

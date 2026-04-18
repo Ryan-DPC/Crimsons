@@ -135,8 +135,6 @@ pub fn run() {
           crate::commands::crimson_spawn_server(handle_c).await;
       });
       
-      app.manage(SidecarChild(sidecar_child));
-
       if cfg!(debug_assertions) {
         app.handle().plugin(
           tauri_plugin_log::Builder::default()
