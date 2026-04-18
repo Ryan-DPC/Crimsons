@@ -3,8 +3,8 @@ import { useLCU } from '../../contexts/LCUContext';
 import { invoke } from '@tauri-apps/api/core';
 import { getVersion } from '@tauri-apps/api/app';
 import { 
-    Settings as SettingsIcon, Shield, Bell, Eye, Cpu, Check, 
-    Loader2, RefreshCw, Download, Zap, Music, Power, 
+    Settings as SettingsIcon, Shield, Cpu, Check, 
+    Loader2, RefreshCw, Zap, Power, 
     AlertCircle, Activity, Layout, Terminal
 } from 'lucide-react';
 
@@ -33,8 +33,8 @@ const SettingsTab = () => {
     const { 
         appData, updateGeminiKey, updateSetting,
         updateStatus, updateProgress, availableVersion, 
-        checkUpdates, installUpdate, serverConnected, spotifyConnected, 
-        spotifyState, loginSpotify, discordConnected, discordState
+        checkUpdates, installUpdate, serverConnected, 
+        discordConnected, discordState
     } = useLCU();
     
     const [activeTab, setActiveTab] =useState<'app' | 'server'>('app');
@@ -43,9 +43,6 @@ const SettingsTab = () => {
     const [isEditingKey, setIsEditingKey] = useState(!appData?.geminiApiKey);
     const [currentVersion, setCurrentVersion] = useState<string>('0.0.0');
     const [isRestarting, setIsRestarting] = useState(false);
-
-    const [spotifyClientId, setSpotifyClientId] = useState(appData?.spotifyClientId || '');
-    const [spotifyClientSecret, setSpotifyClientSecret] = useState(appData?.spotifyClientSecret || '');
 
     useEffect(() => {
         getVersion().then(setCurrentVersion).catch(console.error);
