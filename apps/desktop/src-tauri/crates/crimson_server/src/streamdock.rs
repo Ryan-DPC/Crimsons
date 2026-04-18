@@ -348,7 +348,7 @@ pub async fn start_streamdock_client(port: u16, uuid: String, register_event: St
         tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
     }
 }
-}
+
 
 pub async fn start_mirabox_auth_server(spotify: Arc<SpotifyService>, tx_ws: Option<tokio::sync::mpsc::Sender<String>>, streamdock_uuid: Option<String>) {
     use tokio::net::TcpListener;
