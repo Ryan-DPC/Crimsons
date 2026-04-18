@@ -34,6 +34,10 @@ impl DiscordService {
         self.sender.0.subscribe()
     }
 
+    pub async fn is_connected(&self) -> bool {
+        self.state.read().await.connected
+    }
+
     pub async fn start_background_polling(&self) {
         let state_clone = self.state.clone();
         let sender_clone = self.sender.clone();

@@ -95,6 +95,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let discord_service = Arc::new(discord::DiscordService::new(sender.clone()));
     discord_service.start_background_polling().await;
 
+    // Start Heartbeat Service (Broadcasts 5s server/lcu/discord status)
+    let hb_sender = sender.clone();
+    let hb_discord = discord_service.clone();
+    tokio::spawn(async move {
+        loop {
+            let hb = json!({
+                "type": "HEARTBEAT_STATUS",
+                "server": true,
+                "lol": lcu::is_lcu_connected(),
+                "discord": hb_discord.is_connected().await
+            }).to_string();
+            let _ = hb_sender.0.send(hb);
+            tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+        }
+    });
+
 
     // If we were ALSO started with StreamDock flags, start the bridge too
     if is_streamdock_plugin {

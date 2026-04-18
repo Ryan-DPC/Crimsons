@@ -419,10 +419,8 @@ export const LCUProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     // --- EFFECTS ---
-    useEffect(() => {
-        loadStatic();
-        const i = setInterval(fastPoll, 2000);
-
+    // --- WS CONNECTION ---
+    const connectWs = () => {
         const ws = new WebSocket('ws://127.0.0.1:40509');
         ws.onmessage = async (event) => {
             const msg = JSON.parse(event.data);
@@ -470,10 +468,8 @@ export const LCUProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 d.autoAccept = !d.autoAccept;
                 await invoke('set_app_data', { data: d });
                 setAppData(d);
-                // Echo the new state back
                 wsRef.current?.send(JSON.stringify({ type: 'AUTO_ACCEPT_STATE', enabled: d.autoAccept }));
             } else if (msg.type === 'TOGGLE_AUTO_BAN') {
-                // No champion id from streamdock — toggle off if active
                 const d = await invoke<any>('get_app_data');
                 d.autoBan = d.autoBan ? null : (d.rememberedAutoBan || null);
                 await invoke('set_app_data', { data: d });
@@ -505,12 +501,19 @@ export const LCUProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         };
 
         wsRef.current = ws;
-
         ws.onopen = () => setServerConnected(true);
         ws.onclose = () => {
             setServerConnected(false);
             setLolConnected(false);
+            setDiscordConnected(false);
+            setTimeout(connectWs, 3000);
         };
+    };
+
+    useEffect(() => {
+        loadStatic();
+        const i = setInterval(fastPoll, 2000);
+        connectWs();
 
         const timerInterval = setInterval(() => {
             setLobbyState((prev: any) => {
@@ -526,7 +529,7 @@ export const LCUProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return () => {
             clearInterval(i);
             clearInterval(timerInterval);
-            ws.close();
+            wsRef.current?.close();
         };
     }, []);
 
