@@ -244,12 +244,6 @@ pub async fn start_streamdock_client(port: u16, uuid: String, register_event: St
                 println!("Connected to StreamDock!");
                 let (mut write, mut read) = ws_stream.split();
                 
-                // Forward channel messages to WebSocket
-                let (tx_kill, mut rx_kill) = tokio::sync::mpsc::channel::<()>(1);
-                let mut rx_ws = tx_ws.subscribe_local(); // Helper required for broadcast or similar?
-                // Actually, rx_ws_master is the only consumer. 
-                // But we need to handle it inside the connection.
-                
                 // Let's use a simpler approach: a bridge loop that survives as long as the connection
                 let register_msg = json!({ "event": register_event, "uuid": uuid }).to_string();
                 let _ = write.send(Message::Text(register_msg.into())).await;
