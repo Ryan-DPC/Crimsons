@@ -29,6 +29,7 @@ imageproc = "0.25"
 ab_glyph = "0.2"
 sysinfo = "0.30"
 discord-presence = "0.5"
+uuid = { version = "1", features = ["v4"] }
 
 
 [build-dependencies]

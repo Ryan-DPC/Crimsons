@@ -41,13 +41,11 @@ impl DiscordService {
 
         tokio::spawn(async move {
             loop {
-                let mut connected = false;
                 if let Ok(mut pipe) = Self::connect_to_ipc().await {
                     println!("Connected to Discord IPC!");
                     
                     // Handshake
                     if Self::send_handshake(&mut pipe, &client_id).await.is_ok() {
-                        connected = true;
                         {
                             let mut s = state_clone.write().await;
                             s.connected = true;
@@ -122,7 +120,7 @@ impl DiscordService {
                 Self::send_command(&mut pipe, "SET_VOICE_SETTINGS", json!({ "video_enabled": !current_camera })).await?;
             }
             "joinVoiceChannel" => {
-                if let Some(channel_id) = params.and_then(|p| p["payload"]["settings"]["channelId"].as_str().or(p["channelId"].as_str())) {
+                if let Some(channel_id) = params.as_ref().and_then(|p| p["payload"]["settings"]["channelId"].as_str().or(p["channelId"].as_str())) {
                     let current_chan = self.state.read().await.current_channel_id.clone();
                     let target = if current_chan.as_deref() == Some(channel_id) { None } else { Some(channel_id) };
                     Self::send_command(&mut pipe, "SELECT_VOICE_CHANNEL", json!({ "channel_id": target, "force": true })).await?;
