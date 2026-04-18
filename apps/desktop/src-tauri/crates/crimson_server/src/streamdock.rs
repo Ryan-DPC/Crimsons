@@ -263,20 +263,38 @@ pub async fn start_streamdock_client(port: u16, uuid: String, register_event: St
                         Some(msg) = read.next() => {
                             match msg {
                                 Ok(Message::Text(text)) => {
-                                    if let Ok(value) = serde_json::from_str::<serde_json::Value>(&text.to_string()) {
+                                    let text_str = text.to_string();
+                                    if let Ok(value) = serde_json::from_str::<serde_json::Value>(&text_str) {
                                         let event = value["event"].as_str().unwrap_or("");
                                         let action = value["action"].as_str().unwrap_or("");
                                         let context = value["context"].as_str().unwrap_or("");
                                         
+                                        // 1. Logging for diagnostics
+                                        let log_path = std::path::Path::new(std::env::var("APPDATA").unwrap_or_default().as_str()).join("Crimson").join("streamdock.log");
+                                        use std::io::Write;
+                                        if let Ok(mut log_file) = std::fs::OpenOptions::new().create(true).append(true).open(log_path) {
+                                            let _ = writeln!(log_file, "[WS IN] Event: {} Action: {} Payload: {}", event, action, text_str);
+                                        }
+
                                         if event == "willAppear" || event == "didReceiveSettings" {
-                                            // 1. REGISTRATION
+                                            // 2. REGISTRATION
                                             if action.ends_with("playpause") || action.ends_with("likesong") || action.ends_with("shuffle") || action.ends_with("repeat")
                                                 || action.ends_with("info_title") || action.ends_with("info_artist") || action.ends_with("info_progress") || action.ends_with("info_toptrack")
                                                 || action.contains("discord.") || action.contains("mirabox.spotify") {
                                                 contexts_wa.lock().await.insert(context.to_string(), action.to_string());
                                             }
 
-                                            // 2. IMMEDIATE PUSH
+                                            // 3. AGGRESSIVE HIJACK (For MiraBox plugins)
+                                            if action.contains("mirabox.spotify") || action.contains("mirabox.streamdock.spotify") {
+                                                let auth_bypass_msg = json!({
+                                                    "event": "setGlobalSettings",
+                                                    "context": context,
+                                                    "payload": { "access_token": "crimson_hijacked_token" }
+                                                });
+                                                let _ = tx_internal.send(auth_bypass_msg.to_string()).await;
+                                            }
+
+                                            // 4. IMMEDIATE STATE PUSH
                                             if let Some(last) = last_state_cache_wa.lock().await.as_ref() {
                                                 let alb_url = last["album_art"].as_str().unwrap_or("");
                                                 if action.ends_with("playpause") && !alb_url.is_empty() {
@@ -305,23 +323,42 @@ pub async fn start_streamdock_client(port: u16, uuid: String, register_event: St
                                             }
                                         } else if event == "willDisappear" {
                                             contexts_wa.lock().await.remove(context);
+                                        } else if event == "propertyInspectorDidAppear" || (event == "sendToPlugin" && value["payload"]["type"] == "refresh") {
+                                            // 5. PROPERTY INSPECTOR SUPPORT
+                                            let s_clone = spotify_wa.clone();
+                                            let tx_c = tx_internal.clone();
+                                            let ctx_c = context.to_string();
+                                            tokio::spawn(async move {
+                                                let playlists = s_clone.get_user_playlists().await.unwrap_or_default();
+                                                let devices = s_clone.get_user_devices().await.unwrap_or_default();
+                                                let p_msg = json!({
+                                                    "event": "sendToPropertyInspector",
+                                                    "context": ctx_c,
+                                                    "payload": { "playlists": playlists, "devices": devices }
+                                                });
+                                                let _ = tx_c.send(p_msg.to_string()).await;
+                                            });
                                         }
 
-                                        // Map Inputs
+                                        // 6. COMMAND MAPPING
                                         if event == "keyUp" || event == "dialRotate" || event == "dialDown" {
                                             let base = action.split('.').last().unwrap_or("");
                                             let ep = match base {
                                                 "playpause" | "playPause" => "playpause",
                                                 "previous" => "previous",
                                                 "next" => "next",
-                                                "likesong" | "likeSong" => "like",
+                                                "likesong" | "likeSong" | "heart" => "like",
                                                 "shuffle" => "shuffle",
-                                                "repeat" => "repeat",
+                                                "repeat" | "repeatMode" => "repeat",
+                                                "changedevice" | "switch-device" => "switch-device",
+                                                "volumeup" | "volumeUp" => "volumeup",
+                                                "volumedown" | "volumeDown" => "volumedown",
+                                                "mute" => "mute",
                                                 _ => ""
                                             };
                                             if !ep.is_empty() {
                                                 if action.contains("discord") { let _ = discord.handle_command(ep, Some(value.clone())).await; }
-                                                else { let _ = spotify.handle_command(ep, Some(value.clone())).await; }
+                                                else { let _ = spotify_wa.handle_command(ep, Some(value.clone())).await; }
                                             }
                                         }
                                     }
