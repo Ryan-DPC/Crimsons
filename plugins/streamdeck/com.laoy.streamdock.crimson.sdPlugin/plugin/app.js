@@ -8,19 +8,6 @@ const actionContexts = {
     "com.laoy.streamdock.crimson.inject": [],
     "com.laoy.streamdock.crimson.infoboard": [],
     "com.laoy.streamdock.crimson.infoboard_lol": [],
-    "com.laoy.streamdock.crimson.spotify.play": [],
-    "com.laoy.streamdock.crimson.spotify.next": [],
-    "com.laoy.streamdock.crimson.spotify.prev": [],
-    "com.laoy.streamdock.crimson.spotify.display": [],
-    "com.laoy.streamdock.crimson.spotify.vol_up": [],
-    "com.laoy.streamdock.crimson.spotify.vol_down": [],
-    "com.laoy.streamdock.crimson.spotify.shuffle": [],
-    "com.laoy.streamdock.crimson.spotify.repeat": [],
-    "com.laoy.streamdock.crimson.spotify.add_playlist": [],
-    "com.laoy.streamdock.crimson.spotify.likesong": [],
-    "com.laoy.streamdock.crimson.spotify.changedevice": [],
-    "com.laoy.streamdock.crimson.spotify.volume_dial": [],
-    "com.laoy.streamdock.crimson.spotify.skip_dial": []
 };
 
 let gameState = {
@@ -34,18 +21,6 @@ let gameState = {
     serverConnected: false,
     lolConnected: false,
     runesData: null,
-    spotify: {
-        trackName: "",
-        artistName: "",
-        isPlaying: false,
-        hasToken: false,
-        volume: 50,
-        shuffle: false,
-        repeat: "off",
-        trackUri: "",
-        trackId: "",
-        isLiked: false
-    }
 };
 
 let injectContextIndexes = {};
@@ -127,21 +102,7 @@ api.onMessage = (data) => {
                 refreshAllDisplays();
             }
             break;
-        case 'SPOTIFY_STATE':
-            gameState.spotify.trackName = data.data.track_name;
-            gameState.spotify.artistName = data.data.artist_name;
-            gameState.spotify.isPlaying = data.data.is_playing;
-            gameState.spotify.hasToken = data.data.has_token;
-            gameState.spotify.volume = data.data.volume_percent;
-            gameState.spotify.shuffle = data.data.shuffle_state;
-            gameState.spotify.repeat = data.data.repeat_state;
-            gameState.spotify.trackUri = data.data.track_uri;
-            gameState.spotify.trackId = data.data.track_id;
-            gameState.spotify.isLiked = data.data.is_liked;
 
-            updateContexts("com.laoy.streamdock.crimson.spotify.likesong", data.data.is_liked ? 1 : 0);
-            refreshAllDisplays();
-            break;
     }
 };
 
@@ -220,32 +181,7 @@ function updateDisplayLogic(context, action, controller = "Keypad") {
         case "com.laoy.streamdock.crimson.infoboard_lol":
             title = gameState.lolConnected ? "CONNECTED" : "WAITING";
             break;
-        case "com.laoy.streamdock.crimson.spotify.display":
-            if (gameState.spotify.hasToken) {
-                title = `${gameState.spotify.trackName}\n${gameState.spotify.artistName}`;
-            } else {
-                title = "NO TOKEN";
-            }
-            break;
-        case "com.laoy.streamdock.crimson.spotify.vol_up":
-        case "com.laoy.streamdock.crimson.spotify.vol_down":
-            title = `${gameState.spotify.volume}%`;
-            break;
-        case "com.laoy.streamdock.crimson.spotify.shuffle":
-            title = gameState.spotify.shuffle ? "ON" : "OFF";
-            break;
-        case "com.laoy.streamdock.crimson.spotify.repeat":
-            title = gameState.spotify.repeat.toUpperCase();
-            break;
-        case "com.laoy.streamdock.crimson.spotify.changedevice":
-            title = "DEVICE";
-            break;
-        case "com.laoy.streamdock.crimson.spotify.volume_dial":
-            title = `VOL: ${gameState.spotify.volume}%`;
-            break;
-        case "com.laoy.streamdock.crimson.spotify.skip_dial":
-            title = `${gameState.spotify.trackName}`;
-            break;
+
     }
     
     ui.setTitle(context, title);
@@ -318,6 +254,11 @@ window.connectElgatoStreamDeckSocket = function(inPort, inPluginUUID, inRegister
             handleActionClick(action, context);
         }
 
+
+        if (event === "keyDown" || event === "dialPress") {
+            handleActionClick(action, context);
+        }
+
         if (event === "dialRotate") {
             const ticks = jsonObj['payload']['ticks'];
             handleDialRotate(action, ticks);
@@ -354,63 +295,12 @@ function handleActionClick(action, context) {
             break;
         case "com.laoy.streamdock.crimson.infoboard":
         case "com.laoy.streamdock.crimson.infoboard_lol":
-            // Optional: clicking Info Board could attempt a manual reconnect
             if (!gameState.serverConnected) api.connect();
-            break;
-        case "com.laoy.streamdock.crimson.spotify.play":
-            api.send({ type: 'SPOTIFY_COMMAND', endpoint: gameState.spotify.isPlaying ? 'pause' : 'play' });
-            break;
-        case "com.laoy.streamdock.crimson.spotify.next":
-            api.send({ type: 'SPOTIFY_COMMAND', endpoint: 'next' });
-            break;
-        case "com.laoy.streamdock.crimson.spotify.prev":
-            api.send({ type: 'SPOTIFY_COMMAND', endpoint: 'previous' });
-            break;
-        case "com.laoy.streamdock.crimson.spotify.vol_up":
-            api.send({ type: 'SPOTIFY_COMMAND', endpoint: 'volume', volume_percent: Math.min(100, gameState.spotify.volume + 10) });
-            break;
-        case "com.laoy.streamdock.crimson.spotify.vol_down":
-            api.send({ type: 'SPOTIFY_COMMAND', endpoint: 'volume', volume_percent: Math.max(0, gameState.spotify.volume - 10) });
-            break;
-        case "com.laoy.streamdock.crimson.spotify.shuffle":
-            api.send({ type: 'SPOTIFY_COMMAND', endpoint: 'shuffle', state: !gameState.spotify.shuffle });
-            break;
-        case "com.laoy.streamdock.crimson.spotify.repeat":
-            const modes = ["off", "context", "track"];
-            const nextMode = modes[(modes.indexOf(gameState.spotify.repeat) + 1) % modes.length];
-            api.send({ type: 'SPOTIFY_COMMAND', endpoint: 'repeat', state: nextMode });
-            break;
-        case "com.laoy.streamdock.crimson.spotify.add_playlist":
-            // Prompt user for playlist ID if we don't have one, or use a default
-            const favPlaylistId = "YOUR_PLAYLIST_ID"; // User should replace this or we fetch it
-            api.send({ type: 'SPOTIFY_COMMAND', endpoint: 'add-to-playlist', playlist_id: favPlaylistId, track_uri: gameState.spotify.trackUri });
-            break;
-        case "com.laoy.streamdock.crimson.spotify.likesong":
-            api.send({ type: 'SPOTIFY_COMMAND', endpoint: gameState.spotify.isLiked ? 'unlike' : 'like', track_id: gameState.spotify.trackId });
-            break;
-        case "com.laoy.streamdock.crimson.spotify.changedevice":
-            api.send({ type: 'SPOTIFY_COMMAND', endpoint: 'switch-device' });
-            break;
-        case "com.laoy.streamdock.crimson.spotify.volume_dial":
-        case "com.laoy.streamdock.crimson.spotify.skip_dial":
-            // Dial press toggles Mute or Play/Pause
-            api.send({ type: 'SPOTIFY_COMMAND', endpoint: 'play' }); // Custom logic can go here
             break;
     }
 }
 
 function handleDialRotate(action, ticks) {
-    switch (action) {
-        case "com.laoy.streamdock.crimson.spotify.volume_dial":
-            const newVol = Math.max(0, Math.min(100, gameState.spotify.volume + (ticks * 5)));
-            api.send({ type: 'SPOTIFY_COMMAND', endpoint: 'volume', volume_percent: newVol });
-            break;
-        case "com.laoy.streamdock.crimson.spotify.skip_dial":
-            if (ticks > 0) {
-                api.send({ type: 'SPOTIFY_COMMAND', endpoint: 'next' });
-            } else {
-                api.send({ type: 'SPOTIFY_COMMAND', endpoint: 'previous' });
-            }
-            break;
-    }
+    // Currently no LoL actions use dial rotation
 }
+

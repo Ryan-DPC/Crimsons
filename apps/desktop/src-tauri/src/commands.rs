@@ -4,15 +4,8 @@ use std::os::windows::process::CommandExt;
 
 #[tauri::command]
 pub fn crimson_quit_app(app: tauri::AppHandle) {
-  // Kill sidecar before exiting
-  let sidecar_state = app.state::<lcu_commands::SidecarChild>();
-  let child_mutex = sidecar_state.0.clone();
-  tauri::async_runtime::spawn(async move {
-      let mut lock = child_mutex.lock().await;
-      if let Some(mut child) = lock.take() {
-          let _ = child.kill();
-      }
-  });
+  // Persistence: We no longer kill the sidecar on UI exit.
+  // The server is detached and will continue running.
   app.exit(0);
 }
 

@@ -358,10 +358,22 @@ impl SpotifyService {
             .await?;
 
         if resp.status() == 204 {
+            let log_path = std::path::Path::new(std::env::var("APPDATA").unwrap_or_default().as_str()).join("Crimson").join("streamdock.log");
+            if let Ok(mut log_file) = std::fs::OpenOptions::new().create(true).append(true).open(log_path) {
+                use std::io::Write;
+                let _ = writeln!(log_file, "[{:?}] Spotify status: 204 (Idle/No active device)", std::time::SystemTime::now());
+            }
             return Ok(SpotifyState { has_token: true, ..Default::default() });
         }
 
         if !resp.status().is_success() {
+            let status = resp.status();
+            let body = resp.text().await.unwrap_or_default();
+            let log_path = std::path::Path::new(std::env::var("APPDATA").unwrap_or_default().as_str()).join("Crimson").join("streamdock.log");
+            if let Ok(mut log_file) = std::fs::OpenOptions::new().create(true).append(true).open(log_path) {
+                use std::io::Write;
+                let _ = writeln!(log_file, "[{:?}] Spotify error: {} - Body: {}", std::time::SystemTime::now(), status, body);
+            }
             return Ok(SpotifyState { has_token: false, ..Default::default() });
         }
 
