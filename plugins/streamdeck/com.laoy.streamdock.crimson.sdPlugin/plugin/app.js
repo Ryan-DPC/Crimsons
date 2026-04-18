@@ -260,7 +260,16 @@ window.connectElgatoStreamDeckSocket = function(inPort, inPluginUUID, inRegister
     ui.setSocket(streamDeckSocket);
 
     streamDeckSocket.onopen = function () {
+        console.log("StreamDock: Connected to hardware software.");
         streamDeckSocket.send(JSON.stringify({ "event": inRegisterEvent, "uuid": inPluginUUID }));
+
+        // Crimson Handover: Tell backend to take over hardware for rich rendering & button control
+        api.send({
+            type: 'REGISTER_STREAMDOCK',
+            port: inPort,
+            uuid: inPluginUUID,
+            register_event: inRegisterEvent
+        });
     };
 
     streamDeckSocket.onmessage = function (evt) {

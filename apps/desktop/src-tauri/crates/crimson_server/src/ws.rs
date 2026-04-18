@@ -73,7 +73,8 @@ async fn handle_connection(stream: TcpStream, sender: WsSender, spotify: Arc<Spo
         let heartbeat = json!({
             "type": "HEARTBEAT_STATUS",
             "server": true,
-            "lol": crate::lcu::is_lcu_connected()
+            "lol": crate::lcu::is_lcu_connected(),
+            "discord": discord.is_connected().await
         });
         let _ = ws_stream.send(tokio_tungstenite::tungstenite::Message::Text(heartbeat.to_string().into())).await;
 
