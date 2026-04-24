@@ -23,16 +23,17 @@ impl Default for AppData {
     }
 }
 
-pub fn get_data_path_from_env() -> PathBuf {
-    if let Ok(appdata) = std::env::var("APPDATA") {
-        let path = PathBuf::from(appdata).join("com.laoy.crimson");
-        if !path.exists() {
-            let _ = fs::create_dir_all(&path);
-        }
-        path.join("data.json")
-    } else {
-        PathBuf::from("./data.json")
+pub fn get_data_dir() -> PathBuf {
+    let appdata = std::env::var("APPDATA").unwrap_or_default();
+    let path = PathBuf::from(appdata).join("Crimson");
+    if !path.exists() {
+        let _ = fs::create_dir_all(&path);
     }
+    path
+}
+
+pub fn get_data_path_from_env() -> PathBuf {
+    get_data_dir().join("data.json")
 }
 
 pub fn load_data_from_path(path: PathBuf) -> AppData {
