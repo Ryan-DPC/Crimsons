@@ -659,29 +659,25 @@ impl SpotifyService {
                 "PUT"
             },
             "volumeup" | "volumedown" | "volumecontrol" => {
-                let current_playback = Self::fetch_current_playback(&token).await.unwrap_or_default();
-                let current_vol = current_playback.volume_percent;
+                let playback = Self::fetch_current_playback(&token).await.unwrap_or_default();
+                let current_vol = playback.volume_percent;
                 
-                // Extremely safe step extraction
                 let mut step = 5;
                 if let Some(p) = params.as_ref() {
                     if let Some(s) = p["payload"]["settings"]["step"].as_u64() {
                         step = s as i32;
                     }
+                    if let Some(ticks) = p["payload"]["ticks"].as_i64() {
+                        step = (ticks as i32) * step;
+                    }
                 }
                 
-                // Handle dial rotation ticks if present
-                if let Some(p) = params.as_ref() {
-                    if let Some(ticks) = p["payload"]["ticks"].as_i64() {
-                        step = (ticks as i32) * (step as i32);
-                    } else if endpoint == "volumedown" {
-                        step = -step;
-                    }
-                } else if endpoint == "volumedown" {
+                if endpoint == "volumedown" && step > 0 {
                     step = -step;
                 }
                 
                 let new_vol = (current_vol as i32 + step).clamp(0, 100) as u32;
+                crate::storage::log_to_file("spotify.log", &format!("Volume CMD: {} ({} -> {}) Step: {} (Params: {:?})", endpoint, current_vol, new_vol, step, params));
                 url = format!("https://api.spotify.com/v1/me/player/volume?volume_percent={}", new_vol);
                 "PUT"
             },

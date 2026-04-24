@@ -251,6 +251,8 @@ pub async fn start_streamdock_client(port: u16, uuid: String, register_event: St
             let mut tick_progress_image: Option<String> = None;
 
             for (ctx, action_name) in &active_ctx {
+                let is_mirabox = action_name.contains("mirabox.spotify");
+                
                 if action_name.ends_with("playpause") || action_name.ends_with(".play") {
                     if compose_key != last_composed_key {
                         if tick_composed_image.is_none() {
@@ -260,6 +262,10 @@ pub async fn start_streamdock_client(port: u16, uuid: String, register_event: St
                         }
                         if let Some(img) = &tick_composed_image {
                             let _ = tx_ws_render.send(json!({ "event": "setImage", "context": ctx, "payload": { "image": img, "target": 0 }}).to_string()).await;
+                            // Clear title for MiraBox to avoid overlap
+                            if is_mirabox {
+                                let _ = tx_ws_render.send(json!({ "event": "setTitle", "context": ctx, "payload": { "title": "", "target": 0 }}).to_string()).await;
+                            }
                         }
                     }
                 } else if action_name.ends_with("info_progress") {
@@ -276,10 +282,22 @@ pub async fn start_streamdock_client(port: u16, uuid: String, register_event: St
                     if let Some(img) = &tick_marquee_image {
                         let _ = tx_ws_render.send(json!({ "event": "setImage", "context": ctx, "payload": { "image": img, "target": 0 }}).to_string()).await;
                     }
-                } else if action_name.ends_with(".shuffle") {
-                    // Update shuffle state icon (0=off, 1=on, 2=smart)
-                    let state = if s.smart_shuffle { 2 } else if s.shuffle_state { 1 } else { 0 };
-                    let _ = tx_ws_render.send(json!({ "event": "setState", "context": ctx, "payload": { "state": state }}).to_string()).await;
+                } else if action_name.ends_with("shuffle") || action_name.ends_with(".shuffle") {
+                    // MiraBox shuffle might not support 3 states via setState, so we use setImage for the icon
+                    let state_idx = if s.smart_shuffle { 2 } else if s.shuffle_state { 1 } else { 0 };
+                    
+                    if is_mirabox {
+                        let icon_name = if s.smart_shuffle { "btn_spotify_144_smart_shuffle.png" } else if s.shuffle_state { "btn_spotify_144_shuffle.png" } else { "btn_spotify_144_shuffle_off.png" };
+                        if let Some(icon_path) = get_plugin_asset_path(&format!("static/btn/{}", icon_name)) {
+                            if let Ok(bytes) = std::fs::read(icon_path) {
+                                use base64::{Engine as _, engine::general_purpose::STANDARD};
+                                let b64 = STANDARD.encode(&bytes);
+                                let _ = tx_ws_render.send(json!({ "event": "setImage", "context": ctx, "payload": { "image": format!("data:image/png;base64,{}", b64), "target": 0 }}).to_string()).await;
+                            }
+                        }
+                    } else {
+                        let _ = tx_ws_render.send(json!({ "event": "setState", "context": ctx, "payload": { "state": state_idx }}).to_string()).await;
+                    }
                 }
             }
             last_composed_key = compose_key;
