@@ -17,13 +17,7 @@ pub fn start_auto_accept_service(sender: WsSender) {
             
             // Always broadcast state (v1.0.8 parity: ensure UI & StreamDock stay synchronized)
             let _ = broadcast_state(&sender);
-
-            // Always broadcast status heartbeat
-            let _ = sender.0.send(json!({
-                "type": "HEARTBEAT_STATUS",
-                "server": true,
-                "lol": lcu::is_lcu_connected()
-            }).to_string());
+            // NOTE: Full heartbeat (with discord field) is broadcast by main.rs every 5s.
         }
     });
 }

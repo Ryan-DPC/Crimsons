@@ -254,11 +254,6 @@ window.connectElgatoStreamDeckSocket = function(inPort, inPluginUUID, inRegister
             handleActionClick(action, context);
         }
 
-
-        if (event === "keyDown" || event === "dialPress") {
-            handleActionClick(action, context);
-        }
-
         if (event === "dialRotate") {
             const ticks = jsonObj['payload']['ticks'];
             handleDialRotate(action, ticks);
@@ -295,7 +290,7 @@ function handleActionClick(action, context) {
             break;
         case "com.laoy.streamdock.crimson.infoboard":
         case "com.laoy.streamdock.crimson.infoboard_lol":
-            if (!gameState.serverConnected) api.connect();
+            if (!api.isConnected) api.forceReconnect();
             break;
     }
 }

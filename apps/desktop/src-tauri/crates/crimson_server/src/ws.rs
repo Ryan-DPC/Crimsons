@@ -13,7 +13,7 @@ use crate::discord::DiscordService;
 
 pub async fn start_ws_server(sender: WsSender, spotify_service: Arc<SpotifyService>, discord_service: Arc<DiscordService>) {
 
-    let addr = "127.0.0.1:40509".parse::<SocketAddr>().expect("Invalid address");
+    let addr = "127.0.0.1:40510".parse::<SocketAddr>().expect("Invalid address");
     if let Ok(listener) = TcpListener::bind(&addr).await {
         while let Ok((stream, _)) = listener.accept().await {
             let sender_clone = WsSender(sender.0.clone());
@@ -58,6 +58,7 @@ async fn handle_connection(stream: TcpStream, sender: WsSender, spotify: Arc<Spo
     if let Ok(mut ws_stream) = accept_async(stream).await {
         println!("Client connected to WebSocket server");
         
+        let (ws_stream_sender, mut ws_stream_receiver) = tokio::sync::mpsc::channel::<String>(100);
         // Load persistent data to push initial state
         let data_path = storage::get_data_path_from_env();
         let data = storage::load_data_from_path(data_path);
@@ -86,6 +87,14 @@ async fn handle_connection(stream: TcpStream, sender: WsSender, spotify: Arc<Spo
 
         loop {
             tokio::select! {
+                // Outgoing messages to this client
+                out_msg = ws_stream_receiver.recv() => {
+                    if let Some(text) = out_msg {
+                        let _ = ws_stream.send(tokio_tungstenite::tungstenite::Message::Text(text.into())).await;
+                    } else {
+                        break;
+                    }
+                }
                 msg = ws_stream.next() => {
                     match msg {
                         Some(Ok(msg)) => {
@@ -93,6 +102,15 @@ async fn handle_connection(stream: TcpStream, sender: WsSender, spotify: Arc<Spo
                                 if text.trim().is_empty() { continue; }
                                 // Parse Command and Dispatch
                                 if let Ok(value) = serde_json::from_str::<serde_json::Value>(&text) {
+                                    // 1. Log incoming command for diagnostics
+                                    let log_path = crate::storage::get_data_dir().join("streamdock.log");
+                                    if let Ok(mut log_file) = std::fs::OpenOptions::new().create(true).append(true).open(log_path) {
+                                        use std::io::Write;
+                                        let evt_name = value["event"].as_str().unwrap_or("N/A");
+                                        let type_name = value["type"].as_str().unwrap_or("N/A");
+                                        let _ = writeln!(log_file, "[SD IN] Event: {} Type: {} Payload: {}", evt_name, type_name, text);
+                                    }
+
                                     if value["type"] == "UPDATE_RESOURCE_MODE" {
                                         if let Some(low) = value["low_resource"].as_bool() {
                                             crate::state::set_low_resource_mode(low);
@@ -124,8 +142,52 @@ async fn handle_connection(stream: TcpStream, sender: WsSender, spotify: Arc<Spo
                                         continue;
                                     }
 
+                                    if value["type"] == "REGISTER_STREAMDOCK_BRIDGE" {
+                                        let port_id = value["port"].as_u64()
+                                            .or_else(|| value["port"].as_str().and_then(|s| s.parse::<u64>().ok()));
+
+                                        if let (Some(p), Some(u)) = (port_id, value["uuid"].as_str()) {
+                                            println!("WebSocket: Proxy BRIDGE registered for UUID {} on port {}", u, p);
+                                            let s_clone = spotify.clone();
+                                            let d_clone = discord.clone();
+                                            let uuid_str = u.to_string();
+                                            let sender_clone = ws_stream_sender.clone();
+                                            let contexts = std::sync::Arc::new(tokio::sync::Mutex::new(std::collections::HashMap::new()));
+                                            let pi_contexts = std::sync::Arc::new(tokio::sync::Mutex::new(std::collections::HashSet::new()));
+                                            let last_state_cache = std::sync::Arc::new(tokio::sync::Mutex::new(None));
+                                            let bridge_data = crate::streamdock::HardwareBridge {
+                                                tx: sender_clone.clone(),
+                                                contexts: contexts.clone(),
+                                                last_state_cache: last_state_cache.clone(),
+                                                pi_contexts: pi_contexts.clone(),
+                                            };
+                                            crate::streamdock::ACTIVE_BRIDGES.insert(uuid_str.clone(), bridge_data);
+                                            
+                                            // IMMEDIATE SYNC: Push credentials and playlists as soon as the bridge connects
+                                            let sync_val = json!({ "event": "registerPropertyInspector", "uuid": &uuid_str });
+                                            crate::streamdock::process_streamdeck_event(sync_val, s_clone.clone(), d_clone.clone(), sender_clone.clone(), contexts.clone(), pi_contexts.clone(), last_state_cache.clone()).await;
+
+                                            while let Some(msg_res) = ws_stream.next().await {
+                                                match msg_res {
+                                                    Ok(tokio_tungstenite::tungstenite::Message::Text(text)) => {
+                                                        if let Ok(val) = serde_json::from_str::<serde_json::Value>(&text) {
+                                                            crate::streamdock::process_streamdeck_event(val, s_clone.clone(), d_clone.clone(), sender_clone.clone(), contexts.clone(), pi_contexts.clone(), last_state_cache.clone()).await;
+                                                        }
+                                                    }
+                                                    _ => break,
+                                                }
+                                            }
+                                            crate::streamdock::ACTIVE_BRIDGES.remove(&uuid_str);
+                                            println!("WebSocket: Proxy BRIDGE disconnected for UUID {}", uuid_str);
+                                            break;
+                                        }
+                                    }
+
                                     if value["type"] == "REGISTER_STREAMDOCK" {
-                                        if let (Some(p), Some(u), Some(r)) = (value["port"].as_u64(), value["uuid"].as_str(), value["register_event"].as_str()) {
+                                        let port_opt = value["port"].as_u64()
+                                            .or_else(|| value["port"].as_str().and_then(|s| s.parse::<u64>().ok()));
+
+                                        if let (Some(p), Some(u), Some(r)) = (port_opt, value["uuid"].as_str(), value["register_event"].as_str()) {
                                             println!("WebSocket: Handover REQUEST received for StreamDock context {} on port {}", u, p);
                                             let s_clone = spotify.clone();
                                             let d_clone = discord.clone();
@@ -170,6 +232,12 @@ async fn handle_connection(stream: TcpStream, sender: WsSender, spotify: Arc<Spo
                                         let _ = ws_stream.send(tokio_tungstenite::tungstenite::Message::Text(response_json.to_string().into())).await;
                                     }
                                 } else {
+                                    // Fallback: Log unknown JSON structure
+                                    let log_path = crate::storage::get_data_dir().join("streamdock.log");
+                                    if let Ok(mut log_file) = std::fs::OpenOptions::new().create(true).append(true).open(log_path) {
+                                        use std::io::Write;
+                                        let _ = writeln!(log_file, "[PRIMARY WS UNKNOWN] Payload: {}", text);
+                                    }
                                     println!("Failed to parse command from Client: {}", text);
                                 }
                             }

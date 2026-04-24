@@ -3,64 +3,106 @@ use tokio_tungstenite::connect_async;
 use tokio_tungstenite::tungstenite::protocol::Message;
 use serde_json::json;
 use std::time::Duration;
-use tokio::time::{sleep, timeout};
+use tokio::time::sleep;
 
 pub async fn start_proxy_bridge(sd_port: u16, sd_uuid: String, sd_reg_evt: String) {
-    let backend_url = "ws://127.0.0.1:40509";
+    let backend_url = "ws://127.0.0.1:40510";
+    let hardware_url = format!("ws://127.0.0.1:{}", sd_port);
     let current_pid = std::process::id();
-    println!("[PID {}] Handover: Connecting to Primary Server at {}...", current_pid, backend_url);
+    
+    println!("[PID {}] Bridge: Establishing connection between Hardware ({}) and Primary Backend ({})", current_pid, hardware_url, backend_url);
 
-    // Initial connection with retries (primary might still be starting)
-    let mut backend_ws = None;
-    for attempt in 1..=5 {
-        match connect_async(backend_url).await {
-            Ok((s, _)) => {
-                backend_ws = Some(s);
-                break;
-            }
-            Err(e) => {
-                if attempt == 5 {
-                    eprintln!("[PID {}] Handover: Failed after 5 attempts: {}. Primary server unreachable.", current_pid, e);
-                    return;
-                }
-                println!("[PID {}] Handover: Connection attempt {} failed, retrying in 1s...", current_pid, attempt);
-                sleep(Duration::from_secs(1)).await;
-            }
+    loop {
+        // 1. Connect to Hardware
+        let hardware_res = connect_async(&hardware_url).await;
+        if let Err(e) = hardware_res {
+            eprintln!("[PID {}] Bridge: Failed to connect to Hardware: {}. Retrying in 2s...", current_pid, e);
+            sleep(Duration::from_secs(2)).await;
+            continue;
         }
-    }
+        let (mut hw_write, mut hw_read) = hardware_res.unwrap().0.split();
 
-    let mut backend_ws = backend_ws.unwrap();
-    println!("[PID {}] Handover: Connected. Sending registration context...", current_pid);
+        // 2. Connect to Backend
+        let backend_res = connect_async(backend_url).await;
+        if let Err(e) = backend_res {
+            eprintln!("[PID {}] Bridge: Failed to connect to Primary Backend: {}. Retrying in 2s...", current_pid, e);
+            sleep(Duration::from_secs(2)).await;
+            continue;
+        }
+        let (mut be_write, mut be_read) = backend_res.unwrap().0.split();
 
-    // Perform handover with a strict 10s timeout to prevent zombie processes
-    let handover_future = async {
-        // Send the registration info to the primary server
+        println!("[PID {}] Bridge: PLUGGED IN. Performing initial registration...", current_pid);
+
+        // 3. Perform Initial Hardware Registration
         let reg_msg = json!({
-            "type": "REGISTER_STREAMDOCK",
-            "port": sd_port,
-            "uuid": sd_uuid,
-            "register_event": sd_reg_evt
+            "event": sd_reg_evt,
+            "uuid": sd_uuid
         }).to_string();
-
-        if let Err(e) = backend_ws.send(Message::Text(reg_msg.into())).await {
-            eprintln!("[PID {}] Handover: Failed to send registration: {}", current_pid, e);
-            return;
+        if let Err(e) = hw_write.send(Message::Text(reg_msg.into())).await {
+            eprintln!("[PID {}] Bridge: Failed initial HW register: {}", current_pid, e);
+            continue;
         }
 
-        // Wait for acknowledgment then exit
-        while let Some(msg_res) = backend_ws.next().await {
-            if let Ok(Message::Text(text)) = msg_res {
-                if let Ok(value) = serde_json::from_str::<serde_json::Value>(&text) {
-                    if value["type"] == "COMMAND_ACK" && value["action"] == "REGISTER_STREAMDOCK" {
-                        println!("[PID {}] Handover SUCCESSFUL. Primary server is now managing the hardware connection.", current_pid);
-                        return;
+        // 4. Notify Primary Backend of this Bridge
+        let notify_msg = json!({
+            "type": "REGISTER_STREAMDOCK_BRIDGE",
+            "uuid": sd_uuid,
+            "port": sd_port
+        }).to_string();
+        if let Err(e) = be_write.send(Message::Text(notify_msg.into())).await {
+            eprintln!("[PID {}] Bridge: Failed to notify Backend: {}", current_pid, e);
+            continue;
+        }
+
+        // 5. Start the Bi-directional Pipe
+        println!("[PID {}] Bridge: ACTIVE. Forwarding messages...", current_pid);
+        
+        let bridge_loop = async {
+            let log_path = crate::storage::get_data_dir().join("proxy.log");
+            loop {
+                tokio::select! {
+                    // Hardware -> Primary Backend (Events)
+                    msg_opt = hw_read.next() => {
+                        match msg_opt {
+                            Some(Ok(msg)) => {
+                                if msg.is_text() || msg.is_binary() {
+                                    if let Ok(mut log_file) = std::fs::OpenOptions::new().create(true).append(true).open(&log_path) {
+                                        use std::io::Write;
+                                        let _ = writeln!(log_file, "[PROXY -> BE] {}", msg);
+                                    }
+                                    if let Err(e) = be_write.send(msg).await {
+                                        eprintln!("[PID {}] Bridge: Error forwarding HW -> BE: {}", current_pid, e);
+                                        break;
+                                    }
+                                }
+                            }
+                            _ => break,
+                        }
+                    }
+                    // Primary Backend -> Hardware (Commands)
+                    msg_opt = be_read.next() => {
+                        match msg_opt {
+                            Some(Ok(msg)) => {
+                                if msg.is_text() || msg.is_binary() {
+                                    if let Ok(mut log_file) = std::fs::OpenOptions::new().create(true).append(true).open(&log_path) {
+                                        use std::io::Write;
+                                        let _ = writeln!(log_file, "[BE -> PROXY] {}", msg);
+                                    }
+                                    if let Err(e) = hw_write.send(msg).await {
+                                        eprintln!("[PID {}] Bridge: Error forwarding BE -> HW: {}", current_pid, e);
+                                        break;
+                                    }
+                                }
+                            }
+                            _ => break,
+                        }
                     }
                 }
             }
-        }
-    };
+        };
 
-    if let Err(_) = timeout(Duration::from_secs(10), handover_future).await {
-        eprintln!("[PID {}] Handover: TIMED OUT after 10s. Forcing exit to prevent zombie process.", current_pid);
+        bridge_loop.await;
+        println!("[PID {}] Bridge: Connection lost. Restarting loop in 2s...", current_pid);
+        sleep(Duration::from_secs(2)).await;
     }
 }

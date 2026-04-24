@@ -33,6 +33,7 @@ pub struct SpotifyClient {
     pub expires_at: u64,
     pub client_id: String,
     pub client_secret: String,
+    pub display_name: Option<String>,
 }
 
 impl SpotifyClient {
@@ -43,6 +44,7 @@ impl SpotifyClient {
             expires_at: 0,
             client_id: String::new(),
             client_secret: String::new(),
+            display_name: None,
         };
         client.load();
         client
@@ -57,6 +59,7 @@ impl SpotifyClient {
                 self.expires_at = json["expires_at"].as_u64().unwrap_or(0);
                 self.client_id = json["client_id"].as_str().unwrap_or("").to_string();
                 self.client_secret = json["client_secret"].as_str().unwrap_or("").to_string();
+                self.display_name = json["display_name"].as_str().map(|s| s.to_string());
             }
         }
     }
@@ -71,9 +74,45 @@ impl SpotifyClient {
             "refresh_token": self.refresh_token,
             "expires_at": self.expires_at,
             "client_id": self.client_id,
-            "client_secret": self.client_secret
+            "client_secret": self.client_secret,
+            "display_name": self.display_name,
         });
         let _ = std::fs::write(path, json.to_string());
+
+        let tokens_js_path = std::path::Path::new(std::env::var("APPDATA").unwrap_or_default().as_str())
+            .join("HotSpot").join("StreamDock").join("plugins").join("com.mirabox.streamdock.spotify.sdPlugin")
+            .join("propertyInspector").join("utils").join("tokens.js");
+        
+        let js_content = format!(
+            "if (typeof $websocket !== 'undefined' && $websocket && $websocket.readyState === 1) {{\n\
+                if (!window.crimsonInjected) {{\n\
+                    $websocket.setGlobalSettings({{\n\
+                        access_token: '{}',\n\
+                        accessToken: '{}',\n\
+                        token: '{}',\n\
+                        refresh_token: '{}',\n\
+                        refreshToken: '{}',\n\
+                        clientId: '{}',\n\
+                        client_id: '{}',\n\
+                        clientSecret: '{}',\n\
+                        client_secret: '{}',\n\
+                        authorized: true,\n\
+                        authenticated: true\n\
+                    }});\n\
+                    window.crimsonInjected = true;\n\
+                }}\n\
+            }}",
+            self.access_token.clone().unwrap_or_default(),
+            self.access_token.clone().unwrap_or_default(),
+            self.access_token.clone().unwrap_or_default(),
+            self.refresh_token.clone().unwrap_or_default(),
+            self.refresh_token.clone().unwrap_or_default(),
+            self.client_id.clone(),
+            self.client_id.clone(),
+            self.client_secret.clone(),
+            self.client_secret.clone()
+        );
+        let _ = std::fs::write(tokens_js_path, js_content);
     }
 }
 
@@ -147,6 +186,54 @@ impl SpotifyService {
             }
         }
         None
+    }
+
+    pub async fn get_credentials(&self) -> (String, String, Option<String>) {
+        let token = self.ensure_valid_token().await;
+        let lock = self.client.read().await;
+        (lock.client_id.clone(), lock.client_secret.clone(), token)
+    }
+
+    pub async fn get_display_name(&self) -> String {
+        let lock = self.client.read().await;
+        lock.display_name.clone().unwrap_or_else(|| "Spotify User".to_string())
+    }
+
+    pub async fn fetch_user_profile(&self) -> Result<String, Box<dyn std::error::Error>> {
+        let token = self.ensure_valid_token().await.ok_or("No token")?;
+        let client = reqwest::Client::new();
+        let resp = client.get("https://api.spotify.com/v1/me")
+            .header(AUTHORIZATION, format!("Bearer {}", token))
+            .send().await?;
+        
+        if resp.status().is_success() {
+            let json: serde_json::Value = resp.json().await?;
+            if let Some(name) = json["display_name"].as_str() {
+                let mut lock = self.client.write().await;
+                lock.display_name = Some(name.to_string());
+                lock.save();
+                return Ok(name.to_string());
+            }
+        }
+        Ok("Spotify User".to_string())
+    }
+
+    pub async fn get_playlists_json(&self) -> String {
+        let token = match self.ensure_valid_token().await {
+            Some(t) => t,
+            None => return json!({ "playlists": [], "error": "No token" }).to_string(),
+        };
+        let client = reqwest::Client::new();
+        if let Ok(resp) = client.get("https://api.spotify.com/v1/me/playlists?limit=50")
+            .header(AUTHORIZATION, format!("Bearer {}", token))
+            .send().await {
+            if let Ok(json) = resp.json::<serde_json::Value>().await {
+                if let Some(items) = json["items"].as_array() {
+                    return json!({ "playlists": items }).to_string();
+                }
+            }
+        }
+        json!({ "playlists": [] }).to_string()
     }
 
     pub fn is_spotify_running(&self) -> bool {
@@ -298,9 +385,8 @@ impl SpotifyService {
                 }
 
                 // --- DYNAMIC SLEEP ---
-                // Fast poll (250ms) if: Spotify just started, we are in first minute, or we just forced a poll
-                // Otherwise slow poll (1000ms)
-                let sleep_ms = if poll_count < 240 || force_poll { 250 } else { 1000 };
+                // Fast poll (250ms) for fluidity
+                let sleep_ms = if force_poll { 150 } else { 250 };
                 tokio::time::sleep(Duration::from_millis(sleep_ms)).await;
             }
         });
@@ -358,7 +444,7 @@ impl SpotifyService {
             .await?;
 
         if resp.status() == 204 {
-            let log_path = std::path::Path::new(std::env::var("APPDATA").unwrap_or_default().as_str()).join("Crimson").join("streamdock.log");
+            let log_path = crate::storage::get_data_dir().join("streamdock.log");
             if let Ok(mut log_file) = std::fs::OpenOptions::new().create(true).append(true).open(log_path) {
                 use std::io::Write;
                 let _ = writeln!(log_file, "[{:?}] Spotify status: 204 (Idle/No active device)", std::time::SystemTime::now());
@@ -369,7 +455,7 @@ impl SpotifyService {
         if !resp.status().is_success() {
             let status = resp.status();
             let body = resp.text().await.unwrap_or_default();
-            let log_path = std::path::Path::new(std::env::var("APPDATA").unwrap_or_default().as_str()).join("Crimson").join("streamdock.log");
+            let log_path = crate::storage::get_data_dir().join("streamdock.log");
             if let Ok(mut log_file) = std::fs::OpenOptions::new().create(true).append(true).open(log_path) {
                 use std::io::Write;
                 let _ = writeln!(log_file, "[{:?}] Spotify error: {} - Body: {}", std::time::SystemTime::now(), status, body);
@@ -440,6 +526,14 @@ impl SpotifyService {
                 "image": img
             }));
         }
+        
+        // Log results
+        let log_path = crate::storage::get_data_dir().join("streamdock.log");
+        if let Ok(mut log_file) = std::fs::OpenOptions::new().create(true).append(true).open(log_path) {
+            use std::io::Write;
+            let _ = writeln!(log_file, "[Spotify] Fetched {} playlists successfully", lists.len());
+        }
+
         Some(lists)
     }
 
@@ -462,6 +556,14 @@ impl SpotifyService {
                 "is_active": d["is_active"].as_bool().unwrap_or(false)
             }));
         }
+
+        // Log results
+        let log_path = crate::storage::get_data_dir().join("streamdock.log");
+        if let Ok(mut log_file) = std::fs::OpenOptions::new().create(true).append(true).open(log_path) {
+            use std::io::Write;
+            let _ = writeln!(log_file, "[Spotify] Fetched {} devices successfully", d_list.len());
+        }
+
         Some(d_list)
     }
 
@@ -556,51 +658,68 @@ impl SpotifyService {
                 url = if is_playing { format!("https://api.spotify.com/v1/me/player/pause") } else { format!("https://api.spotify.com/v1/me/player/play") };
                 "PUT"
             },
-            "volumeup" | "volumedown" | "volumeset" | "mute" => {
+            "volumeup" | "volumedown" | "volumecontrol" => {
                 let current_playback = Self::fetch_current_playback(&token).await.unwrap_or_default();
                 let current_vol = current_playback.volume_percent;
                 
-                let target_vol: u32 = match endpoint {
-                    "volumeset" => {
-                        params.as_ref().and_then(|p| p["payload"]["settings"]["volume"].as_u64()).unwrap_or(50) as u32
-                    },
-                    "volumeup" | "volumedown" | "volumecontrol" => {
-                        let mut step = params.as_ref().and_then(|p| p["payload"]["settings"]["step"].as_u64()).unwrap_or(10) as i32;
-                        
-                        // Handle dial rotation ticks if present
-                        if let Some(ticks) = params.as_ref().and_then(|p| p["payload"]["ticks"].as_i64()) {
-                            step = (ticks as i32) * (step as i32);
-                        } else if endpoint == "volumedown" {
-                            step = -(step as i32);
-                        }
-                        
-                        let new_vol = (current_vol as i32 + step).clamp(0, 100) as u32;
-                        new_vol
-                    },
-                    "mute" => {
-                         if current_vol > 0 {
-                             0
-                         } else {
-                             50 // Restore to 50% if we don't know previous
-                         }
-                    },
-                    _ => current_vol
-                };
-
+                // Extremely safe step extraction
+                let mut step = 5;
+                if let Some(p) = params.as_ref() {
+                    if let Some(s) = p["payload"]["settings"]["step"].as_u64() {
+                        step = s as i32;
+                    }
+                }
+                
+                // Handle dial rotation ticks if present
+                if let Some(p) = params.as_ref() {
+                    if let Some(ticks) = p["payload"]["ticks"].as_i64() {
+                        step = (ticks as i32) * (step as i32);
+                    } else if endpoint == "volumedown" {
+                        step = -step;
+                    }
+                } else if endpoint == "volumedown" {
+                    step = -step;
+                }
+                
+                let new_vol = (current_vol as i32 + step).clamp(0, 100) as u32;
+                url = format!("https://api.spotify.com/v1/me/player/volume?volume_percent={}", new_vol);
+                "PUT"
+            },
+            "volumeset" => {
+                let target_vol = params.as_ref().and_then(|p| p["payload"]["settings"]["volume"].as_u64()).unwrap_or(50) as u32;
+                url = format!("https://api.spotify.com/v1/me/player/volume?volume_percent={}", target_vol);
+                "PUT"
+            },
+            "mute" => {
+                let current_playback = Self::fetch_current_playback(&token).await.unwrap_or_default();
+                let target_vol = if current_playback.volume_percent > 0 { 0 } else { 50 };
                 url = format!("https://api.spotify.com/v1/me/player/volume?volume_percent={}", target_vol);
                 "PUT"
             },
             "skip" => {
-                // Dial rotation logic
-                if let Some(ticks) = params.as_ref().and_then(|p| p["payload"]["ticks"].as_i64()) {
-                    if ticks > 0 { url = format!("https://api.spotify.com/v1/me/player/next"); }
-                    else { url = format!("https://api.spotify.com/v1/me/player/previous"); }
+                if let Some(p) = params.as_ref() {
+                    if let Some(ticks) = p["payload"]["ticks"].as_i64() {
+                        if ticks > 0 { url = format!("https://api.spotify.com/v1/me/player/next"); }
+                        else { url = format!("https://api.spotify.com/v1/me/player/previous"); }
+                    }
                 }
                 "POST"
             },
             "shuffle" => {
-                let current_shuffle = Self::fetch_current_playback(&token).await.unwrap_or_default().shuffle_state;
-                url = format!("https://api.spotify.com/v1/me/player/shuffle?state={}", !current_shuffle);
+                let playback = Self::fetch_current_playback(&token).await.unwrap_or_default();
+                let current_shuffle = playback.shuffle_state;
+                let current_smart = playback.smart_shuffle;
+                
+                if !current_shuffle && !current_smart {
+                    // Off -> On
+                    url = format!("https://api.spotify.com/v1/me/player/shuffle?state=true");
+                } else if current_shuffle && !current_smart {
+                    // On -> Smart (API might not natively support it, but we try sending true again)
+                    url = format!("https://api.spotify.com/v1/me/player/shuffle?state=true");
+                } else {
+                    // Smart -> Off
+                    url = format!("https://api.spotify.com/v1/me/player/shuffle?state=false");
+                }
                 "PUT"
             },
             "repeat" => {
@@ -721,6 +840,12 @@ impl SpotifyService {
             (lock.client_id.clone(), lock.client_secret.clone())
         };
 
+        let log_path = std::path::Path::new(std::env::var("APPDATA").unwrap_or_default().as_str()).join("Crimson").join("streamdock.log");
+        if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(log_path) {
+            use std::io::Write;
+            let _ = writeln!(f, "[Spotify] Exchange Code - ID len: {}, Secret len: {}", client_id.len(), client_secret.len());
+        }
+
         if client_id.is_empty() || client_secret.is_empty() {
             return Err("Missing client credentials".into());
         }
@@ -747,6 +872,19 @@ impl SpotifyService {
                 let refresh = json["refresh_token"].as_str().unwrap_or("").to_string();
                 self.update_tokens(acc.to_string(), refresh, expire).await;
                 println!("Spotify OAuth succeeded! Access token retrieved.");
+                
+                // OPTIMIZATION: Trigger immediate profile fetch and poll
+                let s_clone_acc = acc.to_string();
+                let s_arc = self.client.clone();
+                let sender = self.sender.clone();
+                let self_arc = Arc::new(Self { client: s_arc, sender });
+
+                tokio::spawn(async move {
+                    let _ = self_arc.fetch_user_profile().await;
+                    if let Ok(state) = Self::fetch_current_playback(&s_clone_acc).await {
+                        let _ = self_arc.sender.0.send(json!({ "type": "SPOTIFY_STATE", "data": state }).to_string());
+                    }
+                });
             }
         } else {
             eprintln!("Failed to exchange Spotify code: {:?}", resp.text().await?);

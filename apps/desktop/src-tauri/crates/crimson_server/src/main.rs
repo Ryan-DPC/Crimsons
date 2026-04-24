@@ -51,11 +51,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let instance = single_instance::SingleInstance::new("Global\\crimson_server_v1_lock").unwrap();
     let mut is_primary = instance.is_single();
 
-    // 2. Port Probe Fallback (If port 40509 is busy, another instance is definitely primary)
+    // 2. Port Probe Fallback (If port 40510 is busy, another instance is definitely primary)
     if is_primary {
         use std::net::TcpStream;
-        if TcpStream::connect("127.0.0.1:40509").is_ok() {
-            println!("[PID {}] Port 40509 is busy. Mutex might have failed. Forcing proxy/exit mode...", current_pid);
+        if TcpStream::connect("127.0.0.1:40510").is_ok() {
+            println!("[PID {}] Port 40510 is busy. Mutex might have failed. Forcing proxy/exit mode...", current_pid);
             is_primary = false;
         }
     }
@@ -74,6 +74,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     println!("[PID {}] Starting Crimson Phantom Server (PRIMARY)...", current_pid);
+    
+    // Log primary status to file for diagnostics
+    let log_path = crimson_server::storage::get_data_dir().join("streamdock.log");
+    if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(&log_path) {
+        use std::io::Write;
+        let _ = writeln!(f, "\n--- CRIMSON SERVER STARTUP (PID {}) ---", current_pid);
+        let _ = writeln!(f, "[System] Initializing primary services...");
+    }
 
     // Setup broadcast channel for internal communications
     let (tx, _) = broadcast::channel(100);
@@ -90,11 +98,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Start Spotify Service
     let spotify_service = Arc::new(spotify::SpotifyService::new(sender.clone()));
-    spotify_service.start_background_polling().await;
+    let spotify_poll = spotify_service.clone();
+    tokio::spawn(async move {
+        spotify_poll.start_background_polling().await;
+    });
+
+    // Start Mirabox Auth Server (Port 26433) for hijacking third-party Spotify plugins
+    let spotify_auth = spotify_service.clone();
+    tokio::spawn(async move {
+        crimson_server::streamdock::start_mirabox_auth_server(spotify_auth, None, None).await;
+    });
 
     // Start Discord Service
     let discord_service = Arc::new(discord::DiscordService::new(sender.clone()));
-    discord_service.start_background_polling().await;
+    let discord_poll = discord_service.clone();
+    tokio::spawn(async move {
+        discord_poll.start_background_polling().await;
+    });
 
     // Start Heartbeat Service (Broadcasts 5s server/lcu/discord status)
     let hb_sender = sender.clone();
@@ -126,7 +146,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 
     // Start External WebSocket Server (Sidecar -> UI/StreamDeck)
-    println!("WebSocket server listening on 127.0.0.1:40509");
+    println!("WebSocket server listening on 127.0.0.1:40510");
     ws::start_ws_server(sender, spotify_service, discord_service).await;
 
 
