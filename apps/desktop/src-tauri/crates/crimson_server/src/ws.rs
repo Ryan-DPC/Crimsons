@@ -103,13 +103,9 @@ async fn handle_connection(stream: TcpStream, sender: WsSender, spotify: Arc<Spo
                                 // Parse Command and Dispatch
                                 if let Ok(value) = serde_json::from_str::<serde_json::Value>(&text) {
                                     // 1. Log incoming command for diagnostics
-                                    let log_path = crate::storage::get_data_dir().join("streamdock.log");
-                                    if let Ok(mut log_file) = std::fs::OpenOptions::new().create(true).append(true).open(log_path) {
-                                        use std::io::Write;
-                                        let evt_name = value["event"].as_str().unwrap_or("N/A");
-                                        let type_name = value["type"].as_str().unwrap_or("N/A");
-                                        let _ = writeln!(log_file, "[SD IN] Event: {} Type: {} Payload: {}", evt_name, type_name, text);
-                                    }
+                                    let evt_name = value["event"].as_str().unwrap_or("N/A");
+                                    let type_name = value["type"].as_str().unwrap_or("N/A");
+                                    crate::storage::log_to_file("streamdock.log", &format!("[SD IN] Event: {} Type: {} Payload: {}", evt_name, type_name, text));
 
                                     if value["type"] == "UPDATE_RESOURCE_MODE" {
                                         if let Some(low) = value["low_resource"].as_bool() {

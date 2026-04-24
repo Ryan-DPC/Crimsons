@@ -58,7 +58,6 @@ pub async fn start_proxy_bridge(sd_port: u16, sd_uuid: String, sd_reg_evt: Strin
         println!("[PID {}] Bridge: ACTIVE. Forwarding messages...", current_pid);
         
         let bridge_loop = async {
-            let log_path = crate::storage::get_data_dir().join("proxy.log");
             loop {
                 tokio::select! {
                     // Hardware -> Primary Backend (Events)
@@ -66,10 +65,7 @@ pub async fn start_proxy_bridge(sd_port: u16, sd_uuid: String, sd_reg_evt: Strin
                         match msg_opt {
                             Some(Ok(msg)) => {
                                 if msg.is_text() || msg.is_binary() {
-                                    if let Ok(mut log_file) = std::fs::OpenOptions::new().create(true).append(true).open(&log_path) {
-                                        use std::io::Write;
-                                        let _ = writeln!(log_file, "[PROXY -> BE] {}", msg);
-                                    }
+                                    crate::storage::log_to_file("proxy.log", &format!("[PROXY -> BE] {}", msg));
                                     if let Err(e) = be_write.send(msg).await {
                                         eprintln!("[PID {}] Bridge: Error forwarding HW -> BE: {}", current_pid, e);
                                         break;
@@ -84,10 +80,7 @@ pub async fn start_proxy_bridge(sd_port: u16, sd_uuid: String, sd_reg_evt: Strin
                         match msg_opt {
                             Some(Ok(msg)) => {
                                 if msg.is_text() || msg.is_binary() {
-                                    if let Ok(mut log_file) = std::fs::OpenOptions::new().create(true).append(true).open(&log_path) {
-                                        use std::io::Write;
-                                        let _ = writeln!(log_file, "[BE -> PROXY] {}", msg);
-                                    }
+                                    crate::storage::log_to_file("proxy.log", &format!("[BE -> PROXY] {}", msg));
                                     if let Err(e) = hw_write.send(msg).await {
                                         eprintln!("[PID {}] Bridge: Error forwarding BE -> HW: {}", current_pid, e);
                                         break;

@@ -288,6 +288,18 @@ function handleActionClick(action, context) {
                 championName: gameState.championName
             });
             break;
+        case "com.laoy.streamdock.crimson.spotify.play":
+            api.send({ type: "SPOTIFY_COMMAND", endpoint: "playpause" });
+            break;
+        case "com.laoy.streamdock.crimson.spotify.next":
+            api.send({ type: "SPOTIFY_COMMAND", endpoint: "next" });
+            break;
+        case "com.laoy.streamdock.crimson.spotify.prev":
+            api.send({ type: "SPOTIFY_COMMAND", endpoint: "prev" });
+            break;
+        case "com.laoy.streamdock.crimson.spotify.shuffle":
+            api.send({ type: "SPOTIFY_COMMAND", endpoint: "shuffle" });
+            break;
         case "com.laoy.streamdock.crimson.infoboard":
         case "com.laoy.streamdock.crimson.infoboard_lol":
             if (!api.isConnected) api.forceReconnect();

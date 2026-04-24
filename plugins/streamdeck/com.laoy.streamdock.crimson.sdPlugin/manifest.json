@@ -1,125 +1,161 @@
 {
   "Actions": [
     {
-      "Icon": "static/icon/accept",
+      "Icon": "static/icon/accept.png",
       "Name": "Auto-Accept (Toggle)",
       "Controllers": ["Keypad"],
       "States": [
         {
-          "Image": "static/icon/accept",
+          "Image": "static/icon/accept.png",
           "Title": "OFF"
         },
         {
-          "Image": "static/icon/accept",
+          "Image": "static/icon/accept.png",
           "Title": "ON"
         }
       ],
       "UUID": "com.laoy.streamdock.crimson.autoaccept"
     },
     {
-      "Icon": "static/icon/dodge",
+      "Icon": "static/icon/dodge.png",
       "Name": "Dodge Game",
       "Controllers": ["Keypad"],
       "States": [
         {
-          "Image": "static/icon/dodge"
+          "Image": "static/icon/dodge.png"
         }
       ],
       "UUID": "com.laoy.streamdock.crimson.dodge"
     },
     {
-      "Icon": "static/icon/stats",
+      "Icon": "static/icon/stats.png",
       "Name": "Stats / Champion",
       "Controllers": ["Keypad", "Information"],
       "States": [
         {
-          "Image": "static/icon/stats"
+          "Image": "static/icon/stats.png"
         }
       ],
       "UUID": "com.laoy.streamdock.crimson.display"
     },
     {
-      "Icon": "static/icon/autoban",
+      "Icon": "static/icon/autoban.png",
       "Name": "Auto-Ban (Toggle)",
       "Controllers": ["Keypad"],
       "States": [
         {
-          "Image": "static/icon/autoban",
+          "Image": "static/icon/autoban.png",
           "Title": "OFF"
         },
         {
-          "Image": "static/icon/autoban",
+          "Image": "static/icon/autoban.png",
           "Title": "ON"
         }
       ],
       "UUID": "com.laoy.streamdock.crimson.autoban"
     },
     {
-      "Icon": "static/icon/autopick",
+      "Icon": "static/icon/autopick.png",
       "Name": "Auto-Pick (Toggle)",
       "Controllers": ["Keypad"],
       "States": [
         {
-          "Image": "static/icon/autopick",
+          "Image": "static/icon/autopick.png",
           "Title": "OFF"
         },
         {
-          "Image": "static/icon/autopick",
+          "Image": "static/icon/autopick.png",
           "Title": "ON"
         }
       ],
       "UUID": "com.laoy.streamdock.crimson.autopick"
     },
     {
-      "Icon": "static/icon/inject",
+      "Icon": "static/icon/inject.png",
       "Name": "Inject Rune Build",
       "Controllers": ["Keypad"],
       "States": [
         {
-          "Image": "static/icon/inject"
+          "Image": "static/icon/inject.png"
         }
       ],
       "UUID": "com.laoy.streamdock.crimson.inject"
     },
     {
-      "Icon": "static/icon/heartbeat",
+      "Icon": "static/icon/heartbeat.png",
       "Name": "Crimson Server Link (Info)",
       "Controllers": ["Information"],
       "States": [
         {
-          "Image": "static/icon/heartbeat",
+          "Image": "static/icon/heartbeat.png",
           "Title": "OFFLINE"
         },
         {
-          "Image": "static/icon/heartbeat",
+          "Image": "static/icon/heartbeat.png",
           "Title": "CONNECTED"
         }
       ],
       "UUID": "com.laoy.streamdock.crimson.infoboard"
     },
     {
-      "Icon": "static/icon/stats",
+      "Icon": "static/icon/stats.png",
       "Name": "LoL Game Link (Info)",
       "Controllers": ["Information"],
       "States": [
         {
-          "Image": "static/icon/stats",
+          "Image": "static/icon/stats.png",
           "Title": "WAITING"
         },
         {
-          "Image": "static/icon/stats",
+          "Image": "static/icon/stats.png",
           "Title": "CONNECTED"
         }
       ],
+      "UUID": "com.laoy.streamdock.crimson.infoboard_lol"
+    },
+    {
+      "Icon": "static/icon/spotify_heart_filled.png",
+      "Name": "Spotify: Play / Pause",
+      "Controllers": ["Keypad"],
+      "States": [
+        { "Image": "static/icon/spotify_add_playlist.png", "Title": "PAUSE" },
+        { "Image": "static/icon/spotify_device.png", "Title": "PLAY" }
+      ],
+      "UUID": "com.laoy.streamdock.crimson.spotify.play"
+    },
+    {
+      "Icon": "static/icon/spotify_shuffle.png",
+      "Name": "Spotify: Triple Shuffle",
+      "Controllers": ["Keypad"],
+      "States": [
+        { "Image": "static/btn/btn_spotify_144_shuffle_off.png", "Title": "OFF" },
+        { "Image": "static/btn/btn_spotify_144_shuffle.png", "Title": "ON" },
+        { "Image": "static/btn/btn_spotify_144_smart_shuffle.png", "Title": "SMART" }
+      ],
+      "UUID": "com.laoy.streamdock.crimson.spotify.shuffle"
+    },
+    {
+      "Icon": "static/icon/spotify_add_playlist.png",
+      "Name": "Spotify: Next",
+      "Controllers": ["Keypad"],
+      "States": [ { "Image": "static/icon/spotify_add_playlist.png" } ],
+      "UUID": "com.laoy.streamdock.crimson.spotify.next"
+    },
+    {
+      "Icon": "static/icon/spotify_volume_up.png",
+      "Name": "Spotify: Prev",
+      "Controllers": ["Keypad"],
+      "States": [ { "Image": "static/icon/spotify_volume_up.png" } ],
+      "UUID": "com.laoy.streamdock.crimson.spotify.prev"
     }
   ],
 
   "Author": "Laoy",
   "Description": "CRIMSON League of Legends Controller",
-  "Icon": "static/icon/accept",
+  "Icon": "static/icon/accept.png",
   "Name": "CRIMSON",
   "Category": "CRIMSON",
-  "CategoryIcon": "static/icon/accept",
+  "CategoryIcon": "static/icon/accept.png",
   "Version": "2.2",
   "SDKVersion": 1,
   "OS": [

@@ -56,6 +56,8 @@ pub async fn start_streamdock_client(port: u16, uuid: String, register_event: St
         polled_at: std::time::Instant,
         track_name: String,
         scroll_counter: u32,
+        shuffle_state: bool,
+        smart_shuffle: bool,
     }
     let render_state: Arc<tokio::sync::Mutex<Option<RenderState>>> = Arc::new(tokio::sync::Mutex::new(None));
 
@@ -114,6 +116,8 @@ pub async fn start_streamdock_client(port: u16, uuid: String, register_event: St
                             polled_at: std::time::Instant::now(),
                             track_name: data["track_name"].as_str().unwrap_or("Spotify").to_string(),
                             scroll_counter,
+                            shuffle_state: data["shuffle_state"].as_bool().unwrap_or(false),
+                            smart_shuffle: data["smart_shuffle"].as_bool().unwrap_or(false),
                         });
                     }
 
@@ -243,7 +247,7 @@ pub async fn start_streamdock_client(port: u16, uuid: String, register_event: St
             let active_ctx = contexts_render.lock().await.clone();
 
             for (ctx, action_name) in &active_ctx {
-                if action_name.ends_with("playpause") {
+                if action_name.ends_with("playpause") || action_name.ends_with(".play") {
                     if compose_key != last_composed_key {
                         let composed = compose_timer_on_image(&s.album_jpeg, &timer_str);
                         *last_composed_cache_render.lock().await = Some(composed.clone());
@@ -252,9 +256,13 @@ pub async fn start_streamdock_client(port: u16, uuid: String, register_event: St
                 } else if action_name.ends_with("info_progress") {
                     let img = compose_progress_image(current_progress, s.duration_ms);
                     let _ = tx_ws_render.send(json!({ "event": "setImage", "context": ctx, "payload": { "image": img, "target": 0 }}).to_string()).await;
-                } else if action_name.ends_with("info_title") {
+                } else if action_name.ends_with("info_title") || action_name.ends_with(".info") {
                     let img = compose_marquee_image(&s.track_name, s.scroll_counter);
                     let _ = tx_ws_render.send(json!({ "event": "setImage", "context": ctx, "payload": { "image": img, "target": 0 }}).to_string()).await;
+                } else if action_name.ends_with(".shuffle") {
+                    // Update shuffle state icon (0=off, 1=on, 2=smart)
+                    let state = if s.smart_shuffle { 2 } else if s.shuffle_state { 1 } else { 0 };
+                    let _ = tx_ws_render.send(json!({ "event": "setState", "context": ctx, "payload": { "state": state }}).to_string()).await;
                 }
             }
             last_composed_key = compose_key;
@@ -269,11 +277,7 @@ pub async fn start_streamdock_client(port: u16, uuid: String, register_event: St
     loop {
         match connect_async(&ws_url).await {
             Ok((ws_stream, _)) => {
-                let log_path = crate::storage::get_data_dir().join("streamdock.log");
-                if let Ok(mut log_file) = std::fs::OpenOptions::new().create(true).append(true).open(log_path) {
-                    use std::io::Write;
-                    let _ = writeln!(log_file, "[SD CONN] Connected to StreamDock at {}", ws_url);
-                }
+                crate::storage::log_to_file("streamdock.log", &format!("[SD CONN] Connected to StreamDock at {}", ws_url));
 
                 let (mut write, mut read) = ws_stream.split();
                 
@@ -328,19 +332,11 @@ pub async fn start_streamdock_client(port: u16, uuid: String, register_event: St
                     }
                 }
                 println!("StreamDock connection lost. Retrying in 5s...");
-                let log_path = crate::storage::get_data_dir().join("streamdock.log");
-                if let Ok(mut log_file) = std::fs::OpenOptions::new().create(true).append(true).open(log_path) {
-                    use std::io::Write;
-                    let _ = writeln!(log_file, "[SD CONN] Connection LOST to StreamDock. Retrying in 5s...");
-                }
+                crate::storage::log_to_file("streamdock.log", &format!("[SD CONN] Connection LOST to StreamDock. Retrying in 5s..."));
             }
             Err(e) => {
                 eprintln!("Failed to connect to StreamDock (is software open?): {}. Retrying in 5s...", e);
-                let log_path = crate::storage::get_data_dir().join("streamdock.log");
-                if let Ok(mut log_file) = std::fs::OpenOptions::new().create(true).append(true).open(log_path) {
-                    use std::io::Write;
-                    let _ = writeln!(log_file, "[SD CONN] Connection FAILED to {}: {}. Retrying in 5s...", ws_url, e);
-                }
+                crate::storage::log_to_file("streamdock.log", &format!("[SD CONN] Connection FAILED to {}: {}. Retrying in 5s...", ws_url, e));
             }
         }
         tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
@@ -361,17 +357,19 @@ pub async fn process_streamdeck_event(
     let action = value["action"].as_str().unwrap_or("");
     let uuid = value["uuid"].as_str().unwrap_or("");
 
-    // --- RAW LOGGING ---
+    // --- RAW LOGGING (Disabled for performance) ---
+    /*
     let log_path = crate::storage::get_data_dir().join("streamdock.log");
     if let Ok(mut log_file) = std::fs::OpenOptions::new().create(true).append(true).open(&log_path) {
         use std::io::Write;
         let _ = writeln!(log_file, "[RAW] {}", value.to_string());
     }
+    */
 
     if event == "willAppear" {
         contexts.lock().await.insert(context.to_string(), action.to_string());
         
-        if action.contains("mirabox.spotify") {
+        if action.contains("mirabox.spotify") || action.contains("crimson.spotify") {
             let token = spotify.ensure_valid_token().await.unwrap_or_else(|| "crimson_hijacked_token".to_string());
             let hijack = json!({ "event": "setGlobalSettings", "context": uuid, "payload": { "access_token": token } }).to_string();
             let _ = tx_hardware.send(hijack).await;
@@ -422,11 +420,7 @@ pub async fn process_streamdeck_event(
         pi_contexts.lock().await.insert(ctx_str.clone());
         
         // Log registration
-        let lp = crate::storage::get_data_dir().join("streamdock.log");
-        if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(&lp) {
-            use std::io::Write;
-            let _ = writeln!(f, "[DIAG] [{}] PI Context Tracked: {}", chrono::Local::now().format("%H:%M:%S%.3f"), ctx_str);
-        }
+        crate::storage::log_to_file("streamdock.log", &format!("[DIAG] PI Context Tracked: {}", ctx_str));
 
         // --- IMMEDIATE SYNC: Push everything to PI as soon as it opens to kill setup screens ---
         let s_clone = spotify.clone();
@@ -713,11 +707,7 @@ pub async fn start_mirabox_auth_server(
                                     
                                     if !code.is_empty() {
                                         let _ = s_clone.exchange_code(code.to_string()).await;
-                                        let lp = crate::storage::get_data_dir().join("streamdock.log");
-                                        if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(&lp) {
-                                            use std::io::Write;
-                                            let _ = writeln!(f, "[DIAG] [{}] Auth SUCCESS. Bursting to {} bridges.", chrono::Local::now().format("%H:%M:%S%.3f"), ACTIVE_BRIDGES.len());
-                                        }
+                                        crate::storage::log_to_file("streamdock.log", &format!("[DIAG] Auth SUCCESS. Bursting to {} bridges.", ACTIVE_BRIDGES.len()));
 
                                         for bridge_entry in ACTIVE_BRIDGES.iter() {
                                             let bridge_auth = bridge_entry.value().clone();
@@ -847,11 +837,7 @@ Content-Type: text/html
                 }
             }
             Err(e) => {
-                let lp = crate::storage::get_data_dir().join("streamdock.log");
-                if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(&lp) {
-                    use std::io::Write;
-                    let _ = writeln!(f, "[CRITICAL] Failed to bind Hijack Server to {}: {}", hijack_addr, e);
-                }
+                    crate::storage::log_to_file("streamdock.log", &format!("[CRITICAL] Failed to bind Hijack Server to {}: {}", hijack_addr, e));
             }
         }
     });

@@ -50,3 +50,39 @@ pub fn save_data_to_path(path: PathBuf, data: &AppData) {
     }
 }
 
+pub fn rotate_log(log_name: &str, max_size_mb: u64) {
+    let log_path = get_data_dir().join(log_name);
+    let mut should_rotate = false;
+    
+    if let Ok(metadata) = fs::metadata(&log_path) {
+        // Rotate if too big
+        if metadata.len() > max_size_mb * 1024 * 1024 {
+            should_rotate = true;
+        }
+        
+        // Rotate if older than 24h
+        if let Ok(modified) = metadata.modified() {
+            if let Ok(elapsed) = modified.elapsed() {
+                if elapsed.as_secs() > 86400 {
+                    should_rotate = true;
+                }
+            }
+        }
+    }
+    
+    if should_rotate {
+        let old_path = get_data_dir().join(format!("{}.old", log_name));
+        let _ = fs::remove_file(&old_path); // Clear previous old
+        let _ = fs::rename(&log_path, &old_path);
+    }
+}
+
+pub fn log_to_file(log_name: &str, message: &str) {
+    rotate_log(log_name, 5); // Max 5MB / 24h
+    let log_path = get_data_dir().join(log_name);
+    if let Ok(mut file) = fs::OpenOptions::new().create(true).append(true).open(log_path) {
+        use std::io::Write;
+        let _ = writeln!(file, "[{}] {}", chrono::Local::now().format("%Y-%m-%d %H:%M:%S"), message);
+    }
+}
+

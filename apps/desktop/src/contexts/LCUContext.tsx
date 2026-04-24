@@ -421,7 +421,7 @@ export const LCUProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // --- EFFECTS ---
     // --- WS CONNECTION ---
     const connectWs = () => {
-        const ws = new WebSocket('ws://127.0.0.1:40509');
+        const ws = new WebSocket('ws://127.0.0.1:40510');
         ws.onmessage = async (event) => {
             const msg = JSON.parse(event.data);
             if (msg.type === 'GAME_PHASE') {
