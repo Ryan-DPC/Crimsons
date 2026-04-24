@@ -246,19 +246,36 @@ pub async fn start_streamdock_client(port: u16, uuid: String, register_event: St
             let compose_key = format!("{}-{}", s.track_name, timer_str);
             let active_ctx = contexts_render.lock().await.clone();
 
+            let mut tick_composed_image: Option<String> = None;
+            let mut tick_marquee_image: Option<String> = None;
+            let mut tick_progress_image: Option<String> = None;
+
             for (ctx, action_name) in &active_ctx {
                 if action_name.ends_with("playpause") || action_name.ends_with(".play") {
                     if compose_key != last_composed_key {
-                        let composed = compose_timer_on_image(&s.album_jpeg, &timer_str);
-                        *last_composed_cache_render.lock().await = Some(composed.clone());
-                        let _ = tx_ws_render.send(json!({ "event": "setImage", "context": ctx, "payload": { "image": composed, "target": 0 }}).to_string()).await;
+                        if tick_composed_image.is_none() {
+                            let img = compose_timer_on_image(&s.album_jpeg, &timer_str);
+                            tick_composed_image = Some(img.clone());
+                            *last_composed_cache_render.lock().await = Some(img);
+                        }
+                        if let Some(img) = &tick_composed_image {
+                            let _ = tx_ws_render.send(json!({ "event": "setImage", "context": ctx, "payload": { "image": img, "target": 0 }}).to_string()).await;
+                        }
                     }
                 } else if action_name.ends_with("info_progress") {
-                    let img = compose_progress_image(current_progress, s.duration_ms);
-                    let _ = tx_ws_render.send(json!({ "event": "setImage", "context": ctx, "payload": { "image": img, "target": 0 }}).to_string()).await;
+                    if tick_progress_image.is_none() {
+                        tick_progress_image = Some(compose_progress_image(current_progress, s.duration_ms));
+                    }
+                    if let Some(img) = &tick_progress_image {
+                        let _ = tx_ws_render.send(json!({ "event": "setImage", "context": ctx, "payload": { "image": img, "target": 0 }}).to_string()).await;
+                    }
                 } else if action_name.ends_with("info_title") || action_name.ends_with(".info") {
-                    let img = compose_marquee_image(&s.track_name, s.scroll_counter);
-                    let _ = tx_ws_render.send(json!({ "event": "setImage", "context": ctx, "payload": { "image": img, "target": 0 }}).to_string()).await;
+                    if tick_marquee_image.is_none() {
+                        tick_marquee_image = Some(compose_marquee_image(&s.track_name, s.scroll_counter));
+                    }
+                    if let Some(img) = &tick_marquee_image {
+                        let _ = tx_ws_render.send(json!({ "event": "setImage", "context": ctx, "payload": { "image": img, "target": 0 }}).to_string()).await;
+                    }
                 } else if action_name.ends_with(".shuffle") {
                     // Update shuffle state icon (0=off, 1=on, 2=smart)
                     let state = if s.smart_shuffle { 2 } else if s.shuffle_state { 1 } else { 0 };
@@ -853,7 +870,7 @@ fn compose_timer_on_image(jpeg_bytes: &[u8], timer_str: &str) -> String {
     use base64::{Engine as _, engine::general_purpose::STANDARD};
 
     let img = match image::load_from_memory(jpeg_bytes) {
-        Ok(i) => i.resize_exact(144, 144, image::imageops::FilterType::Lanczos3),
+        Ok(i) => i.resize_exact(144, 144, image::imageops::FilterType::Triangle),
         Err(_) => return format!("data:image/jpeg;base64,{}", STANDARD.encode(jpeg_bytes)),
     };
 
@@ -1107,7 +1124,7 @@ fn compose_toptrack_image(cover_bytes: &[u8], track_name: &str) -> String {
     use base64::{Engine as _, engine::general_purpose::STANDARD};
 
     let mut rgb = match image::load_from_memory(cover_bytes) {
-        Ok(i) => i.resize_exact(144, 144, image::imageops::FilterType::Lanczos3).to_rgb8(),
+        Ok(i) => i.resize_exact(144, 144, image::imageops::FilterType::Triangle).to_rgb8(),
         Err(_) => RgbImage::from_pixel(144, 144, Rgb([20, 20, 20])),
     };
 
