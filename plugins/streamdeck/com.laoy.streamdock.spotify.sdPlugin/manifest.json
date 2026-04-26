@@ -1,0 +1,443 @@
+{
+  "Actions": [
+    {
+      "Icon": "static/icon/n1spotify_toggle_play_on_white@2x.png",
+      "Name": "Lecture/Pause",
+      "DisableAutomaticStates": true,
+      "KeyboardSupport": true,
+      "States": [
+        {
+          "Image": "static/btn/btn_spotify_144_play_pause.png",
+          "TitleAlignment": "center",
+          "FontSize": "8"
+        }
+      ],
+      "Settings": {
+        "titleFormat": "title-artist",
+        "timeDisplay": "elapsed",
+        "showTitle": true
+      },
+      "Controllers": [
+        "Keypad",
+        "Information"
+      ],
+      "UserTitleEnabled": true,
+      "SupportedInMultiActions": true,
+      "Tooltip": "spotify operation",
+      "UUID": "com.laoy.streamdock.spotify.playpause",
+      "PropertyInspectorPath": "propertyInspector/playpause/index.html"
+    },
+    {
+      "Icon": "static/icon/n1spotify_prev@2x.png",
+      "Name": "Précédent",
+      "DisableAutomaticStates": true,
+      "KeyboardSupport": true,
+      "States": [
+        {
+          "Image": "static/btn/btn_spotify_144_prev.png",
+          "TitleAlignment": "center"
+        }
+      ],
+      "Controllers": [],
+      "UserTitleEnabled": true,
+      "SupportedInMultiActions": true,
+      "Tooltip": "spotify operation",
+      "UUID": "com.laoy.streamdock.spotify.previous",
+      "PropertyInspectorPath": "propertyInspector/previous/index.html"
+    },
+    {
+      "Icon": "static/icon/n1spotify_next@2x.png",
+      "Name": "Suivant",
+      "DisableAutomaticStates": true,
+      "KeyboardSupport": true,
+      "States": [
+        {
+          "Image": "static/btn/btn_spotify_144_next.png",
+          "TitleAlignment": "center"
+        }
+      ],
+      "Controllers": [],
+      "UserTitleEnabled": true,
+      "SupportedInMultiActions": true,
+      "Tooltip": "spotify operation",
+      "UUID": "com.laoy.streamdock.spotify.next",
+      "PropertyInspectorPath": "propertyInspector/next/index.html"
+    },
+    {
+      "Icon": "static/icon/n1spotify_device@2x.png",
+      "Name": "Changer d'Appareil",
+      "DisableAutomaticStates": true,
+      "KeyboardSupport": true,
+      "States": [
+        {
+          "Image": "static/btn/btn_spotify_144_device.png",
+          "TitleAlignment": "center"
+        }
+      ],
+      "Controllers": [],
+      "UserTitleEnabled": true,
+      "SupportedInMultiActions": true,
+      "Tooltip": "spotify operation",
+      "UUID": "com.laoy.streamdock.spotify.changedevice",
+      "PropertyInspectorPath": "propertyInspector/changedevice/index.html"
+    },
+    {
+      "Icon": "static/icon/n1spotify_like@2x.png",
+      "Name": "Ajouter aux Favoris",
+      "DisableAutomaticStates": true,
+      "KeyboardSupport": true,
+      "States": [
+        {
+          "Image": "static/btn/btn_spotify_144_like.png",
+          "TitleAlignment": "center"
+        },
+        {
+          "Image": "static/btn/btn_spotify_144_unlike.png",
+          "TitleAlignment": "center"
+        }
+      ],
+      "Controllers": [],
+      "UserTitleEnabled": true,
+      "SupportedInMultiActions": true,
+      "Tooltip": "spotify operation",
+      "UUID": "com.laoy.streamdock.spotify.likesong",
+      "PropertyInspectorPath": "propertyInspector/likesong/index.html"
+    },
+    {
+      "Icon": "static/icon/n1spotify_play@2x.png",
+      "Name": "Jouer par URI",
+      "DisableAutomaticStates": true,
+      "KeyboardSupport": true,
+      "States": [
+        {
+          "Image": "static/btn/btn_spotify_144_play.png",
+          "TitleAlignment": "center"
+        }
+      ],
+      "Settings": {
+        "playOption": "play"
+      },
+      "Controllers": [],
+      "UserTitleEnabled": true,
+      "SupportedInMultiActions": true,
+      "Tooltip": "spotify operation",
+      "UUID": "com.laoy.streamdock.spotify.playuri",
+      "PropertyInspectorPath": "propertyInspector/playuri/index.html"
+    },
+    {
+      "Icon": "static/icon/n1spotify_toggle_play_playlist_on_white@2x.png",
+      "Name": "Jouer une Playlist",
+      "DisableAutomaticStates": true,
+      "KeyboardSupport": true,
+      "States": [
+        {
+          "Image": "static/btn/btn_spotify_144_play_playlist.png",
+          "TitleAlignment": "center"
+        }
+      ],
+      "Settings": {
+        "showCover": true
+      },
+      "Controllers": [],
+      "UserTitleEnabled": true,
+      "SupportedInMultiActions": true,
+      "Tooltip": "spotify operation",
+      "UUID": "com.laoy.streamdock.spotify.playplaylist",
+      "PropertyInspectorPath": "propertyInspector/playplaylist/index.html"
+    },
+    {
+      "Icon": "static/icon/n1spotify_remove_from_playlist@2x.png",
+      "Name": "Retirer de la Playlist",
+      "DisableAutomaticStates": true,
+      "KeyboardSupport": true,
+      "States": [
+        {
+          "Image": "static/btn/btn_spotify_144_remove_from_playlist.png",
+          "TitleAlignment": "center"
+        }
+      ],
+      "Settings": {
+        "showCover": false
+      },
+      "Controllers": [],
+      "UserTitleEnabled": true,
+      "SupportedInMultiActions": true,
+      "Tooltip": "spotify operation",
+      "UUID": "com.laoy.streamdock.spotify.removeplaylistsong",
+      "PropertyInspectorPath": "propertyInspector/removeplaylistsong/index.html"
+    },
+    {
+      "Icon": "static/icon/n1spotify_save_to_playlist@2x.png",
+      "Name": "Ajouter à la Playlist",
+      "DisableAutomaticStates": true,
+      "KeyboardSupport": true,
+      "States": [
+        {
+          "Image": "static/btn/btn_spotify_144_save_to_playlist.png",
+          "TitleAlignment": "center"
+        }
+      ],
+      "Settings": {
+        "showCover": false
+      },
+      "Controllers": [],
+      "UserTitleEnabled": true,
+      "SupportedInMultiActions": true,
+      "Tooltip": "spotify operation",
+      "UUID": "com.laoy.streamdock.spotify.addtoplaylist",
+      "PropertyInspectorPath": "propertyInspector/addtoplaylist/index.html"
+    },
+    {
+      "Icon": "static/icon/n1spotify_repeat@2x.png",
+      "Name": "Mode Répétition",
+      "DisableAutomaticStates": true,
+      "KeyboardSupport": true,
+      "States": [
+        {
+          "Image": "static/btn/btn_spotify_144_repeat_off.png",
+          "TitleAlignment": "center"
+        },
+        {
+          "Image": "static/btn/btn_spotify_144_repeat_context.png",
+          "TitleAlignment": "center"
+        },
+        {
+          "Image": "static/btn/btn_spotify_144_repeat_track.png",
+          "TitleAlignment": "center"
+        }
+      ],
+      "Settings": {},
+      "Controllers": [],
+      "UserTitleEnabled": true,
+      "SupportedInMultiActions": true,
+      "Tooltip": "spotify operation",
+      "UUID": "com.laoy.streamdock.spotify.repeat",
+      "PropertyInspectorPath": "propertyInspector/repeat/index.html"
+    },
+    {
+      "Icon": "static/icon/n1spotify_toggle_shuffle_on_white@2x.png",
+      "Name": "Mode Aléatoire",
+      "DisableAutomaticStates": true,
+      "KeyboardSupport": true,
+      "States": [
+        {
+          "Image": "static/btn/btn_spotify_144_shuffle_off.png",
+          "TitleAlignment": "center"
+        },
+        {
+          "Image": "static/btn/btn_spotify_144_shuffle.png",
+          "TitleAlignment": "center"
+        },
+        {
+          "Image": "static/btn/btn_spotify_144_smart_shuffle.png",
+          "TitleAlignment": "center"
+        }
+      ],
+      "Settings": {},
+      "Controllers": [],
+      "UserTitleEnabled": true,
+      "SupportedInMultiActions": true,
+      "Tooltip": "spotify operation",
+      "UUID": "com.laoy.streamdock.spotify.shuffle",
+      "PropertyInspectorPath": "propertyInspector/shuffle/index.html"
+    },
+    {
+      "Icon": "static/icon/n1spotify_info@2x.png",
+      "Name": "Infos Lecture",
+      "DisableAutomaticStates": true,
+      "KeyboardSupport": true,
+      "States": [
+        {
+          "Image": "static/btn/btn_spotify_144_info.png",
+          "TitleAlignment": "center"
+        }
+      ],
+      "Settings": {
+        "mode": "title-artist"
+      },
+      "Controllers": [],
+      "UserTitleEnabled": true,
+      "SupportedInMultiActions": true,
+      "Tooltip": "spotify operation",
+      "UUID": "com.laoy.streamdock.spotify.songinfo",
+      "PropertyInspectorPath": "propertyInspector/songinfo/index.html"
+    },
+    {
+      "Icon": "static/icon/n1spotify_volume_up@2x.png",
+      "Name": "Augmenter Volume",
+      "DisableAutomaticStates": true,
+      "KeyboardSupport": true,
+      "States": [
+        {
+          "Image": "static/btn/btn_spotify_144_volume_up.png",
+          "TitleAlignment": "center",
+          "FontSize": "20"
+        }
+      ],
+      "Settings": {
+        "step": 10,
+        "show": true
+      },
+      "Controllers": [],
+      "UserTitleEnabled": true,
+      "SupportedInMultiActions": true,
+      "Tooltip": "spotify operation",
+      "UUID": "com.laoy.streamdock.spotify.volumeup",
+      "PropertyInspectorPath": "propertyInspector/volumeup/index.html"
+    },
+    {
+      "Icon": "static/icon/n1spotify_volume_down@2x.png",
+      "Name": "音量减",
+      "DisableAutomaticStates": true,
+      "KeyboardSupport": true,
+      "States": [
+        {
+          "Image": "static/btn/btn_spotify_144_volume_down.png",
+          "TitleAlignment": "center",
+          "FontSize": "20"
+        }
+      ],
+      "Settings": {
+        "step": 10,
+        "show": true
+      },
+      "Controllers": [],
+      "UserTitleEnabled": true,
+      "SupportedInMultiActions": true,
+      "Tooltip": "spotify operation",
+      "UUID": "com.laoy.streamdock.spotify.volumedown",
+      "PropertyInspectorPath": "propertyInspector/volumedown/index.html"
+    },
+    {
+      "Icon": "static/icon/n1spotify_volume_set@2x.png",
+      "Name": "设置音量",
+      "DisableAutomaticStates": true,
+      "KeyboardSupport": true,
+      "States": [
+        {
+          "Image": "static/btn/btn_spotify_144_volume_set.png",
+          "TitleAlignment": "center",
+          "FontSize": "20"
+        }
+      ],
+      "Settings": {
+        "volume": 50,
+        "show": true
+      },
+      "Controllers": [],
+      "UserTitleEnabled": true,
+      "SupportedInMultiActions": true,
+      "Tooltip": "spotify operation",
+      "UUID": "com.laoy.streamdock.spotify.volumeset",
+      "PropertyInspectorPath": "propertyInspector/volumeset/index.html"
+    },
+    {
+      "Icon": "static/icon/n1spotify_volume_mute@2x.png",
+      "Name": "静音",
+      "DisableAutomaticStates": true,
+      "KeyboardSupport": true,
+      "States": [
+        {
+          "Image": "static/btn/btn_spotify_144_volume_set.png",
+          "TitleAlignment": "center",
+          "FontSize": "20"
+        },
+        {
+          "Image": "static/btn/btn_spotify_144_volume_mute.png",
+          "TitleAlignment": "center",
+          "FontSize": "20"
+        }
+      ],
+      "Settings": {
+        "show": true
+      },
+      "Controllers": [],
+      "UserTitleEnabled": true,
+      "SupportedInMultiActions": true,
+      "Tooltip": "spotify operation",
+      "UUID": "com.laoy.streamdock.spotify.mute",
+      "PropertyInspectorPath": "propertyInspector/mute/index.html"
+    },
+    {
+      "Icon": "static/icon/n1spotify_144_prevornext.png",
+      "Name": "上一首<< | >>下一首",
+      "DisableAutomaticStates": true,
+      "KeyboardSupport": true,
+      "States": [
+        {
+          "Image": "static/btn/btn_spotify_144_prevornext.png",
+          "TitleAlignment": "center"
+        }
+      ],
+      "Settings": {
+        "titleFormat": "title-artist",
+        "timeDisplay": "elapsed",
+        "showTitle": true
+      },
+      "Controllers": [
+        "Knob"
+      ],
+      "UserTitleEnabled": true,
+      "SupportedInMultiActions": true,
+      "Tooltip": "spotify operation",
+      "UUID": "com.laoy.streamdock.spotify.previousornext",
+      "PropertyInspectorPath": "propertyInspector/previousornext/index.html"
+    },
+    {
+      "Icon": "static/icon/n1spotify_volume_set@2x.png",
+      "Name": "音量调节",
+      "DisableAutomaticStates": true,
+      "KeyboardSupport": true,
+      "States": [
+        {
+          "Image": "static/btn/btn_spotify_144_volume_set.png",
+          "TitleAlignment": "center",
+          "FontSize": "20"
+        },
+        {
+          "Image": "static/btn/btn_spotify_144_volume_mute.png",
+          "TitleAlignment": "center",
+          "FontSize": "20"
+        }
+      ],
+      "Settings": {
+        "step": 10,
+        "show": true
+      },
+      "Controllers": [
+        "Knob"
+      ],
+      "UserTitleEnabled": true,
+      "SupportedInMultiActions": true,
+      "Tooltip": "spotify operation",
+      "UUID": "com.laoy.streamdock.spotify.volumecontrol",
+      "PropertyInspectorPath": "propertyInspector/volumecontrol/index.html"
+    }
+  ],
+  "SDKVersion": 1,
+  "CodePath": "plugin/index.html",
+  "Author": "Laoy",
+  "Name": "CRIMSON Spotify",
+  "Icon": "static/icon/icon@2x.png",
+  "Description": "spotify operation",
+  "Category": "CRIMSON",
+  "CategoryIcon": "static/icon/icon@2x.png",
+  "Version": "2.0.260319",
+  "URL": "https://mirabox.key123.vip/home",
+  "OS": [
+    {
+      "Platform": "mac",
+      "MinimumVersion": "10.11"
+    },
+    {
+      "Platform": "windows",
+      "MinimumVersion": "7"
+    }
+  ],
+  "Software": {
+    "MinimumVersion": "3.10.188.226"
+  },
+  "Nodejs": {
+    "Version": "20"
+  }
+}

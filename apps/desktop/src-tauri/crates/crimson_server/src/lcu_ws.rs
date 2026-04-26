@@ -78,6 +78,9 @@ pub async fn start_lcu_ws(sender: WsSender) {
                                                 let auto_data = data.clone();
                                                 automation::handle_champ_select_standalone(&auto_data);
                                             },
+                                            "/lol-matchmaking/v1/ready-check" => {
+                                                automation::handle_ready_check(data);
+                                            },
                                             _ => {}
                                         }
                                     }

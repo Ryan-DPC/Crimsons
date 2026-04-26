@@ -56,6 +56,7 @@ pub async fn start_ws_server(sender: WsSender, spotify_service: Arc<SpotifyServi
 async fn handle_connection(stream: TcpStream, sender: WsSender, spotify: Arc<SpotifyService>, discord: Arc<DiscordService>) {
 
     if let Ok(mut ws_stream) = accept_async(stream).await {
+        crate::storage::log_to_file("streamdock.log", "[WS] New client connection accepted");
         println!("Client connected to WebSocket server");
         
         let (ws_stream_sender, mut ws_stream_receiver) = tokio::sync::mpsc::channel::<String>(100);
@@ -105,6 +106,25 @@ async fn handle_connection(stream: TcpStream, sender: WsSender, spotify: Arc<Spo
                                     // 1. Log incoming command for diagnostics
                                     let evt_name = value["event"].as_str().unwrap_or("N/A");
                                     let type_name = value["type"].as_str().unwrap_or("N/A");
+                                     
+                                    // Universal Settings Extraction
+                                    if let Some(ctx) = value["context"].as_str() {
+                                        if let Some(settings) = value["payload"]["settings"].as_object() {
+                                            crate::storage::log_to_file("streamdock.log", &format!("[DEBUG SETTINGS] Received for context {}: {:?}", ctx, settings));
+                                            for mut bridge in crate::streamdock::ACTIVE_BRIDGES.iter_mut() {
+                                                let mut s = bridge.settings_per_ctx.lock().await;
+                                                s.insert(ctx.to_string(), serde_json::Value::Object(settings.clone()));
+                                            }
+                                        }
+                                        // Update context mapping if action is present
+                                        if let Some(action) = value["action"].as_str() {
+                                            for mut bridge in crate::streamdock::ACTIVE_BRIDGES.iter_mut() {
+                                                let mut c = bridge.contexts.lock().await;
+                                                c.insert(ctx.to_string(), action.to_string());
+                                            }
+                                        }
+                                    }
+
                                     crate::storage::log_to_file("streamdock.log", &format!("[SD IN] Event: {} Type: {} Payload: {}", evt_name, type_name, text));
 
                                     if value["type"] == "UPDATE_RESOURCE_MODE" {
@@ -151,11 +171,16 @@ async fn handle_connection(stream: TcpStream, sender: WsSender, spotify: Arc<Spo
                                             let contexts = std::sync::Arc::new(tokio::sync::Mutex::new(std::collections::HashMap::new()));
                                             let pi_contexts = std::sync::Arc::new(tokio::sync::Mutex::new(std::collections::HashSet::new()));
                                             let last_state_cache = std::sync::Arc::new(tokio::sync::Mutex::new(None));
+                                            let last_image_per_ctx = std::sync::Arc::new(tokio::sync::Mutex::new(std::collections::HashMap::new()));
+                                            let settings_per_ctx = std::sync::Arc::new(tokio::sync::Mutex::new(std::collections::HashMap::new()));
+                                            
                                             let bridge_data = crate::streamdock::HardwareBridge {
                                                 tx: sender_clone.clone(),
                                                 contexts: contexts.clone(),
                                                 last_state_cache: last_state_cache.clone(),
                                                 pi_contexts: pi_contexts.clone(),
+                                                last_image_per_ctx: last_image_per_ctx.clone(),
+                                                settings_per_ctx: settings_per_ctx.clone(),
                                             };
                                             crate::streamdock::ACTIVE_BRIDGES.insert(uuid_str.clone(), bridge_data);
                                             
@@ -179,11 +204,31 @@ async fn handle_connection(stream: TcpStream, sender: WsSender, spotify: Arc<Spo
                                         }
                                     }
 
+                                     if value["event"] == "registerPropertyInspector" {
+                                        let s_clone = spotify.clone();
+                                        let ws_sender = ws_stream_sender.clone();
+                                        tokio::spawn(async move {
+                                            let playlists = s_clone.get_user_playlists().await.unwrap_or_default();
+                                            let devices = s_clone.get_user_devices().await.unwrap_or_default();
+                                            let data = json!({
+                                                "event": "sendToPropertyInspector",
+                                                "payload": {
+                                                    "playlists": playlists,
+                                                    "devices": devices,
+                                                    "authorized": true
+                                                }
+                                            });
+                                            let _ = ws_sender.send(data.to_string()).await;
+                                        });
+                                        continue;
+                                    }
+
                                     if value["type"] == "REGISTER_STREAMDOCK" {
                                         let port_opt = value["port"].as_u64()
                                             .or_else(|| value["port"].as_str().and_then(|s| s.parse::<u64>().ok()));
 
                                         if let (Some(p), Some(u), Some(r)) = (port_opt, value["uuid"].as_str(), value["register_event"].as_str()) {
+                                            crate::storage::log_to_file("streamdock.log", &format!("[SD HANDOVER] Port: {} UUID: {} Event: {}", p, u, r));
                                             println!("WebSocket: Handover REQUEST received for StreamDock context {} on port {}", u, p);
                                             let s_clone = spotify.clone();
                                             let d_clone = discord.clone();
@@ -206,6 +251,33 @@ async fn handle_connection(stream: TcpStream, sender: WsSender, spotify: Arc<Spo
                                     }
 
                                     // Broadcast direct action requests from StreamDock so the Tauri UI can handle them
+                                    // 4. Handle generic StreamDeck events (willAppear, etc.)
+                                    if let Some(event) = value["event"].as_str() {
+                                        if event == "willAppear" {
+                                            if let (Some(ctx), Some(action)) = (value["context"].as_str(), value["action"].as_str()) {
+                                                // Update context mapping
+                                                for mut bridge in crate::streamdock::ACTIVE_BRIDGES.iter_mut() {
+                                                    let mut c = bridge.contexts.lock().await;
+                                                    c.insert(ctx.to_string(), action.to_string());
+                                                    
+                                                    // Update settings
+                                                    if let Some(settings) = value["payload"]["settings"].as_object() {
+                                                        let mut s = bridge.settings_per_ctx.lock().await;
+                                                        s.insert(ctx.to_string(), serde_json::Value::Object(settings.clone()));
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        if event == "willDisappear" {
+                                            if let Some(ctx) = value["context"].as_str() {
+                                                for mut bridge in crate::streamdock::ACTIVE_BRIDGES.iter_mut() {
+                                                    let mut c = bridge.contexts.lock().await;
+                                                    c.remove(ctx);
+                                                }
+                                            }
+                                        }
+                                    }
+
                                     if value["type"] == "TOGGLE_AUTO_ACCEPT" || value["type"] == "TOGGLE_AUTO_BAN" || value["type"] == "TOGGLE_AUTO_PICK" || value["type"] == "INJECT_BUILD" || value["type"] == "DODGE_GAME" || value["type"] == "RUNE_BUILDS_READY" {
                                         let _ = sender.0.send(text.clone());
                                         // Also directly acknowledge it

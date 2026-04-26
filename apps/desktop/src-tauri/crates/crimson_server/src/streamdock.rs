@@ -21,6 +21,8 @@ pub struct HardwareBridge {
     pub contexts: Arc<tokio::sync::Mutex<HashMap<String, String>>>,
     pub last_state_cache: Arc<tokio::sync::Mutex<Option<serde_json::Value>>>,
     pub pi_contexts: Arc<tokio::sync::Mutex<HashSet<String>>>,
+    pub last_image_per_ctx: Arc<tokio::sync::Mutex<HashMap<String, String>>>,
+    pub settings_per_ctx: Arc<tokio::sync::Mutex<HashMap<String, serde_json::Value>>>,
 }
 
 pub async fn start_streamdock_client(port: u16, uuid: String, register_event: String, spotify: Arc<SpotifyService>, discord: Arc<DiscordService>) {
@@ -31,12 +33,16 @@ pub async fn start_streamdock_client(port: u16, uuid: String, register_event: St
     let contexts = Arc::new(tokio::sync::Mutex::new(HashMap::new()));
     let last_state_cache: Arc<tokio::sync::Mutex<Option<serde_json::Value>>> = Arc::new(tokio::sync::Mutex::new(None));
     let pi_contexts = Arc::new(tokio::sync::Mutex::new(HashSet::new()));
+    let last_image_per_ctx = Arc::new(tokio::sync::Mutex::new(HashMap::new()));
+    let settings_per_ctx = Arc::new(tokio::sync::Mutex::new(HashMap::new()));
     
     let bridge = HardwareBridge {
         tx: tx_ws.clone(),
         contexts: contexts.clone(),
         last_state_cache: last_state_cache.clone(),
         pi_contexts: pi_contexts.clone(),
+        last_image_per_ctx: last_image_per_ctx.clone(),
+        settings_per_ctx: settings_per_ctx.clone(),
     };
     
     // Register this bridge globally
@@ -69,13 +75,17 @@ pub async fn start_streamdock_client(port: u16, uuid: String, register_event: St
     let contexts_poll = contexts.clone();
     let last_state_cache_poll = last_state_cache.clone();
     let render_state_poll = render_state.clone();
+    let settings_for_poll = settings_per_ctx.clone();
     tokio::spawn(async move {
+        let s_loop_handler = settings_for_poll.clone();
+        
         let mut rx_spotify = spotify_poll.subscribe_events();
         let mut last_album_url = String::new();
         let mut last_base64_jpeg: Vec<u8> = Vec::new();
         let mut scroll_counter = 0u32;
 
         while let Ok(state_json) = rx_spotify.recv().await {
+            let loop_settings = s_loop_handler.clone();
             scroll_counter = scroll_counter.wrapping_add(1);
             if let Ok(v) = serde_json::from_str::<serde_json::Value>(&state_json) {
                 if let Some(data) = v.get("data") {
@@ -121,17 +131,150 @@ pub async fn start_streamdock_client(port: u16, uuid: String, register_event: St
                         });
                     }
 
+                    // [NOUVEAU] Diffuser à tous les WebSockets CRIMSON actifs (au cas où le handover a échoué)
+                    if !last_base64_jpeg.is_empty() {
+                         use base64::{Engine as _, engine::general_purpose::STANDARD};
+                         let b64_str = format!("data:image/jpeg;base64,{}", STANDARD.encode(&last_base64_jpeg));
+                         let broadcast_msg = json!({ "event": "setImageBroadcast", "payload": { "image": b64_str }}).to_string();
+                         let _ = tx_ws_poll.send(broadcast_msg).await;
+                    }
+
                     let active_ctx = contexts_poll.lock().await.clone();
+                    
                     for (ctx, action_name) in &active_ctx {
-                        // --- CATCH-ALL MIRABOX BOOSTING ---
-                        if action_name.contains("mirabox.spotify") {
-                            // Boost any button that supports an image (playlist, albumart, controller, etc.)
+                        // --- CATCH-ALL SPOTIFY BOOSTING (MiraBox + CRIMSON) ---
+                        if action_name.contains("spotify") {
+                            // 1. Specific handling for playplaylist (use playlist_image from settings)
+                            if action_name.contains("playlist") {
+                                let mut playlist_img_url: Option<String> = None;
+                                {
+                                        let s_ref = loop_settings.clone();
+                                        let settings_lock = s_ref.lock().await;
+                                        if let Some(settings) = settings_lock.get(ctx) {
+                                            playlist_img_url = settings["playlist_image"].as_str().map(|s| s.to_string());
+                                            
+                                            // AUTO-FETCH/SEARCH if missing
+                                            if playlist_img_url.is_none() {
+                                                let uri_opt = settings["uri"].as_str().or(settings["playlist"].as_str());
+                                                if let Some(val) = uri_opt {
+                                                    if !val.is_empty() {
+                                                        crate::storage::log_to_file("streamdock.log", &format!("[DEBUG PLAYLIST] Identifying: {}", val));
+                                                        
+                                                        // CRITICAL: Mark as PENDING in cache IMMEDIATELY to prevent task explosion
+                                                        let mut settings_mut = loop_settings.lock().await;
+                                                        if let Some(st) = settings_mut.get_mut(ctx) {
+                                                            if let Some(obj) = st.as_object_mut() {
+                                                                obj.insert("playlist_image".to_string(), json!("PENDING"));
+                                                            }
+                                                        }
+                                                        drop(settings_mut); // Release lock before spawning or continuing
+
+                                                        let s_clone_fetch = loop_settings.clone();
+                                                        let spotify_fetch = spotify_poll.clone();
+                                                        let ctx_clone_fetch = ctx.clone();
+                                                        let val_clone_fetch = val.to_string();
+                                                        tokio::spawn(async move {
+                                                            let result = if val_clone_fetch.starts_with("spotify:") {
+                                                                spotify_fetch.get_playlist_cover(&val_clone_fetch).await.map(|u| (val_clone_fetch.clone(), u))
+                                                            } else {
+                                                                spotify_fetch.find_playlist_by_name(&val_clone_fetch).await
+                                                            };
+
+                                                            if let Some((uri, url)) = result {
+                                                                crate::storage::log_to_file("streamdock.log", &format!("[DEBUG PLAYLIST] Resolved {} to {}", val_clone_fetch, url));
+                                                                let mut s = s_clone_fetch.lock().await;
+                                                                if let Some(st) = s.get_mut(&ctx_clone_fetch) {
+                                                                    if let Some(obj) = st.as_object_mut() {
+                                                                        obj.insert("playlist_image".to_string(), json!(url));
+                                                                        if !val_clone_fetch.starts_with("spotify:") {
+                                                                            obj.insert("uri".to_string(), json!(uri));
+                                                                        }
+                                                                    }
+                                                                }
+                                                            } else {
+                                                                crate::storage::log_to_file("streamdock.log", &format!("[DEBUG PLAYLIST] Failed resolution for {}", val_clone_fetch));
+                                                                // Allow retry by removing PENDING after some time or on failure?
+                                                                // For now, let's just mark it as FAILED to stop the loop
+                                                                let mut s = s_clone_fetch.lock().await;
+                                                                if let Some(st) = s.get_mut(&ctx_clone_fetch) {
+                                                                    if let Some(obj) = st.as_object_mut() {
+                                                                        obj.insert("playlist_image".to_string(), json!("FAILED"));
+                                                                    }
+                                                                }
+                                                            }
+                                                        });
+                                                        playlist_img_url = Some("PENDING".to_string());
+                                                    }
+                                                }
+                                            }
+                                        }
+                                }
+
+                                if let Some(url) = playlist_img_url {
+                                    if !url.is_empty() && url != "PENDING" {
+                                        let mut img_cache = last_image_per_ctx.lock().await;
+                                        if img_cache.get(ctx) != Some(&url) {
+                                            let tx_ws_clone = tx_ws_poll.clone();
+                                            let ctx_clone = ctx.clone();
+                                            let url_clone = url.clone();
+                                            let img_cache_clone = last_image_per_ctx.clone();
+
+                                            tokio::spawn(async move {
+                                                let client = reqwest::Client::new();
+                                                match client.get(&url_clone).send().await {
+                                                    Ok(resp) => {
+                                                        if let Ok(bytes) = resp.bytes().await {
+                                                            use base64::{Engine as _, engine::general_purpose::STANDARD};
+                                                            let b64 = STANDARD.encode(&bytes);
+                                                            let img_data = format!("data:image/jpeg;base64,{}", b64);
+                                                            let msg = json!({ "event": "setImage", "context": ctx_clone, "payload": { "image": &img_data, "target": 0 }}).to_string();
+                                                            let _ = tx_ws_clone.send(msg).await;
+
+                                                            let mut cache = img_cache_clone.lock().await;
+                                                            cache.insert(ctx_clone, url_clone);
+                                                        }
+                                                    },
+                                                    Err(_) => {}
+                                                }
+                                            });
+                                        }
+                                        continue;
+                                    }
+                                }
+                                
+                                // Fallback for playlists without image or not yet selected
+                                {
+                                    let mut img_cache = last_image_per_ctx.lock().await;
+                                    if img_cache.get(ctx).is_none() {
+                                        if let Some(icon_path) = get_plugin_asset_path("static/icon/n1spotify_toggle_play_playlist_on_white@2x.png") {
+                                            if let Ok(bytes) = std::fs::read(icon_path) {
+                                                use base64::{Engine as _, engine::general_purpose::STANDARD};
+                                                let img_data = format!("data:image/png;base64,{}", STANDARD.encode(&bytes));
+                                                let msg = json!({ "event": "setImage", "context": ctx, "payload": { "image": &img_data, "target": 0 }}).to_string();
+                                                let _ = tx_ws_poll.send(msg).await;
+                                                img_cache.insert(ctx.clone(), "DEFAULT_PLAYLIST".to_string());
+                                            }
+                                        }
+                                    }
+                                }
+                                continue;
+                            }
+
+                            // 2. Default song art override for other buttons
                             if !last_base64_jpeg.is_empty() {
-                                if action_name.contains("playlist") || action_name.contains("art") || action_name.contains("pause") || action_name.contains("board") || action_name.contains("track") {
+                                if (action_name.contains("art") || action_name.contains("pause") || action_name.contains("board") || action_name.contains("track") || action_name.contains("play")) 
+                                   && !action_name.contains("playlist") {
                                       use base64::{Engine as _, engine::general_purpose::STANDARD};
                                       let b64 = STANDARD.encode(&last_base64_jpeg);
-                                      let msg = json!({ "event": "setImage", "context": ctx, "payload": { "image": format!("data:image/jpeg;base64,{}", b64), "target": 0 }}).to_string();
-                                      let _ = tx_ws_poll.send(msg).await;
+                                      let img_data = format!("data:image/jpeg;base64,{}", b64);
+                                      
+                                      let mut img_cache = last_image_per_ctx.lock().await;
+                                      // ONLY SEND IF CHANGED (Anti-Flicker)
+                                      if img_cache.get(ctx) != Some(&img_data) {
+                                          let msg = json!({ "event": "setImage", "context": ctx, "payload": { "image": &img_data, "target": 0 }}).to_string();
+                                          let _ = tx_ws_poll.send(msg).await;
+                                          img_cache.insert(ctx.clone(), img_data);
+                                      }
                                 }
                             }
                             
@@ -142,8 +285,12 @@ pub async fn start_streamdock_client(port: u16, uuid: String, register_event: St
                             } else if action_name.ends_with("info_artist") {
                                 let artist = data["artist_name"].as_str().unwrap_or("Ready");
                                 let img = compose_info_image(artist, if last_base64_jpeg.is_empty() { None } else { Some(&last_base64_jpeg) });
-                                let msg = json!({ "event": "setImage", "context": ctx, "payload": { "image": img, "target": 0 }}).to_string();
-                                let _ = tx_ws_poll.send(msg).await;
+                                let mut img_cache = last_image_per_ctx.lock().await;
+                                if img_cache.get(ctx) != Some(&img) {
+                                    let msg = json!({ "event": "setImage", "context": ctx, "payload": { "image": &img, "target": 0 }}).to_string();
+                                    let _ = tx_ws_poll.send(msg).await;
+                                    img_cache.insert(ctx.clone(), img);
+                                }
                             } else if action_name.ends_with("shuffle") {
                                 let shuffle_state = data["shuffle_state"].as_bool().unwrap_or(false);
                                 let smart_shuffle = data["smart_shuffle"].as_bool().unwrap_or(false);
@@ -151,9 +298,13 @@ pub async fn start_streamdock_client(port: u16, uuid: String, register_event: St
                                 if let Some(icon_path) = get_plugin_asset_path(&format!("static/btn/{}", icon_name)) {
                                     if let Ok(bytes) = std::fs::read(icon_path) {
                                         use base64::{Engine as _, engine::general_purpose::STANDARD};
-                                        let b64 = STANDARD.encode(&bytes);
-                                        let msg = json!({ "event": "setImage", "context": ctx, "payload": { "image": format!("data:image/png;base64,{}", b64), "target": 0 }}).to_string();
-                                        let _ = tx_ws_poll.send(msg).await;
+                                        let img_data = format!("data:image/png;base64,{}", STANDARD.encode(&bytes));
+                                        let mut img_cache = last_image_per_ctx.lock().await;
+                                        if img_cache.get(ctx) != Some(&img_data) {
+                                            let msg = json!({ "event": "setImage", "context": ctx, "payload": { "image": &img_data, "target": 0 }}).to_string();
+                                            let _ = tx_ws_poll.send(msg).await;
+                                            img_cache.insert(ctx.clone(), img_data);
+                                        }
                                     }
                                 }
                             } else if action_name.ends_with("repeat") {
@@ -232,17 +383,35 @@ pub async fn start_streamdock_client(port: u16, uuid: String, register_event: St
     let last_composed_cache_render = last_composed_cache.clone();
     tokio::spawn(async move {
         let mut interval = tokio::time::interval(tokio::time::Duration::from_millis(250));
+        let mut last_remaining_s = 0u64;
+        let mut current_track = String::new();
+        let mut last_monotonic_ms = 0u64;
         let mut last_composed_key = String::new();
+        let mut last_sent_image_per_ctx: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+        let mut shuffle_icons_cache: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+
         loop {
             interval.tick().await;
             let snap = render_state_render.lock().await.clone();
             let Some(s) = snap else { continue };
 
             let elapsed_ms = if s.is_playing { s.polled_at.elapsed().as_millis() as u64 } else { 0 };
-            let current_progress = (s.progress_ms_at_poll + elapsed_ms).min(s.duration_ms);
-            let remaining_s = s.duration_ms.saturating_sub(current_progress) / 1000;
-            let timer_str = format!("{:}:{:02}", remaining_s / 60, remaining_s % 60);
+            let mut current_progress = (s.progress_ms_at_poll + elapsed_ms).min(s.duration_ms);
 
+            // MONOTONIC STABILIZATION: Prevent jumping back due to Spotify polling delay
+            if s.track_name == current_track {
+                if current_progress < last_monotonic_ms && (last_monotonic_ms - current_progress) < 2000 {
+                    current_progress = last_monotonic_ms;
+                }
+            } else {
+                current_track = s.track_name.clone();
+            }
+            last_monotonic_ms = current_progress;
+
+            let mut remaining_s = s.duration_ms.saturating_sub(current_progress) / 1000;
+            last_remaining_s = remaining_s;
+
+            let timer_str = format!("{:}:{:02}", remaining_s / 60, remaining_s % 60);
             let compose_key = format!("{}-{}", s.track_name, timer_str);
             let active_ctx = contexts_render.lock().await.clone();
 
@@ -251,7 +420,7 @@ pub async fn start_streamdock_client(port: u16, uuid: String, register_event: St
             let mut tick_progress_image: Option<String> = None;
 
             for (ctx, action_name) in &active_ctx {
-                let is_mirabox = action_name.contains("mirabox.spotify");
+                let is_spotify = action_name.contains("spotify");
                 
                 if action_name.ends_with("playpause") || action_name.ends_with(".play") {
                     if compose_key != last_composed_key {
@@ -261,10 +430,14 @@ pub async fn start_streamdock_client(port: u16, uuid: String, register_event: St
                             *last_composed_cache_render.lock().await = Some(img);
                         }
                         if let Some(img) = &tick_composed_image {
-                            let _ = tx_ws_render.send(json!({ "event": "setImage", "context": ctx, "payload": { "image": img, "target": 0 }}).to_string()).await;
-                            // Clear title for MiraBox to avoid overlap
-                            if is_mirabox {
-                                let _ = tx_ws_render.send(json!({ "event": "setTitle", "context": ctx, "payload": { "title": "", "target": 0 }}).to_string()).await;
+                            let already_sent = last_sent_image_per_ctx.get(ctx).map(|v| v == img).unwrap_or(false);
+                            if !already_sent {
+                                let _ = tx_ws_render.send(json!({ "event": "setImage", "context": ctx, "payload": { "image": img, "target": 0 }}).to_string()).await;
+                                last_sent_image_per_ctx.insert(ctx.clone(), img.clone());
+                                // Clear title for Spotify buttons to avoid overlap
+                                if is_spotify {
+                                    let _ = tx_ws_render.send(json!({ "event": "setTitle", "context": ctx, "payload": { "title": "", "target": 0 }}).to_string()).await;
+                                }
                             }
                         }
                     }
@@ -273,26 +446,48 @@ pub async fn start_streamdock_client(port: u16, uuid: String, register_event: St
                         tick_progress_image = Some(compose_progress_image(current_progress, s.duration_ms));
                     }
                     if let Some(img) = &tick_progress_image {
-                        let _ = tx_ws_render.send(json!({ "event": "setImage", "context": ctx, "payload": { "image": img, "target": 0 }}).to_string()).await;
+                        let already_sent = last_sent_image_per_ctx.get(ctx).map(|v| v == img).unwrap_or(false);
+                        if !already_sent {
+                            let _ = tx_ws_render.send(json!({ "event": "setImage", "context": ctx, "payload": { "image": img, "target": 0 }}).to_string()).await;
+                            last_sent_image_per_ctx.insert(ctx.clone(), img.clone());
+                        }
                     }
                 } else if action_name.ends_with("info_title") || action_name.ends_with(".info") {
                     if tick_marquee_image.is_none() {
                         tick_marquee_image = Some(compose_marquee_image(&s.track_name, s.scroll_counter));
                     }
                     if let Some(img) = &tick_marquee_image {
-                        let _ = tx_ws_render.send(json!({ "event": "setImage", "context": ctx, "payload": { "image": img, "target": 0 }}).to_string()).await;
+                        let already_sent = last_sent_image_per_ctx.get(ctx).map(|v| v == img).unwrap_or(false);
+                        if !already_sent {
+                            let _ = tx_ws_render.send(json!({ "event": "setImage", "context": ctx, "payload": { "image": img, "target": 0 }}).to_string()).await;
+                            last_sent_image_per_ctx.insert(ctx.clone(), img.clone());
+                        }
                     }
                 } else if action_name.ends_with("shuffle") || action_name.ends_with(".shuffle") {
                     // MiraBox shuffle might not support 3 states via setState, so we use setImage for the icon
                     let state_idx = if s.smart_shuffle { 2 } else if s.shuffle_state { 1 } else { 0 };
                     
-                    if is_mirabox {
+                    if is_spotify {
                         let icon_name = if s.smart_shuffle { "btn_spotify_144_smart_shuffle.png" } else if s.shuffle_state { "btn_spotify_144_shuffle.png" } else { "btn_spotify_144_shuffle_off.png" };
-                        if let Some(icon_path) = get_plugin_asset_path(&format!("static/btn/{}", icon_name)) {
-                            if let Ok(bytes) = std::fs::read(icon_path) {
-                                use base64::{Engine as _, engine::general_purpose::STANDARD};
-                                let b64 = STANDARD.encode(&bytes);
-                                let _ = tx_ws_render.send(json!({ "event": "setImage", "context": ctx, "payload": { "image": format!("data:image/png;base64,{}", b64), "target": 0 }}).to_string()).await;
+                        
+                        let b64 = if let Some(cached) = shuffle_icons_cache.get(icon_name) {
+                            Some(cached.clone())
+                        } else {
+                            if let Some(icon_path) = get_plugin_asset_path(&format!("static/btn/{}", icon_name)) {
+                                if let Ok(bytes) = std::fs::read(icon_path) {
+                                    use base64::{Engine as _, engine::general_purpose::STANDARD};
+                                    let encoded = format!("data:image/png;base64,{}", STANDARD.encode(&bytes));
+                                    shuffle_icons_cache.insert(icon_name.to_string(), encoded.clone());
+                                    Some(encoded)
+                                } else { None }
+                            } else { None }
+                        };
+
+                        if let Some(img) = b64 {
+                            let already_sent = last_sent_image_per_ctx.get(ctx).map(|v| v == &img).unwrap_or(false);
+                            if !already_sent {
+                                let _ = tx_ws_render.send(json!({ "event": "setImage", "context": ctx, "payload": { "image": img, "target": 0 }}).to_string()).await;
+                                last_sent_image_per_ctx.insert(ctx.clone(), img);
                             }
                         }
                     } else {
@@ -351,10 +546,26 @@ pub async fn start_streamdock_client(port: u16, uuid: String, register_event: St
                                         let context = value["context"].as_str().unwrap_or("");
                                         if event == "willDisappear" {
                                             contexts.lock().await.remove(context);
+                                            last_image_per_ctx.lock().await.remove(context);
+                                            settings_per_ctx.lock().await.remove(context);
                                         } else if event == "propertyInspectorDidDisappear" {
                                             pi_contexts.lock().await.remove(context);
                                         }
 
+                                        if text_str.contains("settings") {
+                                            if let Some(ctx) = value["context"].as_str() {
+                                                if let Some(settings) = value["payload"]["settings"].as_object() {
+                                                    crate::storage::log_to_file("streamdock.log", &format!("[DEBUG SETTINGS-DIRECT] Received for context {}: {:?}", ctx, settings));
+                                                    let s_clone_msg = settings_per_ctx.clone();
+                                                    let ctx_clone_msg = ctx.to_string();
+                                                    let settings_clone_msg = settings.clone();
+                                                    tokio::spawn(async move {
+                                                        let mut s: tokio::sync::MutexGuard<'_, HashMap<String, serde_json::Value>> = s_clone_msg.lock().await;
+                                                        s.insert(ctx_clone_msg, serde_json::Value::Object(settings_clone_msg));
+                                                    });
+                                                }
+                                            }
+                                        }
                                         // Delegate all other logic to shared function
                                         process_streamdeck_event(value, spotify_wa.clone(), discord.clone(), tx_ws.clone(), contexts.clone(), pi_contexts.clone(), last_state_cache.clone()).await;
                                     }
@@ -415,7 +626,7 @@ pub async fn process_streamdeck_event(
             let alb_url = last["album_art"].as_str().unwrap_or("");
             let b64_img = last["album_jpeg"].as_str().unwrap_or(""); // Use cached JPEG if available
             
-            if action.contains("mirabox.spotify") {
+            if action.contains("spotify") {
                 if !b64_img.is_empty() {
                     // Force render cover on any button that supports it
                     let _ = tx_hardware.send(json!({ "event": "setImage", "context": context, "payload": { "image": format!("data:image/jpeg;base64,{}", b64_img), "target": 0 }}).to_string()).await;
@@ -450,6 +661,42 @@ pub async fn process_streamdeck_event(
                 }
             }
         }
+
+        // --- PLAYLIST COVER AUTO-LOAD ---
+        if action.ends_with("playlist") {
+            let s_clone = spotify.clone();
+            let tx_c = tx_hardware.clone();
+            let ctx_c = context.to_string();
+            let val_c = value.clone();
+            
+            tokio::spawn(async move {
+                let settings = &val_c["payload"]["settings"];
+                let mut cover_url = settings["image"].as_str().map(|s| s.to_string());
+                
+                // If no image in settings, try to find it by URI or Name
+                if cover_url.is_none() {
+                    if let Some(uri) = settings["playlist"].as_str().or(settings["uri"].as_str()) {
+                        cover_url = s_clone.get_playlist_cover(uri).await;
+                    } else if let Some(name) = settings["playlistName"].as_str() {
+                        if let Some((_, img)) = s_clone.find_playlist_by_name(name).await {
+                            cover_url = Some(img);
+                        }
+                    }
+                }
+
+                if let Some(url) = cover_url {
+                    if let Ok(resp) = reqwest::get(&url).await {
+                        if let Ok(bytes) = resp.bytes().await {
+                             use base64::{Engine as _, engine::general_purpose::STANDARD};
+                             let b64 = STANDARD.encode(&bytes);
+                             let _ = tx_c.send(json!({ "event": "setImage", "context": ctx_c, "payload": { "image": format!("data:image/jpeg;base64,{}", b64), "target": 0 }}).to_string()).await;
+                        }
+                    }
+                }
+            });
+        }
+    } else if event == "willDisappear" {
+        contexts.lock().await.remove(context);
     } else if event == "propertyInspectorDidAppear" || event == "registerPropertyInspector" || (event == "sendToPlugin" && value["payload"]["type"] == "refresh") {
         let ctx_str = context.to_string();
         pi_contexts.lock().await.insert(ctx_str.clone());
@@ -463,6 +710,7 @@ pub async fn process_streamdeck_event(
         let last_state = last_state_cache.clone();
         
         tokio::spawn(async move {
+            s_clone.update_tokens_js().await;
             let playlists = s_clone.get_user_playlists().await.unwrap_or_default();
             let devices = s_clone.get_user_devices().await.unwrap_or_default();
             let (id, secret, token_opt) = s_clone.get_credentials().await;
@@ -564,6 +812,7 @@ pub async fn process_streamdeck_event(
             "volumeup" | "volumeUp" => "volumeup",
             "volumedown" | "volumeDown" => "volumedown",
             "mute" => "mute",
+            "playlist" => "playlist",
             _ => ""
         };
         if !ep.is_empty() {
@@ -1201,6 +1450,12 @@ fn get_plugin_asset_path(relative_path: &str) -> Option<std::path::PathBuf> {
         let cp = v.join("com.laoy.streamdock.crimson.sdPlugin").join(relative_path);
         if cp.exists() {
             return Some(cp);
+        }
+        
+        // Check Crimson Spotify plugin
+        let sp = v.join("com.laoy.streamdock.spotify.sdPlugin").join(relative_path);
+        if sp.exists() {
+            return Some(sp);
         }
         
         // Fallback to MiraBox

@@ -43,6 +43,19 @@ pub fn handle_champ_select_standalone(data: &Value) {
     }
 }
 
+pub fn handle_ready_check(data: &Value) {
+    let state = data["state"].as_str().unwrap_or("");
+    let player_status = data["playerResponse"].as_str().unwrap_or("");
+
+    if state == "Proposed" && player_status == "None" {
+        let app_data = storage::load_data_from_path(storage::get_data_path_from_env());
+        if app_data.auto_accept {
+            println!("Automation: Detected match! Auto-Accepting...");
+            let _ = lcu::lcu_request("POST".into(), "/lol-matchmaking/v1/ready-check/accept".into(), None);
+        }
+    }
+}
+
 fn execute_action(action_id: i64, champion_id: u32, _should_complete: bool) -> Result<(), String> {
     let body = serde_json::json!({
         "championId": champion_id,

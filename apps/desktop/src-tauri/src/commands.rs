@@ -35,10 +35,9 @@ pub fn crimson_toggle_server_autostart(app: tauri::AppHandle, enable: bool) -> R
       let reg_path = r"Software\Microsoft\Windows\CurrentVersion\Run";
       let exe_path = p.to_string_lossy().to_string();
       
-      if enable {
           // Add registry key (User Registry for non-admin persistence)
           let _ = std::process::Command::new("reg")
-              .args(["add", &format!(r"HKCU\{}", reg_path), "/v", "CrimsonServer", "/t", "REG_SZ", "/d", &exe_path, "/f"])
+              .args(["add", &format!(r"HKCU\{}", reg_path), "/v", "CrimsonServer", "/t", "REG_SZ", "/d", &format!("\"{}\"", exe_path), "/f"])
               .creation_flags(0x08000000) // CREATE_NO_WINDOW
               .spawn();
       } else {

@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Spotify - Play/Pause</title>
+</head>
+<body>
+<div class="sdpi-wrapper">
+    <div class="sdpi-item">
+        <div class="sdpi-item-label">Appareil</div>
+        <select class="sdpi-item-value select" id="deviceSelect">
+            <option value="">Loading...</option>
+        </select>
+    </div>
+    <div class="sdpi-item">
+        <div class="sdpi-item-label">Affichage du temps</div>
+        <select class="sdpi-item-value select" id="timeDisplay">
+            <option value="remaining">Temps restant</option>
+            <option value="elapsed">Temps écoulé</option>
+            <option value="none">Aucun</option>
+        </select>
+    </div>
+    <div class="sdpi-item">
+        <button class="sdpi-item-value" id="logoutBtn" style="background:#c0392b">Deconnexion</button>
+    </div>
+</div>
+<script src="../utils/common.js"></script>
+<script src="../utils/action.js"></script>
+<script src="index.js"></script>
+</body>
+</html>
