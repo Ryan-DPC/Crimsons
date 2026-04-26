@@ -488,11 +488,6 @@ impl SpotifyService {
         let json: serde_json::Value = resp.json().await?;
         
         // Debug: Log full playback JSON for Smart Shuffle analysis
-        let log_path = std::path::Path::new(std::env::var("APPDATA").unwrap_or_default().as_str()).join("Crimson").join("streamdock.log");
-        if let Ok(mut log_file) = std::fs::OpenOptions::new().create(true).append(true).open(log_path) {
-            use std::io::Write;
-            // let _ = writeln!(log_file, "Spotify Playback JSON: {}", json.to_string());
-        }
         
         let track = &json["item"];
         let mut state = SpotifyState {

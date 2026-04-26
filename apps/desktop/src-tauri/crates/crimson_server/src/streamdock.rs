@@ -76,6 +76,7 @@ pub async fn start_streamdock_client(port: u16, uuid: String, register_event: St
     let last_state_cache_poll = last_state_cache.clone();
     let render_state_poll = render_state.clone();
     let settings_for_poll = settings_per_ctx.clone();
+    let last_image_per_ctx_poll = last_image_per_ctx.clone(); // Fix E0382
     tokio::spawn(async move {
         let s_loop_handler = settings_for_poll.clone();
         
@@ -212,12 +213,12 @@ pub async fn start_streamdock_client(port: u16, uuid: String, register_event: St
 
                                 if let Some(url) = playlist_img_url {
                                     if !url.is_empty() && url != "PENDING" {
-                                        let mut img_cache = last_image_per_ctx.lock().await;
+                                        let img_cache = last_image_per_ctx_poll.lock().await;
                                         if img_cache.get(ctx) != Some(&url) {
                                             let tx_ws_clone = tx_ws_poll.clone();
                                             let ctx_clone = ctx.clone();
                                             let url_clone = url.clone();
-                                            let img_cache_clone = last_image_per_ctx.clone();
+                                            let img_cache_clone = last_image_per_ctx_poll.clone();
 
                                             tokio::spawn(async move {
                                                 let client = reqwest::Client::new();
@@ -244,7 +245,7 @@ pub async fn start_streamdock_client(port: u16, uuid: String, register_event: St
                                 
                                 // Fallback for playlists without image or not yet selected
                                 {
-                                    let mut img_cache = last_image_per_ctx.lock().await;
+                                    let mut img_cache = last_image_per_ctx_poll.lock().await;
                                     if img_cache.get(ctx).is_none() {
                                         if let Some(icon_path) = get_plugin_asset_path("static/icon/n1spotify_toggle_play_playlist_on_white@2x.png") {
                                             if let Ok(bytes) = std::fs::read(icon_path) {
@@ -268,7 +269,7 @@ pub async fn start_streamdock_client(port: u16, uuid: String, register_event: St
                                       let b64 = STANDARD.encode(&last_base64_jpeg);
                                       let img_data = format!("data:image/jpeg;base64,{}", b64);
                                       
-                                      let mut img_cache = last_image_per_ctx.lock().await;
+                                      let mut img_cache = last_image_per_ctx_poll.lock().await;
                                       // ONLY SEND IF CHANGED (Anti-Flicker)
                                       if img_cache.get(ctx) != Some(&img_data) {
                                           let msg = json!({ "event": "setImage", "context": ctx, "payload": { "image": &img_data, "target": 0 }}).to_string();
@@ -285,7 +286,7 @@ pub async fn start_streamdock_client(port: u16, uuid: String, register_event: St
                             } else if action_name.ends_with("info_artist") {
                                 let artist = data["artist_name"].as_str().unwrap_or("Ready");
                                 let img = compose_info_image(artist, if last_base64_jpeg.is_empty() { None } else { Some(&last_base64_jpeg) });
-                                let mut img_cache = last_image_per_ctx.lock().await;
+                                let mut img_cache = last_image_per_ctx_poll.lock().await;
                                 if img_cache.get(ctx) != Some(&img) {
                                     let msg = json!({ "event": "setImage", "context": ctx, "payload": { "image": &img, "target": 0 }}).to_string();
                                     let _ = tx_ws_poll.send(msg).await;
@@ -299,7 +300,7 @@ pub async fn start_streamdock_client(port: u16, uuid: String, register_event: St
                                     if let Ok(bytes) = std::fs::read(icon_path) {
                                         use base64::{Engine as _, engine::general_purpose::STANDARD};
                                         let img_data = format!("data:image/png;base64,{}", STANDARD.encode(&bytes));
-                                        let mut img_cache = last_image_per_ctx.lock().await;
+                                        let mut img_cache = last_image_per_ctx_poll.lock().await;
                                         if img_cache.get(ctx) != Some(&img_data) {
                                             let msg = json!({ "event": "setImage", "context": ctx, "payload": { "image": &img_data, "target": 0 }}).to_string();
                                             let _ = tx_ws_poll.send(msg).await;
@@ -383,7 +384,6 @@ pub async fn start_streamdock_client(port: u16, uuid: String, register_event: St
     let last_composed_cache_render = last_composed_cache.clone();
     tokio::spawn(async move {
         let mut interval = tokio::time::interval(tokio::time::Duration::from_millis(250));
-        let mut last_remaining_s = 0u64;
         let mut current_track = String::new();
         let mut last_monotonic_ms = 0u64;
         let mut last_composed_key = String::new();
@@ -408,8 +408,7 @@ pub async fn start_streamdock_client(port: u16, uuid: String, register_event: St
             }
             last_monotonic_ms = current_progress;
 
-            let mut remaining_s = s.duration_ms.saturating_sub(current_progress) / 1000;
-            last_remaining_s = remaining_s;
+            let remaining_s = s.duration_ms.saturating_sub(current_progress) / 1000;
 
             let timer_str = format!("{:}:{:02}", remaining_s / 60, remaining_s % 60);
             let compose_key = format!("{}-{}", s.track_name, timer_str);

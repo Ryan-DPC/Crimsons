@@ -111,14 +111,14 @@ async fn handle_connection(stream: TcpStream, sender: WsSender, spotify: Arc<Spo
                                     if let Some(ctx) = value["context"].as_str() {
                                         if let Some(settings) = value["payload"]["settings"].as_object() {
                                             crate::storage::log_to_file("streamdock.log", &format!("[DEBUG SETTINGS] Received for context {}: {:?}", ctx, settings));
-                                            for mut bridge in crate::streamdock::ACTIVE_BRIDGES.iter_mut() {
+                                            for bridge in crate::streamdock::ACTIVE_BRIDGES.iter_mut() {
                                                 let mut s = bridge.settings_per_ctx.lock().await;
                                                 s.insert(ctx.to_string(), serde_json::Value::Object(settings.clone()));
                                             }
                                         }
                                         // Update context mapping if action is present
                                         if let Some(action) = value["action"].as_str() {
-                                            for mut bridge in crate::streamdock::ACTIVE_BRIDGES.iter_mut() {
+                                            for bridge in crate::streamdock::ACTIVE_BRIDGES.iter_mut() {
                                                 let mut c = bridge.contexts.lock().await;
                                                 c.insert(ctx.to_string(), action.to_string());
                                             }
@@ -256,7 +256,7 @@ async fn handle_connection(stream: TcpStream, sender: WsSender, spotify: Arc<Spo
                                         if event == "willAppear" {
                                             if let (Some(ctx), Some(action)) = (value["context"].as_str(), value["action"].as_str()) {
                                                 // Update context mapping
-                                                for mut bridge in crate::streamdock::ACTIVE_BRIDGES.iter_mut() {
+                                                for bridge in crate::streamdock::ACTIVE_BRIDGES.iter_mut() {
                                                     let mut c = bridge.contexts.lock().await;
                                                     c.insert(ctx.to_string(), action.to_string());
                                                     
@@ -270,7 +270,7 @@ async fn handle_connection(stream: TcpStream, sender: WsSender, spotify: Arc<Spo
                                         }
                                         if event == "willDisappear" {
                                             if let Some(ctx) = value["context"].as_str() {
-                                                for mut bridge in crate::streamdock::ACTIVE_BRIDGES.iter_mut() {
+                                                for bridge in crate::streamdock::ACTIVE_BRIDGES.iter_mut() {
                                                     let mut c = bridge.contexts.lock().await;
                                                     c.remove(ctx);
                                                 }
