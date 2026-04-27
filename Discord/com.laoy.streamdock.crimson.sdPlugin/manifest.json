@@ -1,0 +1,120 @@
+{
+    "Actions": [
+      {
+        "Icon": "static/icon/crimson_on.png",
+        "Name": "Auto-Accept (Toggle)",
+        "DisableAutomaticStates": true,
+        "state": 0,
+        "States": [
+          { "Image": "static/icon/crimson_off.png", "TitleAlignment": "center" },
+          { "Image": "static/icon/crimson_on.png", "TitleAlignment": "center" }
+        ],
+        "SupportedInMultiActions": true,
+        "Controllers": [ "Keypad" ],
+        "UserTitleEnabled": true,
+        "Tooltip": "Active ou désactive l'Auto-Accept dans Crimson.",
+        "UUID": "com.laoy.streamdock.crimson.autoaccept"
+      },
+      {
+        "Icon": "static/icon/inject.png",
+        "Name": "Inject Build",
+        "state": 0,
+        "States": [
+          { "Image": "static/icon/inject.png", "TitleAlignment": "center" }
+        ],
+        "SupportedInMultiActions": true,
+        "Controllers": [ "Keypad" ],
+        "Tooltip": "Injecter les meilleures runes pour le champion sélectionné.",
+        "UUID": "com.laoy.streamdock.crimson.inject",
+        "PropertyInspectorPath": "pi.html"
+      },
+      {
+        "Icon": "static/icon/dodge.png",
+        "Name": "Dodge Game",
+        "state": 0,
+        "States": [
+          { "Image": "static/icon/dodge.png", "TitleAlignment": "center" }
+        ],
+        "SupportedInMultiActions": true,
+        "Controllers": [ "Keypad" ],
+        "Tooltip": "Quitter la sélection de champion immédiatement.",
+        "UUID": "com.laoy.streamdock.crimson.dodge"
+      },
+      {
+        "Icon": "static/icon/stats.png",
+        "Name": "Stats/Champion",
+        "state": 0,
+        "States": [
+          { "Image": "static/icon/stats.png", "TitleAlignment": "center" }
+        ],
+        "SupportedInMultiActions": true,
+        "Controllers": [ "Keypad", "Information" ],
+        "Tooltip": "Affiche le champion sélectionné ou votre rang.",
+        "UUID": "com.laoy.streamdock.crimson.display",
+        "PropertyInspectorPath": "pi.html"
+      },
+      {
+        "Icon": "static/icon/global_automation.png",
+        "Name": "Global Automation",
+        "DisableAutomaticStates": true,
+        "state": 0,
+        "States": [
+          { "Image": "static/icon/crimson_off_generic.png", "TitleAlignment": "center" },
+          { "Image": "static/icon/global_automation.png", "TitleAlignment": "center" }
+        ],
+        "SupportedInMultiActions": true,
+        "Controllers": [ "Keypad" ],
+        "Tooltip": "Activer/Désactiver toutes les automations (Ban/Pick) avec mémoire.",
+        "UUID": "com.laoy.streamdock.crimson.globalautomation"
+      },
+      {
+        "Icon": "static/icon/autoban.png",
+        "Name": "Auto-Ban (Toggle)",
+        "DisableAutomaticStates": true,
+        "state": 0,
+        "States": [
+          { "Image": "static/icon/crimson_off_generic.png", "TitleAlignment": "center" },
+          { "Image": "static/icon/autoban.png", "TitleAlignment": "center" }
+        ],
+        "SupportedInMultiActions": true,
+        "Controllers": [ "Keypad" ],
+        "Tooltip": "Toggle l'Auto-Ban pour le champion configuré.",
+        "UUID": "com.laoy.streamdock.crimson.autoban"
+      },
+      {
+        "Icon": "static/icon/autopick.png",
+        "Name": "Auto-Pick (Toggle)",
+        "DisableAutomaticStates": true,
+        "state": 0,
+        "States": [
+          { "Image": "static/icon/crimson_off_generic.png", "TitleAlignment": "center" },
+          { "Image": "static/icon/autopick.png", "TitleAlignment": "center" }
+        ],
+        "SupportedInMultiActions": true,
+        "Controllers": [ "Keypad" ],
+        "Tooltip": "Toggle l'Auto-Pick pour le champion configuré.",
+        "UUID": "com.laoy.streamdock.crimson.autopick"
+      }
+    ],
+    "SDKVersion": 1,
+    "Author": "CRIMSON",
+    "Name": "Crimson",
+    "Icon": "static/icon/icon@2x.png",
+    "CodePathWin": "plugin/index.js",
+    "Description": "Intégration locale Crimson (LoL Assistant).",
+    "Category": "Crimson",
+    "CategoryIcon": "static/icon/icon@2x.png",
+    "Version": "0.2.0",
+    "OS": [
+      {
+        "Platform": "windows",
+        "MinimumVersion": "10"
+      }
+    ],
+    "Software": {
+      "MinimumVersion": "3.10.188.226"
+    },
+    "Nodejs": {
+      "Version": "20"
+    }
+  }

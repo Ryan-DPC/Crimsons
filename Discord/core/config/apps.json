@@ -1,0 +1,13 @@
+{
+  "discord": {
+    "description": "Discord voice & notifications via Discord RPC",
+    "handler": "../requests/discord/handler.js",
+    "transport": "discord-rpc-ipc"
+  },
+  "crimson": {
+    "description": "CRIMSON — League of Legends automation via LCU API",
+    "handler": "../requests/crimson/handler.js",
+    "transport": "websocket",
+    "wsPort": 40509
+  }
+}

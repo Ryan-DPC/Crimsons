@@ -1,0 +1,49 @@
+{
+  "toggleAutoAccept": {
+    "type": "api",
+    "description": "Toggle automatic match accept in the League client",
+    "params": {}
+  },
+  "dodgeGame": {
+    "type": "api",
+    "description": "Dodge the current champion select / lobby via LCU API",
+    "params": {}
+  },
+  "toggleAutoBan": {
+    "type": "api",
+    "description": "Toggle the auto-ban for a specific champion",
+    "params": {
+      "championId": { "type": "number", "required": false, "default": 0 }
+    }
+  },
+  "toggleAutoPick": {
+    "type": "api",
+    "description": "Toggle the auto-pick for a specific champion",
+    "params": {
+      "championId": { "type": "number", "required": false, "default": 0 }
+    }
+  },
+  "toggleGlobalAutomation": {
+    "type": "api",
+    "description": "Toggle all automation (auto-ban + auto-pick) on or off at once",
+    "params": {}
+  },
+  "injectBuild": {
+    "type": "api",
+    "description": "Fetch the best rune page for the current champion and inject it into the League client",
+    "params": {
+      "championId": { "type": "number", "required": true },
+      "championName": { "type": "string", "required": false },
+      "role": { "type": "string", "required": false, "default": "mid" },
+      "specificBuild": { "type": "object", "required": false }
+    }
+  },
+  "getBuilds": {
+    "type": "api",
+    "description": "Fetch available builds for a champion (for property inspector display)",
+    "params": {
+      "championId": { "type": "number", "required": true },
+      "championName": { "type": "string", "required": false }
+    }
+  }
+}

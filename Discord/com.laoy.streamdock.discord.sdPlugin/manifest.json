@@ -1,0 +1,70 @@
+{
+  "Author": "Laoy",
+  "Category": "Discord",
+  "CategoryIcon": "static/icon/discord.png",
+  "CodePath": "index.html",
+  "Description": "Discord Remote Controller for StreamDock",
+  "Icon": "static/icon/discord.png",
+  "Name": "Discord Utility",
+  "Version": "1.0.0",
+  "SDKVersion": 2,
+  "Software": {
+    "MinimumVersion": "2.0.0"
+  },
+  "Actions": [
+    {
+      "Name": "Toggle Mute",
+      "UUID": "com.laoy.streamdock.discord.togglemute",
+      "Icon": "static/icon/mute_off.png",
+      "States": [
+        { "Image": "static/icon/mute_off.png", "TitleAlignment": "middle", "FontSize": "10" },
+        { "Image": "static/icon/mute_on.png", "TitleAlignment": "middle", "FontSize": "10" }
+      ],
+      "Tooltip": "Toggle Microphone",
+      "Context": "GLOBAL"
+    },
+    {
+      "Name": "Toggle Deafen",
+      "UUID": "com.laoy.streamdock.discord.toggledeafen",
+      "Icon": "static/icon/deafen_off.png",
+      "States": [
+        { "Image": "static/icon/deafen_off.png", "TitleAlignment": "middle", "FontSize": "10" },
+        { "Image": "static/icon/deafen_on.png", "TitleAlignment": "middle", "FontSize": "10" }
+      ],
+      "Tooltip": "Toggle Headset",
+      "Context": "GLOBAL"
+    },
+    {
+      "Name": "Voice Channel",
+      "UUID": "com.laoy.streamdock.discord.joinvoice",
+      "Icon": "static/icon/discord.png",
+      "Tooltip": "Join specific Voice Channel",
+      "Context": "GLOBAL"
+    },
+    {
+      "Name": "Toggle Camera",
+      "UUID": "com.laoy.streamdock.discord.togglecamera",
+      "Icon": "static/icon/camera_off.png",
+      "States": [
+        { "Image": "static/icon/camera_off.png", "TitleAlignment": "middle", "FontSize": "10" },
+        { "Image": "static/icon/camera_on.png", "TitleAlignment": "middle", "FontSize": "10" }
+      ],
+      "Tooltip": "Toggle Webcam",
+      "Context": "GLOBAL"
+    },
+    {
+      "Name": "Soundboard",
+      "UUID": "com.laoy.streamdock.discord.soundboard",
+      "Icon": "static/icon/discord.png",
+      "Tooltip": "Play Soundboard Sound",
+      "Context": "GLOBAL"
+    },
+    {
+      "Name": "Toggle Share",
+      "UUID": "com.laoy.streamdock.discord.screenshare",
+      "Icon": "static/icon/discord.png",
+      "Tooltip": "Toggle Screenshare",
+      "Context": "GLOBAL"
+    }
+  ]
+};

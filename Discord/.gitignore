@@ -1,0 +1,55 @@
+﻿# Build outputs & dependencies (auto-generated, do not commit)
+node_modules/
+**/node_modules/
+target/
+**/target/
+build/
+**/build/
+Build/
+**/Build/
+dist/
+**/dist/
+out/
+**/out/
+bin/
+**/bin/
+obj/
+**/obj/
+Debug/
+**/Debug/
+Release/
+**/Release/
+.next/
+.nuxt/
+publish/
+packages/
+.cache/
+incremental/
+
+# Binary & compiled files
+*.exe
+*.pdb
+*.lib
+*.rlib
+*.rmeta
+*.dll
+*.so
+*.dylib
+*.d
+*.o
+*.obj
+
+# Logs & temp
+*.log
+*.tmp
+Thumbs.db
+.DS_Store
+
+# Archives
+*.zip
+*.7z
+*.rar
+*.tar
+*.gz
+*.msi
+*.iso

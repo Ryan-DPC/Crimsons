@@ -1,0 +1,59 @@
+[workspace]
+members = [
+    "crates/lcu_commands",
+    "../../CrimsonServer"
+]
+
+[package]
+name = "app"
+version = "1.1.0"
+description = "A Tauri App"
+authors = ["you"]
+license = ""
+repository = ""
+edition = "2021"
+rust-version = "1.77.2"
+default-run = "app"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+name = "app_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.5.6", features = [] }
+
+[dependencies]
+lcu_commands = { path = "crates/lcu_commands" }
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+log = "0.4"
+tauri = { version = "2.10.3", features = ["tray-icon"] }
+tauri-plugin-log = "2"
+tauri-plugin-updater = "2"
+tauri-plugin-autostart = "2"
+tauri-plugin-notification = "2"
+tauri-plugin-shell = "2"
+reqwest = { version = "0.12", features = ["json"] }
+futures-util = "0.3"
+tokio = { version = "1", features = ["full"] }
+tokio-tungstenite = { version = "0.21.0", features = ["rustls-tls-native-roots"] }
+rustls = "0.22"
+chrono = "0.4.44"
+regex = "1.12.3"
+rusqlite = { version = "0.32.1", features = ["bundled"] }
+base64 = "0.21"
+http = "1.0"
+native-tls = "0.2"
+tokio-native-tls = "0.3"
+r2d2 = "0.8"
+r2d2_sqlite = "0.25.0"
+sysinfo = "0.30"
+
+[profile.release]
+lto = false
+codegen-units = 16
+panic = "abort"
+opt-level = 2
+strip = true # Automatically strip symbols from the binary

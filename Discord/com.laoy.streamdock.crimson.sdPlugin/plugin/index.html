@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>CRIMSON Plugin</title>
+</head>
+<body>
+    <script src="index.js"></script>
+    <script>
+        function connectElgatoStreamDeckSocket(inPort, inPluginUUID, inRegisterEvent, inInfo) {
+            if (window.connectElgatoStreamDeckSocket) {
+                window.connectElgatoStreamDeckSocket(inPort, inPluginUUID, inRegisterEvent, inInfo);
+            }
+        }
+    </script>
+</body>
+</html>
