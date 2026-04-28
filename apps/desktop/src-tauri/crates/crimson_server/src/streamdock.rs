@@ -888,7 +888,11 @@ pub async fn process_streamdeck_event(
             "volumeup" | "volumeUp" => "volumeup",
             "volumedown" | "volumeDown" => "volumedown",
             "mute" => "mute",
-            "playlist" => "playlist",
+            "playlist" | "playplaylist" | "playPlaylist" => "playlist",
+            "playuri" | "playUri" => "play",
+            "songinfo" | "songInfo" => "info",
+            "previousornext" | "prevNext" => "skip",
+            "volumecontrol" | "volumeControl" => "volumecontrol",
             _ => ""
         };
         if !ep.is_empty() {

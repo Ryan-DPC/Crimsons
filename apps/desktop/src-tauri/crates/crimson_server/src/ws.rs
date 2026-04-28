@@ -191,14 +191,23 @@ async fn handle_connection(stream: TcpStream, sender: WsSender, spotify: Arc<Spo
                                             let sync_val = json!({ "event": "registerPropertyInspector", "uuid": &uuid_str });
                                             crate::streamdock::process_streamdeck_event(sync_val, s_clone.clone(), d_clone.clone(), sender_clone.clone(), contexts.clone(), pi_contexts.clone(), last_state_cache.clone()).await;
 
-                                            while let Some(msg_res) = ws_stream.next().await {
-                                                match msg_res {
-                                                    Ok(tokio_tungstenite::tungstenite::Message::Text(text)) => {
-                                                        if let Ok(val) = serde_json::from_str::<serde_json::Value>(&text) {
-                                                            crate::streamdock::process_streamdeck_event(val, s_clone.clone(), d_clone.clone(), sender_clone.clone(), contexts.clone(), pi_contexts.clone(), last_state_cache.clone()).await;
+                                            loop {
+                                                tokio::select! {
+                                                    msg_res = ws_stream.next() => {
+                                                        match msg_res {
+                                                            Some(Ok(tokio_tungstenite::tungstenite::Message::Text(text))) => {
+                                                                if let Ok(val) = serde_json::from_str::<serde_json::Value>(&text) {
+                                                                    crate::streamdock::process_streamdeck_event(val, s_clone.clone(), d_clone.clone(), sender_clone.clone(), contexts.clone(), pi_contexts.clone(), last_state_cache.clone()).await;
+                                                                }
+                                                            }
+                                                            _ => break,
                                                         }
                                                     }
-                                                    _ => break,
+                                                    Ok(broadcast_msg) = rx.recv() => {
+                                                        if let Err(_) = ws_stream.send(tokio_tungstenite::tungstenite::Message::Text(broadcast_msg.into())).await {
+                                                            break;
+                                                        }
+                                                    }
                                                 }
                                             }
                                             crate::streamdock::ACTIVE_BRIDGES.remove(&uuid_str);

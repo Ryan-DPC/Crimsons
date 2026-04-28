@@ -748,9 +748,17 @@ impl SpotifyService {
                 "PUT"
             },
             "repeat" => {
-                if let Some(state) = params.as_ref().and_then(|p| p["payload"]["state"].as_str()) {
-                    url = format!("https://api.spotify.com/v1/me/player/repeat?state={}", state);
-                }
+                let state = if let Some(s) = params.as_ref().and_then(|p| p["payload"]["state"].as_str()) {
+                    s.to_string()
+                } else {
+                    let playback = Self::fetch_current_playback(&token).await.unwrap_or_default();
+                    match playback.repeat_state.as_str() {
+                        "off" => "context".to_string(),
+                        "context" => "track".to_string(),
+                        _ => "off".to_string(),
+                    }
+                };
+                url = format!("https://api.spotify.com/v1/me/player/repeat?state={}", state);
                 "PUT"
             },
             "add-to-playlist" => {
@@ -856,7 +864,22 @@ impl SpotifyService {
             }
         }
 
-        Ok((status.is_success(), status.as_u16()))
+        let success = status.is_success();
+        if success {
+             let sender = self.sender.clone();
+             let token_refresh = token.clone();
+             tokio::spawn(async move {
+                 // Multiple polls to catch the state change (Spotify API can be laggy)
+                 for delay in [500, 1500, 3000] {
+                     tokio::time::sleep(std::time::Duration::from_millis(delay)).await;
+                     if let Ok(state) = Self::fetch_current_playback(&token_refresh).await {
+                         let _ = sender.0.send(json!({ "type": "SPOTIFY_STATE", "data": state }).to_string());
+                     }
+                 }
+             });
+        }
+
+        Ok((success, status.as_u16()))
     }
 
     pub async fn update_tokens(&self, access: String, refresh: String, expires_in: u64) {
