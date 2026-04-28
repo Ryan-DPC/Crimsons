@@ -12,4 +12,5 @@ pub mod spotify;
 pub mod streamdock;
 pub mod proxy;
 pub mod discord;
+pub mod db;
 

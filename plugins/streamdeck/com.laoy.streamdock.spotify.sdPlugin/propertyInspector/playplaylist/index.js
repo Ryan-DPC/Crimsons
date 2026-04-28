@@ -22,45 +22,69 @@ let _deviceChangeBound = false;
 
 function populatePlaylists(playlists) {
     if (!uriSelect || !Array.isArray(playlists) || playlists.length === 0) return;
-    _playlistsData = playlists;
-    uriSelect.innerHTML = '';
-    const selectedUri = _currentSettings?.uri || _currentSettings?.playlist || '';
-    playlists.forEach(item => {
-        const option = document.createElement('option');
-        option.value = item.uri || item.id || '';
-        option.text = item.name || item.uri || 'Unknown';
-        if (selectedUri && option.value === selectedUri) option.selected = true;
-        uriSelect.appendChild(option);
-    });
-    if (!uriSelect.value && uriSelect.options.length > 0) {
-        uriSelect.selectedIndex = 0;
+    
+    // Only rebuild if the list has changed or is empty
+    if (uriSelect.options.length <= 1 || _playlistsData.length !== playlists.length) {
+        uriSelect.innerHTML = '';
+        playlists.forEach(item => {
+            const option = document.createElement('option');
+            option.value = item.uri || item.id || '';
+            option.text = item.name || item.uri || 'Unknown';
+            uriSelect.appendChild(option);
+        });
+        _playlistsData = playlists;
     }
+    
+    // Update selection based on settings
+    syncSelectValue();
+
     if (!_playlistChangeBound) {
         uriSelect.addEventListener('change', () => {
-            if ($settings) {
-                $settings.uri = uriSelect.value;
-                $settings.playlist = uriSelect.value;
-
-                // Find and store the image URL
-                const selected = _playlistsData.find(p => p.uri === uriSelect.value);
-                if (selected && selected.image) {
-                    $settings.playlist_image = selected.image;
-                }
-
-                $websocket.setSettings($settings);
-            } else {
-                _currentSettings.uri = uriSelect.value;
-                _currentSettings.playlist = uriSelect.value;
-            }
+            updatePlaylistSettings();
         });
         _playlistChangeBound = true;
+    }
+}
+
+function syncSelectValue() {
+    if (!uriSelect) return;
+    const settings = $settings || _currentSettings || {};
+    const selectedUri = settings.uri || settings.playlist || '';
+    
+    if (selectedUri) {
+        uriSelect.value = selectedUri;
+    }
+}
+
+function updatePlaylistSettings() {
+    const val = uriSelect.value;
+    if (!val) return;
+
+    const selected = _playlistsData.find(p => (p.uri === val || p.id === val));
+    const target = $settings || _currentSettings || {};
+
+    target.uri = val;
+    target.playlist = val;
+    if (selected) {
+        target.playlistName = selected.name;
+        if (selected.image) {
+            target.playlist_image = selected.image;
+            target.image = selected.image;
+        }
+    }
+
+    if ($settings && $websocket) {
+        $websocket.saveData($settings);
     }
 }
 
 function populateDevices(devices) {
     if (!deviceSelect || !Array.isArray(devices) || devices.length === 0) return;
     deviceSelect.innerHTML = '';
-    const selectedDeviceId = _currentSettings?.device_id || '';
+    
+    const settings = $settings || _currentSettings || {};
+    const selectedDeviceId = settings.device_id || '';
+    
     devices.forEach(device => {
         const option = document.createElement('option');
         option.value = device.id || '';
@@ -74,11 +98,10 @@ function populateDevices(devices) {
     }
     if (!_deviceChangeBound) {
         deviceSelect.addEventListener('change', () => {
-            if ($settings) {
-                $settings.device_id = deviceSelect.value;
-                $websocket.setSettings($settings);
-            } else {
-                _currentSettings.device_id = deviceSelect.value;
+            const target = $settings || _currentSettings || {};
+            target.device_id = deviceSelect.value;
+            if ($settings && $websocket) {
+                $websocket.saveData($settings);
             }
         });
         _deviceChangeBound = true;
@@ -128,6 +151,7 @@ const $propEvent = {
     },
     didReceiveSettings(data) {
         _currentSettings = data?.settings || data || {};
+        syncSelectValue();
         $websocket.getGlobalSettings();
     },
     sendToPropertyInspector(data) {

@@ -3,26 +3,34 @@
 <head>
     <meta charset="utf-8" />
     <title>Spotify - Play Playlist</title>
+    <link rel="stylesheet" href="../utils/crimson.css">
 </head>
 <body>
 <div class="sdpi-wrapper">
+    <div class="status-pill">
+        <div class="status-dot"></div>
+        <span>Crimson Relay Active</span>
+    </div>
+
+    <div class="section-header">Playback Settings</div>
+    
     <div class="sdpi-item">
         <div class="sdpi-item-label">Playlist</div>
         <select class="sdpi-item-value select" id="uri">
-            <option value="">Loading...</option>
+            <option value="">Syncing Playlists...</option>
         </select>
     </div>
+
     <div class="sdpi-item">
-        <div class="sdpi-item-label">Appareil</div>
+        <div class="sdpi-item-label">Target Device</div>
         <select class="sdpi-item-value select" id="deviceSelect">
-            <option value="">Loading...</option>
+            <option value="">Syncing Devices...</option>
         </select>
     </div>
-    <div class="sdpi-item">
-        <button class="sdpi-item-value" id="Actualiser">Actualiser</button>
-    </div>
-    <div class="sdpi-item">
-        <button class="sdpi-item-value" id="DconnexionBtn" style="background:#c0392b">Deconnexion</button>
+
+    <div style="display: flex; gap: 10px; margin-top: 5px;">
+        <button id="Actualiser">Refresh Data</button>
+        <button id="DconnexionBtn">Logout</button>
     </div>
 </div>
 <script src="../utils/common.js"></script>

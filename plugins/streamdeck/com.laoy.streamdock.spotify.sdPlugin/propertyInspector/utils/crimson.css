@@ -1,0 +1,119 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap');
+
+:root {
+    --spotify-green: #1DB954;
+    --spotify-black: #191414;
+    --glass-bg: rgba(255, 255, 255, 0.05);
+    --glass-border: rgba(255, 255, 255, 0.1);
+}
+
+body {
+    background: #121212;
+    color: #ffffff;
+    font-family: 'Outfit', sans-serif;
+    margin: 0;
+    padding: 15px;
+    overflow-x: hidden;
+}
+
+.sdpi-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.section-header {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: #888;
+    margin-bottom: -8px;
+    font-weight: 600;
+}
+
+.sdpi-item {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.sdpi-item-label {
+    font-size: 13px;
+    color: #b3b3b3;
+    font-weight: 400;
+}
+
+select, button {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    color: white;
+    padding: 10px 12px;
+    font-family: inherit;
+    font-size: 14px;
+    outline: none;
+    transition: all 0.2s ease;
+    width: 100%;
+    cursor: pointer;
+}
+
+select:hover, select:focus {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: var(--spotify-green);
+}
+
+option {
+    background: #282828;
+    color: white;
+}
+
+button {
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border: none;
+    background: #333;
+}
+
+button:hover {
+    background: #444;
+    transform: translateY(-1px);
+}
+
+#Actualiser, #refreshBtn, #refresh {
+    background: #282828;
+    border: 1px solid #444;
+}
+
+#Actualiser:hover, #refreshBtn:hover, #refresh:hover {
+    background: #333;
+}
+
+#DconnexionBtn, #logoutBtn, #DéconnexionBtn {
+    background: linear-gradient(135deg, #e74c3c, #c0392b);
+    margin-top: 10px;
+}
+
+#DconnexionBtn:hover, #logoutBtn:hover, #DéconnexionBtn:hover {
+    filter: brightness(1.1);
+}
+
+.status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--spotify-green);
+    background: rgba(29, 185, 84, 0.1);
+    padding: 4px 10px;
+    border-radius: 20px;
+    margin-bottom: 5px;
+}
+
+.status-dot {
+    width: 6px;
+    height: 6px;
+    background: var(--spotify-green);
+    border-radius: 50%;
+    box-shadow: 0 0 8px var(--spotify-green);
+}

@@ -12,32 +12,24 @@ use crate::discord::DiscordService;
 
 
 pub async fn start_ws_server(sender: WsSender, spotify_service: Arc<SpotifyService>, discord_service: Arc<DiscordService>) {
-
+    let db = Arc::new(crate::db::StreamDockDB::init().expect("Failed to init StreamDock DB"));
     let addr = "127.0.0.1:40510".parse::<SocketAddr>().expect("Invalid address");
     if let Ok(listener) = TcpListener::bind(&addr).await {
         while let Ok((stream, _)) = listener.accept().await {
             let sender_clone = WsSender(sender.0.clone());
             let spotify_clone = spotify_service.clone();
             let discord_clone = discord_service.clone();
+            let db_clone = db.clone();
             tokio::spawn(async move {
-
-                // Peek for HTTP GET
+                // Peek for HTTP GET (Spotify Callback)
                 let mut buffer = [0; 1024];
                 if stream.peek(&mut buffer).await.is_ok() {
                     let request = String::from_utf8_lossy(&buffer);
                     if request.starts_with("GET /callback") {
-                        // Extract code from query
                         if let Some(code_start) = request.find("code=") {
                             let code = request[code_start + 5..].split_whitespace().next().unwrap_or("");
                             let code = code.split('&').next().unwrap_or(code);
-                            
-                            // Broadcast the code to the UI
-                            let _ = sender_clone.0.send(json!({
-                                "type": "SPOTIFY_CALLBACK_CODE",
-                                "code": code
-                            }).to_string());
-                            
-                            // Send a "Success" HTML response
+                            let _ = sender_clone.0.send(json!({ "type": "SPOTIFY_CALLBACK_CODE", "code": code }).to_string());
                             use tokio::io::AsyncWriteExt;
                             let response = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n<html><body style='background:#111;color:white;font-family:sans-serif;display:flex;justify-content:center;align-items:center;height:100vh;'><div><h1>Spotify Connected!</h1><p>You can close this window now.</p></div></body></html>";
                             let mut stream = stream;
@@ -46,14 +38,13 @@ pub async fn start_ws_server(sender: WsSender, spotify_service: Arc<SpotifyServi
                         }
                     }
                 }
-                handle_connection(stream, sender_clone, spotify_clone, discord_clone).await;
+                handle_connection(stream, sender_clone, spotify_clone, discord_clone, db_clone).await;
             });
-
         }
     }
 }
 
-async fn handle_connection(stream: TcpStream, sender: WsSender, spotify: Arc<SpotifyService>, discord: Arc<DiscordService>) {
+async fn handle_connection(stream: TcpStream, sender: WsSender, spotify: Arc<SpotifyService>, discord: Arc<DiscordService>, db: Arc<crate::db::StreamDockDB>) {
 
     if let Ok(mut ws_stream) = accept_async(stream).await {
         crate::storage::log_to_file("streamdock.log", "[WS] New client connection accepted");
@@ -114,9 +105,41 @@ async fn handle_connection(stream: TcpStream, sender: WsSender, spotify: Arc<Spo
                                             .or_else(|| value["payload"].as_object())
                                         {
                                             crate::storage::log_to_file("streamdock.log", &format!("[DEBUG SETTINGS] Received for context {}: {:?}", ctx, settings));
+                                            
+                                            // 1. Persist settings in-memory
                                             for bridge in crate::streamdock::ACTIVE_BRIDGES.iter_mut() {
                                                 let mut s = bridge.settings_per_ctx.lock().await;
                                                 s.insert(ctx.to_string(), serde_json::Value::Object(settings.clone()));
+                                            }
+
+                                            // 2. Persist to DB (v1.2.0)
+                                            let db_c = db.clone();
+                                            let ctx_c = ctx.to_string();
+                                            let settings_c = serde_json::Value::Object(settings.clone());
+                                            let action_c = value["action"].as_str().map(|s| s.to_string());
+                                            let img_c = settings.get("image").and_then(|v| v.as_str())
+                                                .or_else(|| settings.get("playlist_image").and_then(|v| v.as_str()))
+                                                .map(|s| s.to_string());
+                                            
+                                            tokio::spawn(async move {
+                                                let _ = db_c.save_button(&ctx_c, action_c.as_deref(), &settings_c, img_c.as_deref());
+                                            });
+
+                                            // 3. IMMEDIATE IMAGE PUSH (v1.1.5)
+                                            if let Some(img_url) = settings.get("image").and_then(|v| v.as_str())
+                                                .or_else(|| settings.get("playlist_image").and_then(|v| v.as_str())) {
+                                                
+                                                crate::storage::log_to_file("streamdock.log", &format!("[SD IMAGE PUSH] Pushing cover to context {}", ctx));
+                                                let bridge_tx = ws_stream_sender.clone();
+                                                let ctx_str = ctx.to_string();
+                                                let img_str = img_url.to_string();
+                                                tokio::spawn(async move {
+                                                    let _ = bridge_tx.send(json!({
+                                                        "event": "setImage",
+                                                        "context": ctx_str,
+                                                        "payload": { "image": img_str, "target": 0 }
+                                                    }).to_string()).await;
+                                                });
                                             }
                                         }
                                         // Update context mapping if action is present
@@ -149,7 +172,35 @@ async fn handle_connection(stream: TcpStream, sender: WsSender, spotify: Arc<Spo
 
                                     if value["type"] == "SPOTIFY_COMMAND" {
                                         if let Some(endpoint) = value["endpoint"].as_str() {
-                                            let _ = spotify.handle_command(endpoint, Some(value.clone())).await;
+                                            let mut command_val = value.clone();
+                                            
+                                            // Fallback to persisted settings if payload is empty (v1.1.5)
+                                            if let Some(ctx) = command_val["context"].as_str() {
+                                                let mut payload = command_val["payload"].clone();
+                                                if payload["playlist"].is_null() && payload["uri"].is_null() {
+                                                    for bridge in crate::streamdock::ACTIVE_BRIDGES.iter() {
+                                                        let settings_lock = bridge.settings_per_ctx.lock().await;
+                                                        if let Some(s) = settings_lock.get(ctx) {
+                                                            crate::storage::log_to_file("streamdock.log", &format!("[SD CMD] Falling back to persisted settings for context {}", ctx));
+                                                            payload = s.clone();
+                                                        }
+                                                    }
+                                                }
+                                                
+                                                if endpoint == "play" {
+                                                    if let Some(uri) = payload["playlist"].as_str().or(payload["uri"].as_str()) {
+                                                         let mut p = payload.clone();
+                                                         p["context_uri"] = json!(uri);
+                                                         let _ = spotify.handle_command(endpoint, Some(p)).await;
+                                                    } else {
+                                                         crate::storage::log_to_file("streamdock.log", "[SD ERROR] Play command missing playlist/uri");
+                                                    }
+                                                } else {
+                                                    let _ = spotify.handle_command(endpoint, Some(payload)).await;
+                                                }
+                                            } else {
+                                                let _ = spotify.handle_command(endpoint, Some(command_val.clone())).await;
+                                            }
                                         }
                                         continue;
                                     }
@@ -185,6 +236,26 @@ async fn handle_connection(stream: TcpStream, sender: WsSender, spotify: Arc<Spo
                                                 last_image_per_ctx: last_image_per_ctx.clone(),
                                                 settings_per_ctx: settings_per_ctx.clone(),
                                             };
+
+                                            // RESTORE FROM DB (v1.2.0)
+                                            if let Ok(saved_buttons) = db.get_all_buttons() {
+                                                let mut settings_lock = settings_per_ctx.lock().await;
+                                                let mut contexts_lock = contexts.lock().await;
+                                                for (ctx, action, settings, image) in saved_buttons {
+                                                    settings_lock.insert(ctx.clone(), settings);
+                                                    contexts_lock.insert(ctx.clone(), action);
+                                                    
+                                                    // Push image if saved
+                                                    if let Some(img) = image {
+                                                        let _ = sender_clone.send(json!({
+                                                            "event": "setImage",
+                                                            "context": ctx,
+                                                            "payload": { "image": img, "target": 0 }
+                                                        }).to_string()).await;
+                                                    }
+                                                }
+                                            }
+
                                             crate::streamdock::ACTIVE_BRIDGES.insert(uuid_str.clone(), bridge_data);
                                             
                                             // IMMEDIATE SYNC: Push credentials and playlists as soon as the bridge connects
