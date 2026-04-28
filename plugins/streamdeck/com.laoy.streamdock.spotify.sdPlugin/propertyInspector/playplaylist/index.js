@@ -17,54 +17,72 @@ const logoutBtn = document.getElementById('DéconnexionBtn') || document.getElem
 // Crimson backend without needing $settings
 // =============================================
 let _playlistsData = [];
+let _playlistChangeBound = false;
+let _deviceChangeBound = false;
 
 function populatePlaylists(playlists) {
     if (!uriSelect || !Array.isArray(playlists) || playlists.length === 0) return;
     _playlistsData = playlists;
     uriSelect.innerHTML = '';
+    const selectedUri = _currentSettings?.uri || _currentSettings?.playlist || '';
     playlists.forEach(item => {
         const option = document.createElement('option');
         option.value = item.uri || item.id || '';
         option.text = item.name || item.uri || 'Unknown';
-        if (_currentSettings.uri && item.uri === _currentSettings.uri) option.selected = true;
+        if (selectedUri && option.value === selectedUri) option.selected = true;
         uriSelect.appendChild(option);
     });
-    uriSelect.addEventListener('change', () => {
-        if ($settings) {
-            $settings.uri = uriSelect.value;
-            $settings.playlist = uriSelect.value;
-            
-            // Find and store the image URL
-            const selected = _playlistsData.find(p => p.uri === uriSelect.value);
-            if (selected && selected.image) {
-                $settings.playlist_image = selected.image;
+    if (!uriSelect.value && uriSelect.options.length > 0) {
+        uriSelect.selectedIndex = 0;
+    }
+    if (!_playlistChangeBound) {
+        uriSelect.addEventListener('change', () => {
+            if ($settings) {
+                $settings.uri = uriSelect.value;
+                $settings.playlist = uriSelect.value;
+
+                // Find and store the image URL
+                const selected = _playlistsData.find(p => p.uri === uriSelect.value);
+                if (selected && selected.image) {
+                    $settings.playlist_image = selected.image;
+                }
+
+                $websocket.setSettings($settings);
+            } else {
+                _currentSettings.uri = uriSelect.value;
+                _currentSettings.playlist = uriSelect.value;
             }
-            
-            $websocket.setSettings($settings);
-        } else {
-            _currentSettings.uri = uriSelect.value;
-        }
-    });
+        });
+        _playlistChangeBound = true;
+    }
 }
 
 function populateDevices(devices) {
     if (!deviceSelect || !Array.isArray(devices) || devices.length === 0) return;
     deviceSelect.innerHTML = '';
+    const selectedDeviceId = _currentSettings?.device_id || '';
     devices.forEach(device => {
         const option = document.createElement('option');
         option.value = device.id || '';
         option.text = `${device.name || 'Unknown'} (${device.type || '?'})${device.is_active ? ' ✓' : ''}`;
-        if (_currentSettings.device_id && device.id === _currentSettings.device_id) option.selected = true;
+        if (selectedDeviceId && device.id === selectedDeviceId) option.selected = true;
         deviceSelect.appendChild(option);
     });
-    deviceSelect.addEventListener('change', () => {
-        if ($settings) {
-            $settings.device_id = deviceSelect.value;
-            $websocket.setSettings($settings);
-        } else {
-            _currentSettings.device_id = deviceSelect.value;
-        }
-    });
+    if (!deviceSelect.value) {
+        const active = devices.find(d => d.is_active);
+        if (active?.id) deviceSelect.value = active.id;
+    }
+    if (!_deviceChangeBound) {
+        deviceSelect.addEventListener('change', () => {
+            if ($settings) {
+                $settings.device_id = deviceSelect.value;
+                $websocket.setSettings($settings);
+            } else {
+                _currentSettings.device_id = deviceSelect.value;
+            }
+        });
+        _deviceChangeBound = true;
+    }
 }
 
 // Immediately connect to Crimson and request data
@@ -109,7 +127,7 @@ const $propEvent = {
         }
     },
     didReceiveSettings(data) {
-        _currentSettings = data || {};
+        _currentSettings = data?.settings || data || {};
         $websocket.getGlobalSettings();
     },
     sendToPropertyInspector(data) {

@@ -109,7 +109,10 @@ async fn handle_connection(stream: TcpStream, sender: WsSender, spotify: Arc<Spo
                                      
                                     // Universal Settings Extraction
                                     if let Some(ctx) = value["context"].as_str() {
-                                        if let Some(settings) = value["payload"]["settings"].as_object() {
+                                        if let Some(settings) = value["payload"]["settings"]
+                                            .as_object()
+                                            .or_else(|| value["payload"].as_object())
+                                        {
                                             crate::storage::log_to_file("streamdock.log", &format!("[DEBUG SETTINGS] Received for context {}: {:?}", ctx, settings));
                                             for bridge in crate::streamdock::ACTIVE_BRIDGES.iter_mut() {
                                                 let mut s = bridge.settings_per_ctx.lock().await;
@@ -230,13 +233,21 @@ async fn handle_connection(stream: TcpStream, sender: WsSender, spotify: Arc<Spo
                                         if let (Some(p), Some(u), Some(r)) = (port_opt, value["uuid"].as_str(), value["register_event"].as_str()) {
                                             crate::storage::log_to_file("streamdock.log", &format!("[SD HANDOVER] Port: {} UUID: {} Event: {}", p, u, r));
                                             println!("WebSocket: Handover REQUEST received for StreamDock context {} on port {}", u, p);
-                                            let s_clone = spotify.clone();
-                                            let d_clone = discord.clone();
                                             let uuid_str = u.to_string();
-                                            let reg_str = r.to_string();
-                                            tokio::spawn(async move {
-                                                crate::streamdock::start_streamdock_client(p as u16, uuid_str, reg_str, s_clone, d_clone).await;
-                                            });
+                                            if !crate::streamdock::try_acquire_handover(&uuid_str) {
+                                                crate::storage::log_to_file(
+                                                    "streamdock.log",
+                                                    &format!("[SD HANDOVER] Duplicate request ignored for UUID {}", uuid_str),
+                                                );
+                                                println!("WebSocket: Duplicate handover ignored for StreamDock context {}", u);
+                                            } else {
+                                                let s_clone = spotify.clone();
+                                                let d_clone = discord.clone();
+                                                let reg_str = r.to_string();
+                                                tokio::spawn(async move {
+                                                    crate::streamdock::start_streamdock_client(p as u16, uuid_str, reg_str, s_clone, d_clone).await;
+                                                });
+                                            }
 
                                             
                                             let response_json = json!({

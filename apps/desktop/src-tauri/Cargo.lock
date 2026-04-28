@@ -173,7 +173,7 @@ checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
 
 [[package]]
 name = "app"
-version = "1.1.0"
+version = "3.0.0"
 dependencies = [
  "base64 0.21.7",
  "chrono",
@@ -993,7 +993,7 @@ dependencies = [
 
 [[package]]
 name = "crimson-server"
-version = "1.1.2"
+version = "3.0.0"
 dependencies = [
  "ab_glyph",
  "base64 0.21.7",
@@ -2812,7 +2812,7 @@ checksum = "bbd2bcb4c963f2ddae06a2efc7e9f3591312473c50c6685e1f298068316e66fe"
 
 [[package]]
 name = "lcu_commands"
-version = "1.1.0"
+version = "3.0.0"
 dependencies = [
  "base64 0.21.7",
  "chrono",

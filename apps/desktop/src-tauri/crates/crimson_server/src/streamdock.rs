@@ -13,6 +13,19 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 lazy_static::lazy_static! {
     pub static ref ACTIVE_BRIDGES: DashMap<String, HardwareBridge> = DashMap::new();
+    pub static ref PENDING_HANDOVERS: DashMap<String, ()> = DashMap::new();
+}
+
+pub fn try_acquire_handover(uuid: &str) -> bool {
+    if ACTIVE_BRIDGES.contains_key(uuid) || PENDING_HANDOVERS.contains_key(uuid) {
+        return false;
+    }
+    PENDING_HANDOVERS.insert(uuid.to_string(), ());
+    true
+}
+
+pub fn release_handover(uuid: &str) {
+    PENDING_HANDOVERS.remove(uuid);
 }
 
 #[derive(Clone)]
@@ -34,6 +47,7 @@ pub async fn start_streamdock_client(port: u16, uuid: String, register_event: St
     let last_state_cache: Arc<tokio::sync::Mutex<Option<serde_json::Value>>> = Arc::new(tokio::sync::Mutex::new(None));
     let pi_contexts = Arc::new(tokio::sync::Mutex::new(HashSet::new()));
     let last_image_per_ctx = Arc::new(tokio::sync::Mutex::new(HashMap::new()));
+    let last_playlist_uri = Arc::new(tokio::sync::Mutex::new(HashMap::<String, String>::new())); // Track playlist URIs to detect changes
     let settings_per_ctx = Arc::new(tokio::sync::Mutex::new(HashMap::new()));
     
     let bridge = HardwareBridge {
@@ -47,6 +61,8 @@ pub async fn start_streamdock_client(port: u16, uuid: String, register_event: St
     
     // Register this bridge globally
     ACTIVE_BRIDGES.insert(uuid.clone(), bridge.clone());
+    // Bridge is now active; clear "pending handover" lock.
+    release_handover(&uuid);
 
     // --- CACHES ---
     let last_composed_cache: Arc<tokio::sync::Mutex<Option<String>>> = Arc::new(tokio::sync::Mutex::new(None));
@@ -77,6 +93,7 @@ pub async fn start_streamdock_client(port: u16, uuid: String, register_event: St
     let render_state_poll = render_state.clone();
     let settings_for_poll = settings_per_ctx.clone();
     let last_image_per_ctx_poll = last_image_per_ctx.clone(); // Fix E0382
+    let last_playlist_uri_poll = last_playlist_uri.clone();
     tokio::spawn(async move {
         let s_loop_handler = settings_for_poll.clone();
         
@@ -148,18 +165,26 @@ pub async fn start_streamdock_client(port: u16, uuid: String, register_event: St
                             // 1. Specific handling for playplaylist (use playlist_image from settings)
                             if action_name.contains("playlist") {
                                 let mut playlist_img_url: Option<String> = None;
+                                let mut current_playlist_uri: Option<String> = None;
                                 {
                                         let s_ref = loop_settings.clone();
                                         let settings_lock = s_ref.lock().await;
                                         if let Some(settings) = settings_lock.get(ctx) {
-                                            playlist_img_url = settings["playlist_image"].as_str().map(|s| s.to_string());
+                                            current_playlist_uri = settings["uri"].as_str()
+                                                .or(settings["playlist"].as_str())
+                                                .or(settings["context_uri"].as_str())
+                                                .map(|s| s.to_string());
+
+                                            playlist_img_url = settings["playlist_image"].as_str()
+                                                .or(settings["image"].as_str())
+                                                .or(settings["cover"].as_str())
+                                                .map(|s| s.to_string());
                                             
                                             // AUTO-FETCH/SEARCH if missing
                                             if playlist_img_url.is_none() {
                                                 let uri_opt = settings["uri"].as_str().or(settings["playlist"].as_str());
                                                 if let Some(val) = uri_opt {
                                                     if !val.is_empty() {
-                                                        crate::storage::log_to_file("streamdock.log", &format!("[DEBUG PLAYLIST] Identifying: {}", val));
                                                         
                                                         // CRITICAL: Mark as PENDING in cache IMMEDIATELY to prevent task explosion
                                                         let mut settings_mut = loop_settings.lock().await;
@@ -213,15 +238,39 @@ pub async fn start_streamdock_client(port: u16, uuid: String, register_event: St
 
                                 if let Some(url) = playlist_img_url {
                                     if !url.is_empty() && url != "PENDING" {
-                                        let img_cache = last_image_per_ctx_poll.lock().await;
-                                        if img_cache.get(ctx) != Some(&url) {
+                                        // Check if playlist URI changed - if so, force refresh
+                                        let playlist_uri_changed = {
+                                            let mut uri_cache = last_playlist_uri_poll.lock().await;
+                                            let old_uri = uri_cache.get(ctx).cloned();
+                                            if let Some(new_uri) = &current_playlist_uri {
+                                                if old_uri.as_ref() != Some(new_uri) {
+                                                    uri_cache.insert(ctx.clone(), new_uri.clone());
+                                                    crate::storage::log_to_file("streamdock.log", &format!("[PLAYLIST CHANGE] ctx {} changed from {:?} to {}", ctx, old_uri, new_uri));
+                                                    true
+                                                } else {
+                                                    false
+                                                }
+                                            } else {
+                                                false
+                                            }
+                                        };
+                                        
+                                        let mut img_cache = last_image_per_ctx_poll.lock().await;
+                                        if playlist_uri_changed {
+                                            // Invalidate stale cover immediately when playlist changes.
+                                            img_cache.remove(ctx);
+                                        }
+                                        let should_fetch = playlist_uri_changed || img_cache.get(ctx) != Some(&url);
+                                        if should_fetch {
                                             let tx_ws_clone = tx_ws_poll.clone();
                                             let ctx_clone = ctx.clone();
                                             let url_clone = url.clone();
                                             let img_cache_clone = last_image_per_ctx_poll.clone();
+                                            drop(img_cache); // Release the lock before spawn
 
                                             tokio::spawn(async move {
                                                 let client = reqwest::Client::new();
+                                                crate::storage::log_to_file("streamdock.log", &format!("[PLAYLIST IMAGE] Fetching cover for context {} from {}", ctx_clone, url_clone));
                                                 match client.get(&url_clone).send().await {
                                                     Ok(resp) => {
                                                         if let Ok(bytes) = resp.bytes().await {
@@ -230,12 +279,15 @@ pub async fn start_streamdock_client(port: u16, uuid: String, register_event: St
                                                             let img_data = format!("data:image/jpeg;base64,{}", b64);
                                                             let msg = json!({ "event": "setImage", "context": ctx_clone, "payload": { "image": &img_data, "target": 0 }}).to_string();
                                                             let _ = tx_ws_clone.send(msg).await;
+                                                            crate::storage::log_to_file("streamdock.log", &format!("[PLAYLIST IMAGE] Sent cover to context {}", ctx_clone));
 
                                                             let mut cache = img_cache_clone.lock().await;
                                                             cache.insert(ctx_clone, url_clone);
                                                         }
                                                     },
-                                                    Err(_) => {}
+                                                    Err(e) => {
+                                                        crate::storage::log_to_file("streamdock.log", &format!("[PLAYLIST IMAGE ERR] Failed to fetch cover: {}", e));
+                                                    }
                                                 }
                                             });
                                         }
@@ -551,18 +603,19 @@ pub async fn start_streamdock_client(port: u16, uuid: String, register_event: St
                                             pi_contexts.lock().await.remove(context);
                                         }
 
-                                        if text_str.contains("settings") {
-                                            if let Some(ctx) = value["context"].as_str() {
-                                                if let Some(settings) = value["payload"]["settings"].as_object() {
-                                                    crate::storage::log_to_file("streamdock.log", &format!("[DEBUG SETTINGS-DIRECT] Received for context {}: {:?}", ctx, settings));
-                                                    let s_clone_msg = settings_per_ctx.clone();
-                                                    let ctx_clone_msg = ctx.to_string();
-                                                    let settings_clone_msg = settings.clone();
-                                                    tokio::spawn(async move {
-                                                        let mut s: tokio::sync::MutexGuard<'_, HashMap<String, serde_json::Value>> = s_clone_msg.lock().await;
-                                                        s.insert(ctx_clone_msg, serde_json::Value::Object(settings_clone_msg));
-                                                    });
-                                                }
+                                        if let Some(ctx) = value["context"].as_str() {
+                                            let settings_obj = value["payload"]["settings"]
+                                                .as_object()
+                                                .or_else(|| value["payload"].as_object());
+                                            if let Some(settings) = settings_obj {
+                                                crate::storage::log_to_file("streamdock.log", &format!("[DEBUG SETTINGS-DIRECT] Received for context {}: {:?}", ctx, settings));
+                                                let s_clone_msg = settings_per_ctx.clone();
+                                                let ctx_clone_msg = ctx.to_string();
+                                                let settings_clone_msg = settings.clone();
+                                                tokio::spawn(async move {
+                                                    let mut s: tokio::sync::MutexGuard<'_, HashMap<String, serde_json::Value>> = s_clone_msg.lock().await;
+                                                    s.insert(ctx_clone_msg, serde_json::Value::Object(settings_clone_msg));
+                                                });
                                             }
                                         }
                                         // Delegate all other logic to shared function
@@ -764,7 +817,7 @@ pub async fn process_streamdeck_event(
         };
         let name = spotify.get_display_name().await;
         
-        let settings = json!({ 
+        let mut settings = json!({
             "access_token": &token, "accessToken": &token, "token": &token,
             "refresh_token": &refresh, "refreshToken": &refresh,
             "clientId": if id.is_empty() { "hijacked".to_string() } else { id.clone() }, 
@@ -775,6 +828,24 @@ pub async fn process_streamdeck_event(
             "isAuthorized": true, "spotifyAuthorized": true,
             "userName": &name, "user_id": &name
         });
+        // Preserve per-button settings (playlist URI/name/cover/device) so PI does not reset to first item.
+        if event == "getSettings" && !context.is_empty() {
+            let mut persisted_ctx_settings: Option<serde_json::Value> = None;
+            for bridge in ACTIVE_BRIDGES.iter() {
+                let settings_lock = bridge.settings_per_ctx.lock().await;
+                if let Some(saved) = settings_lock.get(context) {
+                    persisted_ctx_settings = Some(saved.clone());
+                    break;
+                }
+            }
+            if let Some(saved) = persisted_ctx_settings {
+                if let (Some(dst), Some(src)) = (settings.as_object_mut(), saved.as_object()) {
+                    for (k, v) in src {
+                        dst.insert(k.clone(), v.clone());
+                    }
+                }
+            }
+        }
         let response_event = if event == "getGlobalSettings" { "didReceiveGlobalSettings" } else { "didReceiveSettings" };
         let _ = tx_c.send(json!({ "event": response_event, "context": ctx_c, "payload": { "settings": settings } }).to_string()).await;
 
@@ -795,6 +866,12 @@ pub async fn process_streamdeck_event(
         payload["authenticated"] = json!(true);
         payload["isAuthorized"] = json!(true);
         payload["spotifyAuthorized"] = json!(true);
+        if !context.is_empty() {
+            for bridge in ACTIVE_BRIDGES.iter() {
+                let mut settings_lock = bridge.settings_per_ctx.lock().await;
+                settings_lock.insert(context.to_string(), payload.clone());
+            }
+        }
         let _ = tx_hardware.send(json!({ "event": "setSettings", "context": context, "payload": payload }).to_string()).await;
     }
 
