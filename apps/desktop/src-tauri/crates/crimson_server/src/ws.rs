@@ -11,8 +11,7 @@ use crate::spotify::SpotifyService;
 use crate::discord::DiscordService;
 
 
-pub async fn start_ws_server(sender: WsSender, spotify_service: Arc<SpotifyService>, discord_service: Arc<DiscordService>) {
-    let db = Arc::new(crate::db::StreamDockDB::init().expect("Failed to init StreamDock DB"));
+pub async fn start_ws_server(sender: WsSender, spotify_service: Arc<SpotifyService>, discord_service: Arc<DiscordService>, db: Arc<crate::db::StreamDockDB>) {
     let addr = "127.0.0.1:40510".parse::<SocketAddr>().expect("Invalid address");
     if let Ok(listener) = TcpListener::bind(&addr).await {
         while let Ok((stream, _)) = listener.accept().await {
@@ -241,8 +240,16 @@ async fn handle_connection(stream: TcpStream, sender: WsSender, spotify: Arc<Spo
                                             if let Ok(saved_buttons) = db.get_all_buttons() {
                                                 let mut settings_lock = settings_per_ctx.lock().await;
                                                 let mut contexts_lock = contexts.lock().await;
-                                                for (ctx, action, settings, image) in saved_buttons {
-                                                    settings_lock.insert(ctx.clone(), settings);
+                                                for (ctx, action, mut settings, image) in saved_buttons {
+                                                    // v1.2.3: Merge image into settings for better sync persistence
+                                                    if let Some(img) = &image {
+                                                        if let Some(obj) = settings.as_object_mut() {
+                                                            if !obj.contains_key("image") { obj.insert("image".to_string(), json!(img)); }
+                                                            if !obj.contains_key("playlist_image") { obj.insert("playlist_image".to_string(), json!(img)); }
+                                                        }
+                                                    }
+
+                                                    settings_lock.insert(ctx.clone(), settings.clone());
                                                     contexts_lock.insert(ctx.clone(), action);
                                                     
                                                     // Push image if saved
@@ -260,7 +267,7 @@ async fn handle_connection(stream: TcpStream, sender: WsSender, spotify: Arc<Spo
                                             
                                             // IMMEDIATE SYNC: Push credentials and playlists as soon as the bridge connects
                                             let sync_val = json!({ "event": "registerPropertyInspector", "uuid": &uuid_str });
-                                            crate::streamdock::process_streamdeck_event(sync_val, s_clone.clone(), d_clone.clone(), sender_clone.clone(), contexts.clone(), pi_contexts.clone(), last_state_cache.clone()).await;
+                                            crate::streamdock::process_streamdeck_event(sync_val, s_clone.clone(), d_clone.clone(), sender_clone.clone(), contexts.clone(), pi_contexts.clone(), last_state_cache.clone(), settings_per_ctx.clone(), db.clone()).await;
 
                                             loop {
                                                 tokio::select! {
@@ -268,7 +275,7 @@ async fn handle_connection(stream: TcpStream, sender: WsSender, spotify: Arc<Spo
                                                         match msg_res {
                                                             Some(Ok(tokio_tungstenite::tungstenite::Message::Text(text))) => {
                                                                 if let Ok(val) = serde_json::from_str::<serde_json::Value>(&text) {
-                                                                    crate::streamdock::process_streamdeck_event(val, s_clone.clone(), d_clone.clone(), sender_clone.clone(), contexts.clone(), pi_contexts.clone(), last_state_cache.clone()).await;
+                                                                    crate::streamdock::process_streamdeck_event(val, s_clone.clone(), d_clone.clone(), sender_clone.clone(), contexts.clone(), pi_contexts.clone(), last_state_cache.clone(), settings_per_ctx.clone(), db.clone()).await;
                                                                 }
                                                             }
                                                             _ => break,
@@ -323,9 +330,10 @@ async fn handle_connection(stream: TcpStream, sender: WsSender, spotify: Arc<Spo
                                             } else {
                                                 let s_clone = spotify.clone();
                                                 let d_clone = discord.clone();
+                                                let db_reg = db.clone();
                                                 let reg_str = r.to_string();
                                                 tokio::spawn(async move {
-                                                    crate::streamdock::start_streamdock_client(p as u16, uuid_str, reg_str, s_clone, d_clone).await;
+                                                    crate::streamdock::start_streamdock_client(p as u16, uuid_str, reg_str, s_clone, d_clone, db_reg).await;
                                                 });
                                             }
 

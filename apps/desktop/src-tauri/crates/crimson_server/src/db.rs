@@ -26,6 +26,15 @@ impl StreamDockDB {
             )",
             [],
         )?;
+
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS cache (
+                key TEXT PRIMARY KEY,
+                value TEXT,
+                updated_at TEXT
+            )",
+            [],
+        )?;
         
         Ok(Self { conn: Mutex::new(conn) })
     }
@@ -78,5 +87,27 @@ impl StreamDockDB {
             if let Ok(r) = row { results.push(r); }
         }
         Ok(results)
+    }
+
+    pub fn set_cache(&self, key: &str, value: &str) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        let now = Utc::now().to_rfc3339();
+        conn.execute(
+            "INSERT INTO cache (key, value, updated_at) VALUES (?1, ?2, ?3)
+             ON CONFLICT(key) DO UPDATE SET value = ?2, updated_at = ?3",
+            params![key, value, now],
+        )?;
+        Ok(())
+    }
+
+    pub fn get_cache(&self, key: &str) -> Result<Option<String>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare("SELECT value FROM cache WHERE key = ?1")?;
+        let mut rows = stmt.query(params![key])?;
+        if let Some(row) = rows.next()? {
+            Ok(Some(row.get(0)?))
+        } else {
+            Ok(None)
+        }
     }
 }

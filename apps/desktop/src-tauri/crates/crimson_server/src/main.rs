@@ -133,13 +133,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
 
 
+    // Initialize DB (v1.2.1)
+    let db = Arc::new(crimson_server::db::StreamDockDB::init().expect("Failed to init StreamDock DB"));
+
     // If we were ALSO started with StreamDock flags, start the bridge too
     if is_streamdock_plugin {
         if let (Some(p), Some(uuid), Some(reg_evt)) = (port, plugin_uuid, register_event) {
             let spotify_clone = spotify_service.clone();
             let discord_clone = discord_service.clone();
+            let db_clone = db.clone();
             tokio::spawn(async move {
-                crimson_server::streamdock::start_streamdock_client(p, uuid, reg_evt, spotify_clone, discord_clone).await;
+                crimson_server::streamdock::start_streamdock_client(p, uuid, reg_evt, spotify_clone, discord_clone, db_clone).await;
             });
         }
     }
@@ -147,7 +151,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Start External WebSocket Server (Sidecar -> UI/StreamDeck)
     println!("WebSocket server listening on 127.0.0.1:40510");
-    ws::start_ws_server(sender, spotify_service, discord_service).await;
+    ws::start_ws_server(sender, spotify_service, discord_service, db).await;
 
 
     Ok(())

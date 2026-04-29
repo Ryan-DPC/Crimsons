@@ -98,10 +98,14 @@ impl SpotifyService {
         let playlists_json = serde_json::to_string(&playlists).unwrap_or_else(|_| "[]".to_string());
         let devices_json = serde_json::to_string(&devices).unwrap_or_else(|_| "[]".to_string());
 
-        let tokens_js_path = std::path::Path::new(std::env::var("APPDATA").unwrap_or_default().as_str())
-            .join("HotSpot").join("StreamDock").join("plugins").join("com.laoy.streamdock.spotify.sdPlugin")
-            .join("propertyInspector").join("utils").join("tokens.js");
+        let plugins_base = std::path::Path::new(std::env::var("APPDATA").unwrap_or_default().as_str())
+            .join("HotSpot").join("StreamDock").join("plugins");
         
+        let target_plugins = vec![
+            "com.laoy.streamdock.spotify.sdPlugin",
+            "com.laoy.streamdock.crimson.sdPlugin"
+        ];
+
         let js_content = format!(
             "if (typeof $websocket !== 'undefined' && $websocket && $websocket.readyState === 1) {{\n\
                 if (!window.crimsonInjected) {{\n\
@@ -139,7 +143,14 @@ impl SpotifyService {
             playlists_json,
             devices_json
         );
-        let _ = std::fs::write(tokens_js_path, js_content);
+
+        for plugin_id in target_plugins {
+            let path = plugins_base.join(plugin_id).join("propertyInspector").join("utils").join("tokens.js");
+            if let Some(parent) = path.parent() {
+                let _ = std::fs::create_dir_all(parent);
+            }
+            let _ = std::fs::write(path, &js_content);
+        }
     }
 
     pub fn new(sender: WsSender) -> Self {

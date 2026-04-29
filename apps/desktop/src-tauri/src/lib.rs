@@ -25,6 +25,7 @@ pub fn run() {
         commands::crimson_quit_app,
         commands::crimson_toggle_autostart,
         commands::crimson_toggle_server_autostart,
+        commands::crimson_get_server_autostart_info,
         commands::crimson_restart_server,
         commands::exchange_spotify_token
     ])

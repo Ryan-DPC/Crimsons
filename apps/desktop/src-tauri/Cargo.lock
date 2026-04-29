@@ -173,7 +173,7 @@ checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
 
 [[package]]
 name = "app"
-version = "3.0.1"
+version = "3.0.2"
 dependencies = [
  "base64 0.21.7",
  "chrono",
@@ -993,7 +993,7 @@ dependencies = [
 
 [[package]]
 name = "crimson-server"
-version = "3.0.1"
+version = "3.0.2"
 dependencies = [
  "ab_glyph",
  "base64 0.21.7",

@@ -50,9 +50,18 @@ function syncSelectValue() {
     if (!uriSelect) return;
     const settings = $settings || _currentSettings || {};
     const selectedUri = settings.uri || settings.playlist || '';
+    const selectedName = settings.playlistName || settings.name || '';
     
     if (selectedUri) {
         uriSelect.value = selectedUri;
+    } else if (selectedName && _playlistsData.length > 0) {
+        // Fallback to name matching if URI is missing (helps with initial "One" issue)
+        const match = _playlistsData.find(p => p.name === selectedName);
+        if (match) {
+            uriSelect.value = match.uri || match.id;
+            // Auto-update settings with the resolved URI
+            updatePlaylistSettings();
+        }
     }
 }
 

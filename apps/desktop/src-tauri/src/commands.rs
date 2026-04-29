@@ -32,26 +32,133 @@ pub fn crimson_toggle_server_autostart(app: tauri::AppHandle, enable: bool) -> R
   storage::save_data(&app, &data);
 
   if let Some(p) = find_server_path(&app) {
-      let reg_path = r"Software\Microsoft\Windows\CurrentVersion\Run";
       let exe_path = p.to_string_lossy().to_string();
       
       if enable {
-          // Add registry key (User Registry for non-admin persistence)
-          let _ = std::process::Command::new("reg")
-              .args(["add", &format!(r"HKCU\{}", reg_path), "/v", "CrimsonServer", "/t", "REG_SZ", "/d", &format!("\"{}\"", exe_path), "/f"])
-              .creation_flags(0x08000000) // CREATE_NO_WINDOW
-              .spawn();
+          // Use Windows Task Scheduler for more reliable autostart
+          create_server_scheduled_task(&exe_path)
       } else {
-          // Remove registry key
-          let _ = std::process::Command::new("reg")
-              .args(["delete", &format!(r"HKCU\{}", reg_path), "/v", "CrimsonServer", "/f"])
-              .creation_flags(0x08000000) // CREATE_NO_WINDOW
-              .spawn();
+          // Remove scheduled task
+          remove_server_scheduled_task()
       }
-      Ok(())
   } else {
       Err("Could not find server executable for autostart".to_string())
   }
+}
+
+fn create_server_scheduled_task(exe_path: &str) -> Result<(), String> {
+    use std::process::Command;
+    
+    // Create PowerShell command to register the scheduled task
+    // This will run at user logon with highest privileges
+    let task_name = "CrimsonServer";
+    let ps_command = format!(
+        r#"
+$taskName = "{}"
+$principal = New-ScheduledTaskPrincipal -UserId "$env:USERNAME" -LogonType Interactive -RunLevel Highest
+$action = New-ScheduledTaskAction -Execute "{}" -WorkingDirectory "{}"
+$trigger = New-ScheduledTaskTrigger -AtLogOn
+$settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
+Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
+Register-ScheduledTask -TaskName $taskName -Principal $principal -Action $action -Trigger $trigger -Settings $settings -Force | Out-Null
+Write-Host "Task registered successfully"
+"#,
+        task_name,
+        exe_path,
+        std::path::Path::new(exe_path)
+            .parent()
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or_else(|| ".".to_string())
+    );
+
+    let output = Command::new("powershell")
+        .args(&["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", &ps_command])
+        .creation_flags(0x08000000) // CREATE_NO_WINDOW
+        .output()
+        .map_err(|e| format!("Failed to execute PowerShell: {}", e))?;
+
+    if output.status.success() {
+        Ok(())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        Err(format!("Task Scheduler registration failed: {}", stderr))
+    }
+}
+
+fn remove_server_scheduled_task() -> Result<(), String> {
+    use std::process::Command;
+    
+    let task_name = "CrimsonServer";
+    let ps_command = format!(
+        r#"
+$taskName = "{}"
+Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
+Write-Host "Task removed successfully"
+"#,
+        task_name
+    );
+
+    let output = Command::new("powershell")
+        .args(&["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", &ps_command])
+        .creation_flags(0x08000000) // CREATE_NO_WINDOW
+        .output()
+        .map_err(|e| format!("Failed to execute PowerShell: {}", e))?;
+
+    if output.status.success() {
+        Ok(())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        Err(format!("Task Scheduler removal failed: {}", stderr))
+    }
+}
+
+#[tauri::command]
+pub fn crimson_get_server_autostart_info(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
+    use std::process::Command;
+    use serde_json::json;
+    
+    let mut info = json!({
+        "is_enabled": false,
+        "server_path": Option::<String>::None,
+        "task_exists": false,
+        "errors": Vec::<String>::new()
+    });
+    
+    // Check if server executable exists
+    if let Some(server_path) = find_server_path(&app) {
+        info["server_path"] = json!(server_path.to_string_lossy().to_string());
+        
+        if !server_path.exists() {
+            info["errors"].as_array_mut().unwrap().push("Server executable not found".into());
+        }
+    } else {
+        info["errors"].as_array_mut().unwrap().push("Could not locate server executable".into());
+    }
+    
+    // Check if Task Scheduler task exists
+    let task_name = "CrimsonServer";
+    let ps_command = format!(
+        r#"
+$task = Get-ScheduledTask -TaskName "{}" -ErrorAction SilentlyContinue
+if ($task) {{ Write-Host "EXISTS" }} else {{ Write-Host "NOTFOUND" }}
+"#,
+        task_name
+    );
+    
+    let output = Command::new("powershell")
+        .args(&["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", &ps_command])
+        .creation_flags(0x08000000)
+        .output()
+        .map_err(|e| format!("Failed to check task: {}", e))?;
+    
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    info["task_exists"] = json!(stdout.contains("EXISTS"));
+    
+    // Check AppData setting
+    let data = storage::load_data(&app);
+    info["is_enabled"] = json!(data.server_launch_on_startup);
+    
+    Ok(info)
 }
 
 #[tauri::command]
@@ -144,18 +251,75 @@ fn find_server_path(app: &tauri::AppHandle) -> Option<std::path::PathBuf> {
     let path_resolver = app.path();
     let sidecar_base = "crimson-server.exe";
     let sidecar_arch = "crimson-server-x86_64-pc-windows-msvc.exe";
-    let roots = vec![
-        path_resolver.resource_dir().ok(),
-        path_resolver.executable_dir().ok(),
-    ];
-    for root in roots.into_iter().flatten() {
-        for name in &[sidecar_base, sidecar_arch] {
-            let p = root.join(name);
-            if p.is_file() { return Some(p); }
-            let p_bin = root.join("bin").join(name);
-            if p_bin.is_file() { return Some(p_bin); }
+    
+    // Priority order for finding the server executable
+    let mut search_paths = vec![];
+    
+    // 1. Tauri resource directory (bundled with app)
+    if let Ok(resource_dir) = path_resolver.resource_dir() {
+        search_paths.push(resource_dir.clone());
+        search_paths.push(resource_dir.join("bin"));
+    }
+    
+    // 2. Executable directory (app folder)
+    if let Ok(exe_dir) = path_resolver.executable_dir() {
+        search_paths.push(exe_dir.clone());
+        search_paths.push(exe_dir.join("bin"));
+    }
+    
+    // 3. Development paths (for development/debugging)
+    // Try to find from the app's parent directories
+    if let Ok(exe_path) = std::env::current_exe() {
+        if let Some(exe_dir) = exe_path.parent() {
+            // Navigate up from bin directory or app directory
+            if let Some(parent) = exe_dir.parent() {
+                search_paths.push(parent.join("target/release"));
+                search_paths.push(parent.join("target/debug"));
+                search_paths.push(parent.join("cargo-target-hotfix2/release"));
+                search_paths.push(parent.join("cargo-target-hotfix/release"));
+            }
         }
     }
+    
+    // 4. Common Crimson installation paths
+    if let Ok(user) = std::env::var("USERNAME") {
+        let app_data = format!("C:\\Users\\{}\\AppData\\Local\\crimson\\bin", user);
+        search_paths.push(std::path::PathBuf::from(&app_data));
+    }
+    
+    // Search for the executable in all paths
+    for root in search_paths {
+        for name in &[sidecar_base, sidecar_arch] {
+            let p = root.join(name);
+            if p.is_file() {
+                return Some(p);
+            }
+        }
+    }
+    
+    // Last resort: search in parent directories
+    if let Ok(exe_path) = std::env::current_exe() {
+        let mut current = exe_path.parent();
+        let mut depth = 0;
+        while let Some(dir) = current {
+            if depth > 5 { break; } // Limit search depth
+            
+            for name in &[sidecar_base, sidecar_arch] {
+                let p = dir.join(name);
+                if p.is_file() { return Some(p); }
+                
+                let p = dir.join("bin").join(name);
+                if p.is_file() { return Some(p); }
+                
+                let p = dir.join("target/release").join(name);
+                if p.is_file() { return Some(p); }
+            }
+            
+            current = dir.parent();
+            depth += 1;
+        }
+    }
+    
     None
 }
 #[tauri::command]
