@@ -49,26 +49,10 @@ pub fn crimson_toggle_server_autostart(app: tauri::AppHandle, enable: bool) -> R
 fn create_server_scheduled_task(exe_path: &str) -> Result<(), String> {
     use std::process::Command;
     
-    // Create PowerShell command to register the scheduled task
-    // This will run at user logon with highest privileges
-    let task_name = "CrimsonServer";
+    // Use the standard Registry Run key which doesn't require Admin privileges
     let ps_command = format!(
-        r#"
-$taskName = "{}"
-$principal = New-ScheduledTaskPrincipal -UserId "$env:USERNAME" -LogonType Interactive -RunLevel Highest
-$action = New-ScheduledTaskAction -Execute "{}" -WorkingDirectory "{}"
-$trigger = New-ScheduledTaskTrigger -AtLogOn
-$settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
-Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
-Register-ScheduledTask -TaskName $taskName -Principal $principal -Action $action -Trigger $trigger -Settings $settings -Force | Out-Null
-Write-Host "Task registered successfully"
-"#,
-        task_name,
-        exe_path,
-        std::path::Path::new(exe_path)
-            .parent()
-            .map(|p| p.to_string_lossy().to_string())
-            .unwrap_or_else(|| ".".to_string())
+        r#"New-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run" -Name "CrimsonServer" -Value '"{}"' -PropertyType String -Force"#,
+        exe_path
     );
 
     let output = Command::new("powershell")
@@ -81,25 +65,17 @@ Write-Host "Task registered successfully"
         Ok(())
     } else {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        Err(format!("Task Scheduler registration failed: {}", stderr))
+        Err(format!("Registry autostart registration failed: {}", stderr))
     }
 }
 
 fn remove_server_scheduled_task() -> Result<(), String> {
     use std::process::Command;
     
-    let task_name = "CrimsonServer";
-    let ps_command = format!(
-        r#"
-$taskName = "{}"
-Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
-Write-Host "Task removed successfully"
-"#,
-        task_name
-    );
+    let ps_command = r#"Remove-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run" -Name "CrimsonServer" -Force -ErrorAction SilentlyContinue"#;
 
     let output = Command::new("powershell")
-        .args(&["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", &ps_command])
+        .args(&["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps_command])
         .creation_flags(0x08000000) // CREATE_NO_WINDOW
         .output()
         .map_err(|e| format!("Failed to execute PowerShell: {}", e))?;
@@ -108,7 +84,7 @@ Write-Host "Task removed successfully"
         Ok(())
     } else {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        Err(format!("Task Scheduler removal failed: {}", stderr))
+        Err(format!("Registry autostart removal failed: {}", stderr))
     }
 }
 
@@ -135,21 +111,17 @@ pub fn crimson_get_server_autostart_info(app: tauri::AppHandle) -> Result<serde_
         info["errors"].as_array_mut().unwrap().push("Could not locate server executable".into());
     }
     
-    // Check if Task Scheduler task exists
-    let task_name = "CrimsonServer";
-    let ps_command = format!(
-        r#"
-$task = Get-ScheduledTask -TaskName "{}" -ErrorAction SilentlyContinue
-if ($task) {{ Write-Host "EXISTS" }} else {{ Write-Host "NOTFOUND" }}
-"#,
-        task_name
-    );
+    // Check if Registry Run key exists
+    let ps_command = r#"
+$val = Get-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run" -Name "CrimsonServer" -ErrorAction SilentlyContinue
+if ($val) { Write-Host "EXISTS" } else { Write-Host "NOTFOUND" }
+"#;
     
     let output = Command::new("powershell")
-        .args(&["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", &ps_command])
+        .args(&["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps_command])
         .creation_flags(0x08000000)
         .output()
-        .map_err(|e| format!("Failed to check task: {}", e))?;
+        .map_err(|e| format!("Failed to check registry: {}", e))?;
     
     let stdout = String::from_utf8_lossy(&output.stdout);
     info["task_exists"] = json!(stdout.contains("EXISTS"));

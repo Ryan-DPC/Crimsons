@@ -1,0 +1,51 @@
+{
+  "Actions": [
+    {
+      "Icon": "static/icon/hue_toggle@2x.png",
+      "Name": "Toggle Light",
+      "Controllers": ["Keypad"],
+      "States": [
+        {
+          "Image": "static/icon/hue_off.png",
+          "Title": "OFF"
+        },
+        {
+          "Image": "static/icon/hue_on.png",
+          "Title": "ON"
+        }
+      ],
+      "UUID": "com.laoy.streamdock.hue.toggle",
+      "PropertyInspectorPath": "propertyInspector/index.html"
+    },
+    {
+      "Icon": "static/icon/hue_scene@2x.png",
+      "Name": "Set Scene",
+      "Controllers": ["Keypad"],
+      "States": [
+        {
+          "Image": "static/icon/hue_scene.png"
+        }
+      ],
+      "UUID": "com.laoy.streamdock.hue.scene",
+      "PropertyInspectorPath": "propertyInspector/index.html"
+    }
+  ],
+  "Author": "Laoy",
+  "Description": "Philips Hue Lighting Control",
+  "Icon": "static/icon/hue_toggle@2x.png",
+  "Name": "CRIMSON Hue",
+  "Category": "CRIMSON",
+  "CategoryIcon": "static/icon/hue_toggle@2x.png",
+  "Version": "3.1.0",
+  "SDKVersion": 1,
+  "OS": [
+    {
+      "Platform": "windows",
+      "MinimumVersion": "10"
+    }
+  ],
+  "Software": {
+    "MinimumVersion": "3.10.188.226"
+  },
+  "CodePath": "plugin/index.html"
+}

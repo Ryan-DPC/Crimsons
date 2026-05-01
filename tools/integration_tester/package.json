@@ -1,6 +1,6 @@
 {
   "name": "crimson-integration-tester",
-  "version": "3.0.4",
+  "version": "3.0.5",
   "description": "Automated integration tester for Crimson Spotify plugin",
   "main": "tester.js",
   "dependencies": {

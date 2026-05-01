@@ -9,15 +9,25 @@ use crate::events::WsSender;
 use crate::sd_commands::StreamDeckCommand;
 use crate::spotify::SpotifyService;
 use crate::discord::DiscordService;
+use crate::hue::HueService;
+use crate::twitch::TwitchService;
 
-
-pub async fn start_ws_server(sender: WsSender, spotify_service: Arc<SpotifyService>, discord_service: Arc<DiscordService>, db: Arc<crate::db::StreamDockDB>) {
+pub async fn start_ws_server(
+    sender: WsSender, 
+    spotify_service: Arc<SpotifyService>, 
+    discord_service: Arc<DiscordService>, 
+    hue_service: Arc<HueService>,
+    twitch_service: Arc<TwitchService>,
+    db: Arc<crate::db::StreamDockDB>
+) {
     let addr = "127.0.0.1:40510".parse::<SocketAddr>().expect("Invalid address");
     if let Ok(listener) = TcpListener::bind(&addr).await {
         while let Ok((stream, _)) = listener.accept().await {
             let sender_clone = WsSender(sender.0.clone());
             let spotify_clone = spotify_service.clone();
             let discord_clone = discord_service.clone();
+            let hue_clone = hue_service.clone();
+            let twitch_clone = twitch_service.clone();
             let db_clone = db.clone();
             tokio::spawn(async move {
                 // Peek for HTTP GET (Spotify Callback)
@@ -37,13 +47,21 @@ pub async fn start_ws_server(sender: WsSender, spotify_service: Arc<SpotifyServi
                         }
                     }
                 }
-                handle_connection(stream, sender_clone, spotify_clone, discord_clone, db_clone).await;
+                handle_connection(stream, sender_clone, spotify_clone, discord_clone, hue_clone, twitch_clone, db_clone).await;
             });
         }
     }
 }
 
-async fn handle_connection(stream: TcpStream, sender: WsSender, spotify: Arc<SpotifyService>, discord: Arc<DiscordService>, db: Arc<crate::db::StreamDockDB>) {
+async fn handle_connection(
+    stream: TcpStream, 
+    sender: WsSender, 
+    spotify: Arc<SpotifyService>, 
+    discord: Arc<DiscordService>, 
+    hue: Arc<HueService>,
+    twitch: Arc<TwitchService>,
+    db: Arc<crate::db::StreamDockDB>
+) {
 
     if let Ok(mut ws_stream) = accept_async(stream).await {
         crate::storage::log_to_file("streamdock.log", "[WS] New client connection accepted");
@@ -211,6 +229,20 @@ async fn handle_connection(stream: TcpStream, sender: WsSender, spotify: Arc<Spo
                                         continue;
                                     }
 
+                                    if value["type"] == "HUE_COMMAND" {
+                                        if let Some(endpoint) = value["endpoint"].as_str() {
+                                            let _ = hue.handle_command(endpoint, Some(value.clone())).await;
+                                        }
+                                        continue;
+                                    }
+
+                                    if value["type"] == "TWITCH_COMMAND" {
+                                        if let Some(endpoint) = value["endpoint"].as_str() {
+                                            let _ = twitch.handle_command(endpoint, Some(value.clone())).await;
+                                        }
+                                        continue;
+                                    }
+
                                     if value["type"] == "REGISTER_STREAMDOCK_BRIDGE" {
                                         let port_id = value["port"].as_u64()
                                             .or_else(|| value["port"].as_str().and_then(|s| s.parse::<u64>().ok()));
@@ -219,6 +251,8 @@ async fn handle_connection(stream: TcpStream, sender: WsSender, spotify: Arc<Spo
                                             println!("WebSocket: Proxy BRIDGE registered for UUID {} on port {}", u, p);
                                             let s_clone = spotify.clone();
                                             let d_clone = discord.clone();
+                                            let h_clone = hue.clone();
+                                            let t_clone = twitch.clone();
                                             let uuid_str = u.to_string();
                                             let sender_clone = ws_stream_sender.clone();
                                             let contexts = std::sync::Arc::new(tokio::sync::Mutex::new(std::collections::HashMap::new()));
@@ -267,7 +301,7 @@ async fn handle_connection(stream: TcpStream, sender: WsSender, spotify: Arc<Spo
                                             
                                             // IMMEDIATE SYNC: Push credentials and playlists as soon as the bridge connects
                                             let sync_val = json!({ "event": "registerPropertyInspector", "uuid": &uuid_str });
-                                            crate::streamdock::process_streamdeck_event(sync_val, s_clone.clone(), d_clone.clone(), sender_clone.clone(), contexts.clone(), pi_contexts.clone(), last_state_cache.clone(), settings_per_ctx.clone(), db.clone()).await;
+                                            crate::streamdock::process_streamdeck_event(sync_val, s_clone.clone(), d_clone.clone(), h_clone.clone(), t_clone.clone(), sender_clone.clone(), contexts.clone(), pi_contexts.clone(), last_state_cache.clone(), settings_per_ctx.clone(), db.clone()).await;
 
                                             loop {
                                                 tokio::select! {
@@ -275,7 +309,7 @@ async fn handle_connection(stream: TcpStream, sender: WsSender, spotify: Arc<Spo
                                                         match msg_res {
                                                             Some(Ok(tokio_tungstenite::tungstenite::Message::Text(text))) => {
                                                                 if let Ok(val) = serde_json::from_str::<serde_json::Value>(&text) {
-                                                                    crate::streamdock::process_streamdeck_event(val, s_clone.clone(), d_clone.clone(), sender_clone.clone(), contexts.clone(), pi_contexts.clone(), last_state_cache.clone(), settings_per_ctx.clone(), db.clone()).await;
+                                                                    crate::streamdock::process_streamdeck_event(val, s_clone.clone(), d_clone.clone(), h_clone.clone(), t_clone.clone(), sender_clone.clone(), contexts.clone(), pi_contexts.clone(), last_state_cache.clone(), settings_per_ctx.clone(), db.clone()).await;
                                                                 }
                                                             }
                                                             _ => break,
@@ -330,10 +364,12 @@ async fn handle_connection(stream: TcpStream, sender: WsSender, spotify: Arc<Spo
                                             } else {
                                                 let s_clone = spotify.clone();
                                                 let d_clone = discord.clone();
+                                                let h_clone = hue.clone();
+                                                let t_clone = twitch.clone();
                                                 let db_reg = db.clone();
                                                 let reg_str = r.to_string();
                                                 tokio::spawn(async move {
-                                                    crate::streamdock::start_streamdock_client(p as u16, uuid_str, reg_str, s_clone, d_clone, db_reg).await;
+                                                    crate::streamdock::start_streamdock_client(p as u16, uuid_str, reg_str, s_clone, d_clone, h_clone, t_clone, db_reg).await;
                                                 });
                                             }
 

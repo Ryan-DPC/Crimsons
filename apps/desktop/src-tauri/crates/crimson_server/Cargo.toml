@@ -1,6 +1,6 @@
 [package]
 name = "crimson-server"
-version = "3.0.4"
+version = "3.0.5"
 edition = "2021"
 build = "build.rs"
 
@@ -34,8 +34,7 @@ uuid = { version = "1", features = ["v4"] }
 dashmap = "5.5"
 lazy_static = "1.4"
 urlencoding = "2.1"
-
+rdev = "0.5.3"
 
 [build-dependencies]
 winres = "0.1"
-

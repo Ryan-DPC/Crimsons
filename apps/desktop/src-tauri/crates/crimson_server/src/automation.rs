@@ -28,14 +28,20 @@ pub fn handle_champ_select_standalone(data: &Value) {
                 if completed { continue; }
 
                 if action_type == "ban" {
-                    if let Some(target_id) = app_data.other.get("autoBan").and_then(|v| v.as_u64()) {
-                         println!("Automation: Executing Auto-Ban for champion {}", target_id);
-                         let _ = execute_action(action_id, target_id as u32, true);
+                    let target_id = app_data.other.get("autoBan").and_then(|v| {
+                        v.as_u64().or_else(|| v.as_str().and_then(|s| s.parse::<u64>().ok()))
+                    });
+                    if let Some(id) = target_id {
+                         println!("Automation: Executing Auto-Ban for champion {}", id);
+                         let _ = execute_action(action_id, id as u32, true);
                     }
                 } else if action_type == "pick" {
-                    if let Some(target_id) = app_data.other.get("autoPick").and_then(|v| v.as_u64()) {
-                        println!("Automation: Executing Auto-Pick for champion {}", target_id);
-                        let _ = execute_action(action_id, target_id as u32, false);
+                    let target_id = app_data.other.get("autoPick").and_then(|v| {
+                        v.as_u64().or_else(|| v.as_str().and_then(|s| s.parse::<u64>().ok()))
+                    });
+                    if let Some(id) = target_id {
+                        println!("Automation: Executing Auto-Pick for champion {}", id);
+                        let _ = execute_action(action_id, id as u32, false);
                     }
                 }
             }
@@ -51,7 +57,7 @@ pub fn handle_ready_check(data: &Value) {
         let app_data = storage::load_data_from_path(storage::get_data_path_from_env());
         if app_data.auto_accept {
             println!("Automation: Detected match! Auto-Accepting...");
-            let _ = lcu::lcu_request("POST".into(), "/lol-matchmaking/v1/ready-check/accept".into(), None);
+            let _ = lcu::lcu_request("POST".into(), "/lol-matchmaking/v1/ready-check/accept".into(), Some("{}".into()));
         }
     }
 }

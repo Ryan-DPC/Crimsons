@@ -13,4 +13,7 @@ pub mod streamdock;
 pub mod proxy;
 pub mod discord;
 pub mod db;
-
+pub mod hotkeys;
+pub mod updater;
+pub mod hue;
+pub mod twitch;

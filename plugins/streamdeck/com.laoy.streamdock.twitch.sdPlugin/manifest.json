@@ -1,0 +1,59 @@
+{
+  "Actions": [
+    {
+      "Icon": "static/icon/twitch_chat@2x.png",
+      "Name": "Send Chat Message",
+      "Controllers": ["Keypad"],
+      "States": [
+        {
+          "Image": "static/icon/twitch_chat.png"
+        }
+      ],
+      "UUID": "com.laoy.streamdock.twitch.chat",
+      "PropertyInspectorPath": "propertyInspector/index.html"
+    },
+    {
+      "Icon": "static/icon/twitch_ad@2x.png",
+      "Name": "Run Ad",
+      "Controllers": ["Keypad"],
+      "States": [
+        {
+          "Image": "static/icon/twitch_ad.png"
+        }
+      ],
+      "UUID": "com.laoy.streamdock.twitch.ad",
+      "PropertyInspectorPath": "propertyInspector/index.html"
+    },
+    {
+      "Icon": "static/icon/twitch_viewers@2x.png",
+      "Name": "Viewer Count",
+      "Controllers": ["Information"],
+      "States": [
+        {
+          "Image": "static/icon/twitch_viewers.png",
+          "Title": "0"
+        }
+      ],
+      "UUID": "com.laoy.streamdock.twitch.viewers",
+      "PropertyInspectorPath": "propertyInspector/index.html"
+    }
+  ],
+  "Author": "Laoy",
+  "Description": "Twitch Streamer Tools",
+  "Icon": "static/icon/twitch_chat@2x.png",
+  "Name": "CRIMSON Twitch",
+  "Category": "CRIMSON",
+  "CategoryIcon": "static/icon/twitch_chat@2x.png",
+  "Version": "3.1.0",
+  "SDKVersion": 1,
+  "OS": [
+    {
+      "Platform": "windows",
+      "MinimumVersion": "10"
+    }
+  ],
+  "Software": {
+    "MinimumVersion": "3.10.188.226"
+  },
+  "CodePath": "plugin/index.html"
+}

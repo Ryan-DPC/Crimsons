@@ -37,9 +37,20 @@ pub struct HardwareBridge {
     pub pi_contexts: Arc<tokio::sync::Mutex<HashSet<String>>>,
     pub last_image_per_ctx: Arc<tokio::sync::Mutex<HashMap<String, String>>>,
     pub settings_per_ctx: Arc<tokio::sync::Mutex<HashMap<String, serde_json::Value>>>,
+    pub hue: Arc<crate::hue::HueService>,
+    pub twitch: Arc<crate::twitch::TwitchService>,
 }
 
-pub async fn start_streamdock_client(port: u16, uuid: String, register_event: String, spotify: Arc<SpotifyService>, discord: Arc<DiscordService>, db: Arc<StreamDockDB>) {
+pub async fn start_streamdock_client(
+    port: u16, 
+    uuid: String, 
+    register_event: String, 
+    spotify: Arc<SpotifyService>, 
+    discord: Arc<DiscordService>, 
+    hue: Arc<crate::hue::HueService>,
+    twitch: Arc<crate::twitch::TwitchService>,
+    db: Arc<StreamDockDB>
+) {
     let ws_url = format!("ws://127.0.0.1:{}", port);
     
     // --- PERSISTENT STATE ---
@@ -58,6 +69,8 @@ pub async fn start_streamdock_client(port: u16, uuid: String, register_event: St
         pi_contexts: pi_contexts.clone(),
         last_image_per_ctx: last_image_per_ctx.clone(),
         settings_per_ctx: settings_per_ctx.clone(),
+        hue: hue.clone(),
+        twitch: twitch.clone(),
     };
     
     // Register this bridge globally
@@ -623,7 +636,7 @@ pub async fn start_streamdock_client(port: u16, uuid: String, register_event: St
                                             }
                                         }
                                         // Delegate all other logic to shared function
-                                        process_streamdeck_event(value, spotify_wa.clone(), discord.clone(), tx_ws.clone(), contexts.clone(), pi_contexts.clone(), last_state_cache.clone(), settings_per_ctx.clone(), db.clone()).await;
+                                        process_streamdeck_event(value, spotify_wa.clone(), discord.clone(), hue.clone(), twitch.clone(), tx_ws.clone(), contexts.clone(), pi_contexts.clone(), last_state_cache.clone(), settings_per_ctx.clone(), db.clone()).await;
                                     }
                                 }
                                 Ok(Message::Close(_)) => break,
@@ -654,11 +667,22 @@ pub async fn process_streamdeck_event(
     pi_contexts: Arc<tokio::sync::Mutex<HashSet<String>>>,
     last_state_cache: Arc<tokio::sync::Mutex<Option<serde_json::Value>>>,
     settings_per_ctx: Arc<tokio::sync::Mutex<HashMap<String, serde_json::Value>>>,
+    hue: Arc<crate::hue::HueService>,
+    twitch: Arc<crate::twitch::TwitchService>,
     db: Arc<StreamDockDB>
 ) {
     let event = value["event"].as_str().unwrap_or("");
     let context = value["context"].as_str().unwrap_or("");
-    let action = value["action"].as_str().unwrap_or("");
+    let mut action = value["action"].as_str().unwrap_or("").to_string();
+
+    // Resolve action from context if missing (v1.2.5) - critical for setSettings from PI
+    if action.is_empty() && !context.is_empty() {
+        let c_lock = contexts.lock().await;
+        if let Some(act) = c_lock.get(context) {
+            action = act.clone();
+        }
+    }
+
     let uuid = value["uuid"].as_str().unwrap_or("");
 
     // --- RAW LOGGING (Disabled for performance) ---
@@ -947,10 +971,66 @@ pub async fn process_streamdeck_event(
         payload["authenticated"] = json!(true);
         payload["isAuthorized"] = json!(true);
         payload["spotifyAuthorized"] = json!(true);
+        
         if !context.is_empty() {
             for bridge in ACTIVE_BRIDGES.iter() {
                 let mut settings_lock = bridge.settings_per_ctx.lock().await;
                 settings_lock.insert(context.to_string(), payload.clone());
+            }
+
+            // --- IMMEDIATE PLAYLIST COVER FETCH (v1.2.5) ---
+            if action.contains("playlist") {
+                let s_c = spotify.clone();
+                let db_c = db.clone();
+                let ctx_c = context.to_string();
+                let act_c = action.clone();
+                let tx_c = tx_hardware.clone();
+                let p_c = payload.clone();
+                
+                tokio::spawn(async move {
+                    let mut cover_url = p_c["image"].as_str()
+                        .or(p_c["playlist_image"].as_str())
+                        .map(|s| s.to_string());
+                    
+                    // Force re-fetch if it's a new playlist selection or pending
+                    if cover_url.is_none() || cover_url.as_deref() == Some("PENDING") || cover_url.as_deref() == Some("FAILED") {
+                         if let Some(uri) = p_c["playlist"].as_str().or(p_c["uri"].as_str()) {
+                             cover_url = s_c.get_playlist_cover(uri).await;
+                         } else if let Some(name) = p_c["playlistName"].as_str() {
+                             if let Some((_, img)) = s_c.find_playlist_by_name(name).await {
+                                 cover_url = Some(img);
+                             }
+                         }
+                    }
+                    
+                    if let Some(url) = cover_url {
+                        if let Ok(resp) = reqwest::get(&url).await {
+                            if let Ok(bytes) = resp.bytes().await {
+                                 use base64::{Engine as _, engine::general_purpose::STANDARD};
+                                 let b64 = STANDARD.encode(&bytes);
+                                 let img_data = format!("data:image/jpeg;base64,{}", b64);
+                                 let msg = json!({ "event": "setImage", "context": &ctx_c, "payload": { "image": &img_data, "target": 0 }}).to_string();
+                                 
+                                 // Update settings in memory with the new image URL to avoid re-fetches
+                                 for bridge in crate::streamdock::ACTIVE_BRIDGES.iter() {
+                                     let mut s_lock = bridge.settings_per_ctx.lock().await;
+                                     if let Some(st) = s_lock.get_mut(&ctx_c) {
+                                         if let Some(obj) = st.as_object_mut() {
+                                             obj.insert("image".to_string(), json!(&url));
+                                             obj.insert("playlist_image".to_string(), json!(&url));
+                                         }
+                                     }
+                                     // Push to hardware
+                                     let _ = bridge.tx.send(msg.clone()).await;
+                                 }
+                                 let _ = tx_c.send(msg).await;
+                                 
+                                 // Save to DB
+                                 let _ = db_c.save_button(&ctx_c, Some(&act_c), &p_c, Some(&url));
+                            }
+                        }
+                    }
+                });
             }
         }
         let _ = tx_hardware.send(json!({ "event": "setSettings", "context": context, "payload": payload }).to_string()).await;
@@ -978,6 +1058,8 @@ pub async fn process_streamdeck_event(
         };
         if !ep.is_empty() {
             if action.contains("discord") { let _ = discord.handle_command(ep, Some(value.clone())).await; }
+            else if action.contains("hue") { let _ = hue.handle_command(ep, Some(value.clone())).await; }
+            else if action.contains("twitch") { let _ = twitch.handle_command(ep, Some(value.clone())).await; }
             else { let _ = spotify.handle_command(ep, Some(value.clone())).await; }
         }
     }

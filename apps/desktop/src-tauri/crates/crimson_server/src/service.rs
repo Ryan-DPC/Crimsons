@@ -27,7 +27,7 @@ fn check_and_accept(sender: &WsSender) -> Result<(), String> {
     let ready_check = lcu::lcu_request("GET".into(), "/lol-matchmaking/v1/ready-check".into(), None);
     if let Ok(json) = ready_check {
         if json.contains("\"InProgress\"") {
-            let _ = lcu::lcu_request("POST".into(), "/lol-matchmaking/v1/ready-check/accept".into(), None);
+            let _ = lcu::lcu_request("POST".into(), "/lol-matchmaking/v1/ready-check/accept".into(), Some("{}".into()));
             
             // Send WebSocket notification for the UI to display
             let _ = sender.0.send(json!({

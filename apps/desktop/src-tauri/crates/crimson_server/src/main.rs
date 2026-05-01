@@ -1,7 +1,9 @@
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 use tokio::sync::broadcast;
 use std::sync::Arc;
 use crimson_server::events::WsSender;
-use crimson_server::{ws, lcu_ws, service, spotify, discord, lcu};
+use crimson_server::{ws, lcu_ws, service, spotify, discord, lcu, hue, twitch, updater};
 use serde_json::json;
 
 use clap::Parser;
@@ -116,6 +118,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         discord_poll.start_background_polling().await;
     });
 
+    // Start Hue Service
+    let hue_service = Arc::new(hue::HueService::new(sender.clone()));
+
+    // Start Twitch Service
+    let twitch_service = Arc::new(twitch::TwitchService::new(sender.clone()));
+    let twitch_poll = twitch_service.clone();
+    tokio::spawn(async move {
+        twitch_poll.start_background_polling().await;
+    });
+
+    // Start Hotkey Manager (v1.2.5)
+    let hotkey_manager = crimson_server::hotkeys::HotkeyManager::new(sender.clone(), spotify_service.clone(), discord_service.clone());
+    let hm_poll = Arc::new(hotkey_manager);
+    tokio::spawn(async move {
+        hm_poll.start_listening().await;
+    });
+
+    // Start Auto-Updater Service
+    updater::start_background_updater().await;
+
     // Start Heartbeat Service (Broadcasts 5s server/lcu/discord status)
     let hb_sender = sender.clone();
     let hb_discord = discord_service.clone();
@@ -141,9 +163,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         if let (Some(p), Some(uuid), Some(reg_evt)) = (port, plugin_uuid, register_event) {
             let spotify_clone = spotify_service.clone();
             let discord_clone = discord_service.clone();
+            let hue_clone = hue_service.clone();
+            let twitch_clone = twitch_service.clone();
             let db_clone = db.clone();
             tokio::spawn(async move {
-                crimson_server::streamdock::start_streamdock_client(p, uuid, reg_evt, spotify_clone, discord_clone, db_clone).await;
+                crimson_server::streamdock::start_streamdock_client(p, uuid, reg_evt, spotify_clone, discord_clone, hue_clone, twitch_clone, db_clone).await;
             });
         }
     }
@@ -151,7 +175,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Start External WebSocket Server (Sidecar -> UI/StreamDeck)
     println!("WebSocket server listening on 127.0.0.1:40510");
-    ws::start_ws_server(sender, spotify_service, discord_service, db).await;
+    ws::start_ws_server(sender, spotify_service, discord_service, hue_service, twitch_service, db).await;
 
 
     Ok(())
