@@ -268,6 +268,8 @@ async fn handle_connection(
                                                 pi_contexts: pi_contexts.clone(),
                                                 last_image_per_ctx: last_image_per_ctx.clone(),
                                                 settings_per_ctx: settings_per_ctx.clone(),
+                                                hue: h_clone.clone(),
+                                                twitch: t_clone.clone(),
                                             };
 
                                             // RESTORE FROM DB (v1.2.0)
@@ -301,7 +303,7 @@ async fn handle_connection(
                                             
                                             // IMMEDIATE SYNC: Push credentials and playlists as soon as the bridge connects
                                             let sync_val = json!({ "event": "registerPropertyInspector", "uuid": &uuid_str });
-                                            crate::streamdock::process_streamdeck_event(sync_val, s_clone.clone(), d_clone.clone(), h_clone.clone(), t_clone.clone(), sender_clone.clone(), contexts.clone(), pi_contexts.clone(), last_state_cache.clone(), settings_per_ctx.clone(), db.clone()).await;
+                                            crate::streamdock::process_streamdeck_event(sync_val, s_clone.clone(), d_clone.clone(), sender_clone.clone(), contexts.clone(), pi_contexts.clone(), last_state_cache.clone(), settings_per_ctx.clone(), h_clone.clone(), t_clone.clone(), db.clone()).await;
 
                                             loop {
                                                 tokio::select! {
@@ -309,7 +311,7 @@ async fn handle_connection(
                                                         match msg_res {
                                                             Some(Ok(tokio_tungstenite::tungstenite::Message::Text(text))) => {
                                                                 if let Ok(val) = serde_json::from_str::<serde_json::Value>(&text) {
-                                                                    crate::streamdock::process_streamdeck_event(val, s_clone.clone(), d_clone.clone(), h_clone.clone(), t_clone.clone(), sender_clone.clone(), contexts.clone(), pi_contexts.clone(), last_state_cache.clone(), settings_per_ctx.clone(), db.clone()).await;
+                                                                    crate::streamdock::process_streamdeck_event(val, s_clone.clone(), d_clone.clone(), sender_clone.clone(), contexts.clone(), pi_contexts.clone(), last_state_cache.clone(), settings_per_ctx.clone(), h_clone.clone(), t_clone.clone(), db.clone()).await;
                                                                 }
                                                             }
                                                             _ => break,

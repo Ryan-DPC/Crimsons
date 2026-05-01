@@ -636,7 +636,7 @@ pub async fn start_streamdock_client(
                                             }
                                         }
                                         // Delegate all other logic to shared function
-                                        process_streamdeck_event(value, spotify_wa.clone(), discord.clone(), hue.clone(), twitch.clone(), tx_ws.clone(), contexts.clone(), pi_contexts.clone(), last_state_cache.clone(), settings_per_ctx.clone(), db.clone()).await;
+                                        process_streamdeck_event(value, spotify_wa.clone(), discord.clone(), tx_ws.clone(), contexts.clone(), pi_contexts.clone(), last_state_cache.clone(), settings_per_ctx.clone(), hue.clone(), twitch.clone(), db.clone()).await;
                                     }
                                 }
                                 Ok(Message::Close(_)) => break,
