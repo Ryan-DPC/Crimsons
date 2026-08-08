@@ -39,10 +39,10 @@
     }
   ],
   "Author": "Laoy",
-  "Description": "Twitch Streamer Tools (Coming Soon)",
+  "Description": "Twitch — stub for future external Crimsons plugin catalog (not shipped in base pack)",
   "Icon": "static/icon/twitch_chat@2x.png",
-  "Name": "Twitch (Soon)",
-  "Category": "Twitch (Soon)",
+  "Name": "Twitch (External)",
+  "Category": "Twitch (External)",
   "CategoryIcon": "static/icon/twitch_chat@2x.png",
   "Version": "3.1.0",
   "SDKVersion": 1,

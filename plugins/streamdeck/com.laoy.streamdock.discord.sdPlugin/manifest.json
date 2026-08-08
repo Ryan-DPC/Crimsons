@@ -3,10 +3,10 @@
   "Category": "Discord",
   "CategoryIcon": "static/icon/discord.png",
   "CodePath": "index.html",
-  "Description": "Discord Remote Controller for StreamDock",
+  "Description": "Discord voice controls for StreamDock (Crimsons optional plugin)",
   "Icon": "static/icon/discord.png",
   "Name": "Discord",
-  "Version": "1.0.0",
+  "Version": "1.1.0",
   "SDKVersion": 2,
   "Software": {
     "MinimumVersion": "2.0.0"
@@ -38,7 +38,8 @@
       "Name": "Voice Channel",
       "UUID": "com.laoy.streamdock.discord.joinvoice",
       "Icon": "static/icon/discord.png",
-      "Tooltip": "Join specific Voice Channel",
+      "PropertyInspector": "propertyInspector/joinvoice/index.html",
+      "Tooltip": "Join or leave a configured voice channel",
       "Context": "GLOBAL"
     },
     {
@@ -50,20 +51,6 @@
         { "Image": "static/icon/camera_on.png", "TitleAlignment": "middle", "FontSize": "10" }
       ],
       "Tooltip": "Toggle Webcam",
-      "Context": "GLOBAL"
-    },
-    {
-      "Name": "Soundboard",
-      "UUID": "com.laoy.streamdock.discord.soundboard",
-      "Icon": "static/icon/discord.png",
-      "Tooltip": "Play Soundboard Sound",
-      "Context": "GLOBAL"
-    },
-    {
-      "Name": "Toggle Share",
-      "UUID": "com.laoy.streamdock.discord.screenshare",
-      "Icon": "static/icon/discord.png",
-      "Tooltip": "Toggle Screenshare",
       "Context": "GLOBAL"
     }
   ]

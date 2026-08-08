@@ -12,13 +12,17 @@ pub struct DiscordState {
     pub is_deaf: bool,
     pub is_camera_on: bool,
     pub connected: bool,
+    /// True when Discord reports an active selected voice channel / voice connection.
+    pub in_voice: bool,
     pub current_channel_id: Option<String>,
+    pub username: Option<String>,
+    /// Last IPC/handshake error for the UI (e.g. invalid client id).
+    pub error: Option<String>,
 }
 
 pub struct DiscordService {
     state: Arc<RwLock<DiscordState>>,
     sender: WsSender,
-    client_id: String,
     cmd_sender: tokio::sync::mpsc::Sender<(String, serde_json::Value)>,
     cmd_receiver: Arc<tokio::sync::Mutex<tokio::sync::mpsc::Receiver<(String, serde_json::Value)>>>,
     pub is_enabled: Arc<std::sync::atomic::AtomicBool>,
@@ -30,7 +34,6 @@ impl DiscordService {
         Self {
             state: Arc::new(RwLock::new(DiscordState::default())),
             sender,
-            client_id: "1330663435166412852".to_string(), // Placeholder - User should update
             cmd_sender: tx,
             cmd_receiver: Arc::new(tokio::sync::Mutex::new(rx)),
             is_enabled: Arc::new(std::sync::atomic::AtomicBool::new(false)),
@@ -45,6 +48,14 @@ impl DiscordService {
         self.state.read().await.connected
     }
 
+    async fn broadcast_state(state: &Arc<RwLock<DiscordState>>, sender: &WsSender) {
+        let snapshot = state.read().await.clone();
+        let _ = sender.0.send(json!({
+            "type": "DISCORD_STATE",
+            "data": snapshot
+        }).to_string());
+    }
+
     pub async fn start_background_polling(&self) {
         let state_clone = self.state.clone();
         let sender_clone = self.sender.clone();
@@ -55,110 +66,362 @@ impl DiscordService {
             let mut rx = cmd_rx.lock().await;
             loop {
                 if !is_enabled_clone.load(std::sync::atomic::Ordering::Relaxed) {
+                    {
+                        let mut s = state_clone.write().await;
+                        if s.connected || s.in_voice {
+                            *s = DiscordState::default();
+                            drop(s);
+                            Self::broadcast_state(&state_clone, &sender_clone).await;
+                        }
+                    }
                     tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
                     continue;
                 }
 
                 let app_data = crate::storage::load_data_from_path(crate::storage::get_data_path_from_env());
-                let client_id = app_data.discord_client_id.unwrap_or_else(|| "1330663435166412852".to_string());
+                let client_id = app_data
+                    .discord_client_id
+                    .as_ref()
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty());
 
-                if let Ok(mut pipe) = Self::connect_to_ipc().await {
-                    println!("Connected to Discord IPC!");
-                    
-                    // Handshake
-                    if Self::send_handshake(&mut pipe, &client_id).await.is_ok() {
-                        {
-                            let mut s = state_clone.write().await;
-                            s.connected = true;
+                let Some(client_id) = client_id else {
+                    {
+                        let mut s = state_clone.write().await;
+                        let msg = "Client ID Discord manquant — crée une application sur discord.com/developers et colle l’ID dans Paramètres.".to_string();
+                        if s.error.as_deref() != Some(msg.as_str()) {
+                            s.connected = false;
+                            s.error = Some(msg);
+                            drop(s);
+                            Self::broadcast_state(&state_clone, &sender_clone).await;
                         }
-                        
-                        // Subscribe to events (VOICE_SETTINGS_UPDATE)
-                        let _ = Self::send_command(&mut pipe, "SUBSCRIBE", json!({ "evt": "VOICE_SETTINGS_UPDATE" })).await;
+                    }
+                    tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+                    continue;
+                };
 
-                        let mut buffer = [0u8; 4096];
-                        loop {
-                            tokio::select! {
-                                result = pipe.read(&mut buffer) => {
-                                    match result {
-                                        Ok(n) if n > 0 => {
-                                            // Handle multi-frame or partial reads if necessary, 
-                                            // but for now assume small JSON payloads.
-                                            let payload = &buffer[8..n]; // Skip 8-byte header
-                                            if let Ok(payload_str) = std::str::from_utf8(payload) {
-                                                println!("Discord IPC Payload: {}", payload_str);
+                match Self::connect_to_ipc().await {
+                    Ok(mut pipe) => {
+                        tracing::info!("[DISCORD] IPC pipe opened, handshaking with client_id={}…", client_id);
+                        if let Err(e) = Self::send_handshake(&mut pipe, &client_id).await {
+                            tracing::warn!("[DISCORD] Handshake write failed: {}", e);
+                            Self::set_error(&state_clone, &sender_clone, format!("Handshake Discord échoué: {}", e)).await;
+                        } else if let Err(e) = Self::wait_for_ready(&mut pipe, &state_clone, &sender_clone).await {
+                            tracing::warn!("[DISCORD] Handshake/READY failed: {}", e);
+                            Self::set_error(&state_clone, &sender_clone, e.to_string()).await;
+                        } else {
+                            tracing::info!("[DISCORD] READY — connected to Discord client");
+                            {
+                                let mut s = state_clone.write().await;
+                                s.error = None;
+                            }
+                            Self::broadcast_state(&state_clone, &sender_clone).await;
+                            // rpc.local events/commands work without OAuth on IPC.
+                            let _ = Self::subscribe_event(&mut pipe, "VOICE_SETTINGS_UPDATE_2", json!({})).await;
+                            let _ = Self::subscribe_event(&mut pipe, "VIDEO_STATE_UPDATE", json!({})).await;
+                            // Best-effort: these need `rpc` / voice scopes; ignore failures.
+                            let _ = Self::subscribe_event(&mut pipe, "VOICE_CHANNEL_SELECT", json!({})).await;
+                            let _ = Self::subscribe_event(&mut pipe, "VOICE_CONNECTION_STATUS", json!({})).await;
+                            let _ = Self::send_command(&mut pipe, "GET_VOICE_SETTINGS", json!({})).await;
+                            let _ = Self::send_command(&mut pipe, "GET_SELECTED_VOICE_CHANNEL", json!({})).await;
+
+                            let mut buffer = Vec::with_capacity(8192);
+                            loop {
+                                if !is_enabled_clone.load(std::sync::atomic::Ordering::Relaxed) {
+                                    break;
+                                }
+                                tokio::select! {
+                                    result = Self::read_frame_ex(&mut pipe, &mut buffer) => {
+                                        match result {
+                                            Ok((_opcode, v)) => {
+                                                Self::handle_ipc_payload(
+                                                    v,
+                                                    &state_clone,
+                                                    &sender_clone,
+                                                ).await;
                                             }
-                                            if let Ok(v) = serde_json::from_slice::<serde_json::Value>(payload) {
-                                                if let Some(evt) = v["evt"].as_str() {
-                                                    if evt == "VOICE_SETTINGS_UPDATE" {
-                                                        let data = &v["data"];
-                                                        let mut s = state_clone.write().await;
-                                                        s.is_muted = data["mute"].as_bool().unwrap_or(s.is_muted);
-                                                        s.is_deaf = data["deaf"].as_bool().unwrap_or(s.is_deaf);
-                                                        s.is_camera_on = data["video_enabled"].as_bool().unwrap_or(s.is_camera_on);
-                                                        
-                                                        let state_json = json!({
-                                                            "type": "DISCORD_STATE",
-                                                            "data": *s
-                                                        }).to_string();
-                                                        let _ = sender_clone.0.send(state_json);
-                                                    }
-                                                }
+                                            Err(e) => {
+                                                tracing::warn!("[DISCORD] IPC read ended: {}", e);
+                                                break;
                                             }
                                         }
-                                        _ => break,
                                     }
-                                }
-                                cmd_opt = rx.recv() => {
-                                    if let Some((endpoint, params)) = cmd_opt {
-                                        match endpoint.as_str() {
-                                            "toggleMute" => {
-                                                let current_mute = state_clone.read().await.is_muted;
-                                                let _ = Self::send_command(&mut pipe, "SET_VOICE_SETTINGS", json!({ "mute": !current_mute })).await;
+                                    cmd_opt = rx.recv() => {
+                                        if let Some((endpoint, params)) = cmd_opt {
+                                            if let Err(e) = Self::dispatch_command(
+                                                &mut pipe,
+                                                &endpoint,
+                                                &params,
+                                                &state_clone,
+                                                &sender_clone,
+                                            ).await {
+                                                tracing::warn!("[DISCORD] command {} failed: {}", endpoint, e);
                                             }
-                                            "toggleDeafen" => {
-                                                let current_deaf = state_clone.read().await.is_deaf;
-                                                let _ = Self::send_command(&mut pipe, "SET_VOICE_SETTINGS", json!({ "deaf": !current_deaf })).await;
-                                            }
-                                            "toggleCamera" => {
-                                                let current_camera = state_clone.read().await.is_camera_on;
-                                                let _ = Self::send_command(&mut pipe, "SET_VOICE_SETTINGS", json!({ "video_enabled": !current_camera })).await;
-                                            }
-                                            "joinVoiceChannel" => {
-                                                if let Some(channel_id) = params.get("payload").and_then(|p| p.get("settings")).and_then(|s| s.get("channelId")).and_then(|c| c.as_str()).or_else(|| params.get("channelId").and_then(|c| c.as_str())) {
-                                                    let current_chan = state_clone.read().await.current_channel_id.clone();
-                                                    let target = if current_chan.as_deref() == Some(channel_id) { None } else { Some(channel_id) };
-                                                    let _ = Self::send_command(&mut pipe, "SELECT_VOICE_CHANNEL", json!({ "channel_id": target, "force": true })).await;
-                                                }
-                                            }
-                                            "playSoundboardSound" => {
-                                                let sound_id = params.get("payload").and_then(|p| p.get("settings")).and_then(|s| s.get("soundId")).and_then(|c| c.as_str()).or_else(|| params.get("soundId").and_then(|c| c.as_str()));
-                                                let guild_id = params.get("payload").and_then(|p| p.get("settings")).and_then(|s| s.get("guildId")).and_then(|c| c.as_str()).or_else(|| params.get("guildId").and_then(|c| c.as_str()));
-                                                if let (Some(s_id), Some(g_id)) = (sound_id, guild_id) {
-                                                    let _ = Self::send_command(&mut pipe, "OVERLAY_PLAY_SOUNDBOARD_SOUND", json!({ "sound_id": s_id, "guild_id": g_id })).await;
-                                                }
-                                            }
-                                            _ => {}
+                                        } else {
+                                            break;
                                         }
-                                    }
-                                }
-                                _ = tokio::time::sleep(tokio::time::Duration::from_secs(1)) => {
-                                    if !is_enabled_clone.load(std::sync::atomic::Ordering::Relaxed) {
-                                        break;
                                     }
                                 }
                             }
                         }
                     }
+                    Err(e) => {
+                        tracing::debug!("[DISCORD] IPC not available: {}", e);
+                    }
                 }
 
                 {
                     let mut s = state_clone.write().await;
-                    s.connected = false;
+                    if s.connected || s.in_voice {
+                        *s = DiscordState::default();
+                        drop(s);
+                        Self::broadcast_state(&state_clone, &sender_clone).await;
+                    }
                 }
-                println!("Discord IPC disconnected, retrying in 5s...");
-                tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+                tracing::info!("[DISCORD] disconnected, retrying in 3s…");
+                tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
             }
         });
+    }
+
+    async fn set_error(state: &Arc<RwLock<DiscordState>>, sender: &WsSender, msg: String) {
+        let mut s = state.write().await;
+        s.connected = false;
+        s.in_voice = false;
+        s.username = None;
+        if s.error.as_deref() != Some(msg.as_str()) {
+            s.error = Some(msg);
+            drop(s);
+            Self::broadcast_state(state, sender).await;
+        }
+    }
+
+    async fn wait_for_ready(
+        pipe: &mut tokio::net::windows::named_pipe::NamedPipeClient,
+        state: &Arc<RwLock<DiscordState>>,
+        sender: &WsSender,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let mut buffer = Vec::new();
+        let deadline = tokio::time::Instant::now() + tokio::time::Duration::from_secs(5);
+        loop {
+            let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
+            if remaining.is_zero() {
+                return Err("Timed out waiting for Discord READY".into());
+            }
+            let (opcode, frame) = tokio::time::timeout(remaining, Self::read_frame_ex(pipe, &mut buffer)).await
+                .map_err(|_| "Timed out waiting for Discord READY")??;
+
+            // Opcode 2 = CLOSE (invalid client id, etc.)
+            if opcode == 2 {
+                let msg = frame["message"].as_str()
+                    .or_else(|| frame["data"]["message"].as_str())
+                    .unwrap_or("connexion fermée par Discord");
+                let code = frame["code"].as_u64().or_else(|| frame["data"]["code"].as_u64());
+                if code == Some(4000) || msg.to_lowercase().contains("invalid client") {
+                    return Err("Client ID Discord invalide — crée une application sur discord.com/developers et colle l’ID dans Paramètres.".into());
+                }
+                return Err(format!("Discord a fermé l’IPC: {}", msg).into());
+            }
+
+            if frame["evt"].as_str() == Some("READY") {
+                let username = frame["data"]["user"]["username"]
+                    .as_str()
+                    .or_else(|| frame["data"]["user"]["global_name"].as_str())
+                    .map(|s| s.to_string());
+                {
+                    let mut s = state.write().await;
+                    s.connected = true;
+                    s.username = username;
+                    s.error = None;
+                }
+                Self::broadcast_state(state, sender).await;
+                return Ok(());
+            }
+            if frame["evt"].as_str() == Some("ERROR") {
+                let msg = frame["data"]["message"].as_str().unwrap_or("unknown error");
+                return Err(format!("Discord ERROR during handshake: {}", msg).into());
+            }
+            if frame["evt"].as_str() == Some("PING") {
+                continue;
+            }
+        }
+    }
+
+    async fn handle_ipc_payload(
+        v: serde_json::Value,
+        state: &Arc<RwLock<DiscordState>>,
+        sender: &WsSender,
+    ) {
+        let evt = v["evt"].as_str().unwrap_or("");
+        let cmd = v["cmd"].as_str().unwrap_or("");
+        let data = &v["data"];
+
+        if evt == "ERROR" {
+            tracing::warn!(
+                "[DISCORD] RPC error: {} ({})",
+                data["message"].as_str().unwrap_or("?"),
+                data["code"]
+            );
+            return;
+        }
+
+        let mut changed = false;
+
+        match evt {
+            "VOICE_SETTINGS_UPDATE_2" => {
+                let mut s = state.write().await;
+                if let Some(m) = data["self_mute"].as_bool() {
+                    s.is_muted = m;
+                    changed = true;
+                }
+                if let Some(d) = data["self_deaf"].as_bool() {
+                    s.is_deaf = d;
+                    changed = true;
+                }
+            }
+            "VOICE_SETTINGS_UPDATE" => {
+                let mut s = state.write().await;
+                if let Some(m) = data["mute"].as_bool() {
+                    s.is_muted = m;
+                    changed = true;
+                }
+                if let Some(d) = data["deaf"].as_bool() {
+                    s.is_deaf = d;
+                    changed = true;
+                }
+            }
+            "VIDEO_STATE_UPDATE" => {
+                let mut s = state.write().await;
+                if let Some(on) = data["active"].as_bool().or_else(|| data["video_enabled"].as_bool()) {
+                    s.is_camera_on = on;
+                    changed = true;
+                }
+            }
+            "VOICE_CHANNEL_SELECT" => {
+                let mut s = state.write().await;
+                let channel_id = data["channel_id"].as_str().filter(|c| !c.is_empty()).map(|c| c.to_string());
+                s.in_voice = channel_id.is_some();
+                s.current_channel_id = channel_id;
+                changed = true;
+            }
+            "VOICE_CONNECTION_STATUS" => {
+                let mut s = state.write().await;
+                let voice_state = data["state"].as_str().unwrap_or("");
+                // DISCONNECTED / AWAITING_ENDPOINT / CONNECTING / CONNECTED / …
+                let in_voice = voice_state != "DISCONNECTED" && !voice_state.is_empty();
+                if s.in_voice != in_voice {
+                    s.in_voice = in_voice;
+                    changed = true;
+                }
+            }
+            _ => {}
+        }
+
+        // Command responses (GET_*)
+        if cmd == "GET_VOICE_SETTINGS" && evt.is_empty() {
+            let mut s = state.write().await;
+            if let Some(m) = data["mute"].as_bool() {
+                s.is_muted = m;
+                changed = true;
+            }
+            if let Some(d) = data["deaf"].as_bool() {
+                s.is_deaf = d;
+                changed = true;
+            }
+        }
+        if cmd == "GET_SELECTED_VOICE_CHANNEL" && evt.is_empty() {
+            let mut s = state.write().await;
+            // data is null when not in a channel, or a channel object with id
+            let channel_id = if data.is_null() {
+                None
+            } else {
+                data["id"].as_str().filter(|c| !c.is_empty()).map(|c| c.to_string())
+            };
+            let in_voice = channel_id.is_some();
+            if s.current_channel_id != channel_id || s.in_voice != in_voice {
+                s.current_channel_id = channel_id;
+                s.in_voice = in_voice;
+                changed = true;
+            }
+        }
+        if cmd == "SET_VOICE_SETTINGS_2" && evt.is_empty() {
+            // Response is null; state comes from VOICE_SETTINGS_UPDATE_2.
+        }
+
+        if changed {
+            Self::broadcast_state(state, sender).await;
+        }
+    }
+
+    async fn dispatch_command(
+        pipe: &mut tokio::net::windows::named_pipe::NamedPipeClient,
+        endpoint: &str,
+        params: &serde_json::Value,
+        state: &Arc<RwLock<DiscordState>>,
+        sender: &WsSender,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        match endpoint {
+            "toggleMute" => {
+                let next = !state.read().await.is_muted;
+                Self::send_command(pipe, "SET_VOICE_SETTINGS_2", json!({ "self_mute": next })).await?;
+                {
+                    let mut s = state.write().await;
+                    s.is_muted = next;
+                }
+                Self::broadcast_state(state, sender).await;
+            }
+            "toggleDeafen" => {
+                let next = !state.read().await.is_deaf;
+                Self::send_command(pipe, "SET_VOICE_SETTINGS_2", json!({ "self_deaf": next })).await?;
+                {
+                    let mut s = state.write().await;
+                    s.is_deaf = next;
+                }
+                Self::broadcast_state(state, sender).await;
+            }
+            "toggleCamera" => {
+                let next = !state.read().await.is_camera_on;
+                // Best-effort: may require voice.write scope on some Discord builds.
+                let _ = Self::send_command(pipe, "SET_VOICE_SETTINGS", json!({ "video_enabled": next })).await;
+                let _ = Self::send_command(pipe, "TOGGLE_VIDEO", json!({})).await;
+                {
+                    let mut s = state.write().await;
+                    s.is_camera_on = next;
+                }
+                Self::broadcast_state(state, sender).await;
+            }
+            "joinVoiceChannel" => {
+                let channel_id = params.get("payload").and_then(|p| p.get("settings")).and_then(|s| s.get("channelId")).and_then(|c| c.as_str())
+                    .or_else(|| params.get("payload").and_then(|p| p.get("channelId")).and_then(|c| c.as_str()))
+                    .or_else(|| params.get("settings").and_then(|s| s.get("channelId")).and_then(|c| c.as_str()))
+                    .or_else(|| params.get("channelId").and_then(|c| c.as_str()));
+                if let Some(channel_id) = channel_id.filter(|c| !c.is_empty()) {
+                    let current_chan = state.read().await.current_channel_id.clone();
+                    let target = if current_chan.as_deref() == Some(channel_id) { None } else { Some(channel_id) };
+                    // Needs `rpc` scope — best effort.
+                    Self::send_command(pipe, "SELECT_VOICE_CHANNEL", json!({ "channel_id": target, "force": true })).await?;
+                    {
+                        let mut s = state.write().await;
+                        s.current_channel_id = target.map(|c| c.to_string());
+                        s.in_voice = target.is_some();
+                    }
+                    Self::broadcast_state(state, sender).await;
+                } else {
+                    tracing::warn!("[DISCORD] joinVoiceChannel ignored: missing channelId");
+                }
+            }
+            "playSoundboardSound" => {
+                let sound_id = params.get("payload").and_then(|p| p.get("settings")).and_then(|s| s.get("soundId")).and_then(|c| c.as_str()).or_else(|| params.get("soundId").and_then(|c| c.as_str()));
+                let guild_id = params.get("payload").and_then(|p| p.get("settings")).and_then(|s| s.get("guildId")).and_then(|c| c.as_str()).or_else(|| params.get("guildId").and_then(|c| c.as_str()));
+                if let (Some(s_id), Some(g_id)) = (sound_id, guild_id) {
+                    let _ = Self::send_command(pipe, "PLAY_SOUNDBOARD_SOUND", json!({ "sound_id": s_id, "guild_id": g_id })).await;
+                }
+            }
+            _ => {
+                tracing::debug!("[DISCORD] unknown endpoint {}", endpoint);
+            }
+        }
+        Ok(())
     }
 
     pub async fn handle_command(&self, endpoint: &str, params: Option<serde_json::Value>) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -173,27 +436,59 @@ impl DiscordService {
             });
             return Ok(());
         }
-        
+
         let _ = self.cmd_sender.send((endpoint.to_string(), params.unwrap_or(json!({})))).await;
         Ok(())
     }
 
     async fn connect_to_ipc() -> Result<tokio::net::windows::named_pipe::NamedPipeClient, Box<dyn std::error::Error + Send + Sync>> {
+        // Official Discord RPC uses \\?\pipe\discord-ipc-N
         for i in 0..10 {
-            let path = format!(r"\\.\pipe\discord-ipc-{}", i);
-            if let Ok(client) = ClientOptions::new().open(&path) {
-                return Ok(client);
+            let path = format!(r"\\?\pipe\discord-ipc-{}", i);
+            match ClientOptions::new().open(&path) {
+                Ok(client) => return Ok(client),
+                Err(_) => continue,
             }
         }
-        Err("Could not find Discord IPC pipe".into())
+        for i in 0..10 {
+            let path = format!(r"\\.\pipe\discord-ipc-{}", i);
+            match ClientOptions::new().open(&path) {
+                Ok(client) => return Ok(client),
+                Err(_) => continue,
+            }
+        }
+        Err("Could not find Discord IPC pipe (is Discord running?)".into())
     }
 
-    async fn send_handshake(pipe: &mut tokio::net::windows::named_pipe::NamedPipeClient, client_id: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    async fn send_handshake(
+        pipe: &mut tokio::net::windows::named_pipe::NamedPipeClient,
+        client_id: &str,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let payload = json!({ "v": 1, "client_id": client_id }).to_string();
         Self::send_raw_packet(pipe, 0, &payload).await
     }
 
-    async fn send_command(pipe: &mut tokio::net::windows::named_pipe::NamedPipeClient, cmd: &str, args: serde_json::Value) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    async fn subscribe_event(
+        pipe: &mut tokio::net::windows::named_pipe::NamedPipeClient,
+        evt: &str,
+        args: serde_json::Value,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let nonce = uuid::Uuid::new_v4().to_string();
+        // Discord requires `evt` at the payload root for SUBSCRIBE (not inside args).
+        let payload = json!({
+            "cmd": "SUBSCRIBE",
+            "args": args,
+            "evt": evt,
+            "nonce": nonce
+        }).to_string();
+        Self::send_raw_packet(pipe, 1, &payload).await
+    }
+
+    async fn send_command(
+        pipe: &mut tokio::net::windows::named_pipe::NamedPipeClient,
+        cmd: &str,
+        args: serde_json::Value,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let nonce = uuid::Uuid::new_v4().to_string();
         let payload = json!({
             "cmd": cmd,
@@ -203,18 +498,58 @@ impl DiscordService {
         Self::send_raw_packet(pipe, 1, &payload).await
     }
 
-    async fn send_raw_packet(pipe: &mut tokio::net::windows::named_pipe::NamedPipeClient, opcode: u32, payload: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let mut header = Vec::with_capacity(8);
-        header.extend_from_slice(&opcode.to_le_bytes());
-        header.extend_from_slice(&(payload.len() as u32).to_le_bytes());
-        pipe.write_all(&header).await?;
-        pipe.write_all(payload.as_bytes()).await?;
+    async fn send_raw_packet(
+        pipe: &mut tokio::net::windows::named_pipe::NamedPipeClient,
+        opcode: u32,
+        payload: &str,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let mut packet = Vec::with_capacity(8 + payload.len());
+        packet.extend_from_slice(&opcode.to_le_bytes());
+        packet.extend_from_slice(&(payload.len() as u32).to_le_bytes());
+        packet.extend_from_slice(payload.as_bytes());
+        pipe.write_all(&packet).await?;
         Ok(())
+    }
+
+    /// Read one complete Discord IPC frame (8-byte header + JSON body).
+    /// Returns (opcode, json).
+    async fn read_frame_ex(
+        pipe: &mut tokio::net::windows::named_pipe::NamedPipeClient,
+        scratch: &mut Vec<u8>,
+    ) -> Result<(u32, serde_json::Value), Box<dyn std::error::Error + Send + Sync>> {
+        let mut header = [0u8; 8];
+        pipe.read_exact(&mut header).await?;
+        let opcode = u32::from_le_bytes(header[0..4].try_into().unwrap());
+        let length = u32::from_le_bytes(header[4..8].try_into().unwrap()) as usize;
+        if length > 8 * 1024 * 1024 {
+            return Err(format!("Discord frame too large: {} bytes", length).into());
+        }
+        scratch.resize(length, 0);
+        if length > 0 {
+            pipe.read_exact(scratch).await?;
+        }
+
+        // Opcode 3 = PING → reply PONG (4)
+        if opcode == 3 {
+            let mut pong = Vec::with_capacity(8 + length);
+            pong.extend_from_slice(&4u32.to_le_bytes());
+            pong.extend_from_slice(&(length as u32).to_le_bytes());
+            pong.extend_from_slice(&scratch[..length]);
+            let _ = pipe.write_all(&pong).await;
+            return Ok((opcode, json!({ "evt": "PING" })));
+        }
+
+        if length == 0 {
+            return Ok((opcode, json!({})));
+        }
+
+        let value: serde_json::Value = serde_json::from_slice(&scratch[..length])?;
+        Ok((opcode, value))
     }
 
     async fn simulate_screenshare_keybind() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         use std::process::Command;
-        
+
         let ps_script = r#"
 Add-Type -TypeDefinition @"
 using System;
@@ -236,10 +571,9 @@ if ($discord -ne [IntPtr]::Zero) {
     [Win32]::SetForegroundWindow($discord) | Out-Null
     Start-Sleep -Milliseconds 200
 }
-# CTRL+SHIFT+F9
-[Win32]::keybd_event(0x11, 0, 0, 0) # CTRL
-[Win32]::keybd_event(0x10, 0, 0, 0) # SHIFT
-[Win32]::keybd_event(0x78, 0, 0, 0) # F9
+[Win32]::keybd_event(0x11, 0, 0, 0)
+[Win32]::keybd_event(0x10, 0, 0, 0)
+[Win32]::keybd_event(0x78, 0, 0, 0)
 Start-Sleep -Milliseconds 80
 [Win32]::keybd_event(0x78, 0, 2, 0)
 [Win32]::keybd_event(0x10, 0, 2, 0)
@@ -251,7 +585,7 @@ if ($prev -ne [IntPtr]::Zero) { [Win32]::SetForegroundWindow($prev) | Out-Null }
         Command::new("powershell")
             .args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps_script])
             .output()?;
-            
+
         Ok(())
     }
 
@@ -270,10 +604,9 @@ if ($prev -ne [IntPtr]::Zero) { [Win32]::SetForegroundWindow($prev) | Out-Null }
         if let Some(tx) = &*PS_VOL_TX.lock().await {
             let _ = tx.send(cmd).await;
         } else {
-            // Initialize once
             let (tx, mut rx) = tokio::sync::mpsc::channel::<String>(100);
             *PS_VOL_TX.lock().await = Some(tx.clone());
-            
+
             let script = r#"
 Add-Type -TypeDefinition @"
 using System;
@@ -331,13 +664,13 @@ while ($line = [Console]::ReadLine()) {
                 use tokio::process::Command;
                 use std::process::Stdio;
                 use tokio::io::AsyncWriteExt;
-                
+
                 if let Ok(mut child) = Command::new("powershell")
                     .args(&["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", script])
                     .stdin(Stdio::piped())
                     .stdout(Stdio::null())
                     .stderr(Stdio::null())
-                    .spawn() 
+                    .spawn()
                 {
                     if let Some(stdin) = child.stdin.take() {
                         let mut stdin: tokio::process::ChildStdin = stdin;
@@ -351,7 +684,7 @@ while ($line = [Console]::ReadLine()) {
                     let _ = child.kill().await;
                 }
             });
-            
+
             let _ = tx.send(cmd).await;
         }
     }

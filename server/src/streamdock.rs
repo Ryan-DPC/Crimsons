@@ -91,9 +91,21 @@ pub async fn try_acquire_handover(
                                     let event = val["event"].as_str().unwrap_or("");
                                     let context = val["context"].as_str().unwrap_or("");
                                     let action = val["action"].as_str().unwrap_or("");
-                                    if event == "willAppear" && !context.is_empty() { contexts.lock().await.insert(context.to_string(), action.to_string()); }
-                                    if event == "willDisappear" && !context.is_empty() { contexts.lock().await.remove(context); }
-                                    if event == "setSettings" && !context.is_empty() { settings_per_ctx.lock().await.insert(context.to_string(), val["payload"]["settings"].clone()); }
+                                    if event == "willAppear" && !context.is_empty() {
+                                        contexts.lock().await.insert(context.to_string(), action.to_string());
+                                        if let Some(settings) = val["payload"].get("settings") {
+                                            settings_per_ctx.lock().await.insert(context.to_string(), settings.clone());
+                                        }
+                                    }
+                                    if event == "willDisappear" && !context.is_empty() {
+                                        contexts.lock().await.remove(context);
+                                        settings_per_ctx.lock().await.remove(context);
+                                    }
+                                    if (event == "setSettings" || event == "didReceiveSettings") && !context.is_empty() {
+                                        if let Some(settings) = val["payload"].get("settings") {
+                                            settings_per_ctx.lock().await.insert(context.to_string(), settings.clone());
+                                        }
+                                    }
                                     process_streamdeck_event(val, spotify.clone(), discord.clone(), tx_ws.clone(), contexts.clone(), pi_contexts.clone(), last_state_cache.clone(), settings_per_ctx.clone(), hue.clone(), twitch.clone(), db.clone()).await;
                                 }
                             }
@@ -267,6 +279,38 @@ pub async fn process_streamdeck_event(value: serde_json::Value, spotify: Arc<Spo
                 let s = spotify.clone();
                 let settings = value["payload"]["settings"].clone();
                 tokio::spawn(async move { let _ = s.handle_command("play", Some(settings)).await; });
+            }
+            "com.laoy.streamdock.discord.togglemute" => {
+                if _d.is_enabled.load(Ordering::Relaxed) {
+                    let d = _d.clone();
+                    tokio::spawn(async move { let _ = d.handle_command("toggleMute", None).await; });
+                }
+            }
+            "com.laoy.streamdock.discord.toggledeafen" => {
+                if _d.is_enabled.load(Ordering::Relaxed) {
+                    let d = _d.clone();
+                    tokio::spawn(async move { let _ = d.handle_command("toggleDeafen", None).await; });
+                }
+            }
+            "com.laoy.streamdock.discord.togglecamera" => {
+                if _d.is_enabled.load(Ordering::Relaxed) {
+                    let d = _d.clone();
+                    tokio::spawn(async move { let _ = d.handle_command("toggleCamera", None).await; });
+                }
+            }
+            "com.laoy.streamdock.discord.joinvoice" => {
+                if _d.is_enabled.load(Ordering::Relaxed) {
+                    let d = _d.clone();
+                    let mut settings = value["payload"]["settings"].clone();
+                    if settings.get("channelId").and_then(|v| v.as_str()).unwrap_or("").is_empty() {
+                        if let Some(cached) = _spc.lock().await.get(context) {
+                            settings = cached.clone();
+                        }
+                    }
+                    tokio::spawn(async move {
+                        let _ = d.handle_command("joinVoiceChannel", Some(settings)).await;
+                    });
+                }
             }
             a if a.starts_with("com.laoy.streamdock.hue.") => {
                 tracing::warn!("[HUE] StreamDock key rejected: {}", crate::hue::UNAVAILABLE_MSG);

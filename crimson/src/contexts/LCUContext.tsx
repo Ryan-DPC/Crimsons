@@ -52,6 +52,9 @@ interface LCUContextType {
         is_deaf: boolean;
         is_camera_on: boolean;
         connected: boolean;
+        in_voice?: boolean;
+        username?: string | null;
+        current_channel_id?: string | null;
     } | null;
     discordConnected: boolean;
     
@@ -602,6 +605,13 @@ export const LCUProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         } else if (msg.type === 'HEARTBEAT_STATUS') {
             if (msg.server !== undefined) setServerConnected(msg.server);
             if (msg.lol !== undefined) setLolConnected(msg.lol);
+            if (msg.discord !== undefined) {
+                setDiscordConnected(!!msg.discord);
+                setDiscordState((prev: any) => ({
+                    ...(prev || {}),
+                    connected: !!msg.discord,
+                }));
+            }
         } else if (msg.type === 'SPOTIFY_STATE') {
             setSpotifyState(msg.data);
             setSpotifyConnected(msg.data?.has_token || false);

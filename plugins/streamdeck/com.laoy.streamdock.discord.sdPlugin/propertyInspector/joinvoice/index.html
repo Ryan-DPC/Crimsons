@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Discord — Voice Channel</title>
+</head>
+<body>
+    <div class="wrap">
+        <label for="channelId">ID du salon vocal</label>
+        <input id="channelId" type="text" placeholder="ex. 123456789012345678" autocomplete="off" />
+        <p class="hint">
+            Clique droit sur le salon Discord → Copier l’identifiant du salon
+            (mode développeur requis). Ce bouton rejoint ou quitte ce salon.
+        </p>
+    </div>
+    <script src="index.js"></script>
+</body>
+<style>
+    body {
+        margin: 0;
+        padding: 10px;
+        font-family: "Segoe UI", system-ui, sans-serif;
+        background: #1a1a1f;
+        color: #eee;
+    }
+    .wrap { display: flex; flex-direction: column; gap: 8px; }
+    label {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: #9a9ab0;
+    }
+    input {
+        background: #2b2b36;
+        border: 1px solid #3b3b4a;
+        border-radius: 6px;
+        color: #fff;
+        padding: 8px 10px;
+        font-size: 13px;
+    }
+    input:focus {
+        outline: none;
+        border-color: #5865F2;
+        box-shadow: 0 0 0 2px rgba(88, 101, 242, 0.25);
+    }
+    .hint {
+        margin: 0;
+        font-size: 11px;
+        line-height: 1.4;
+        color: #8c8c9e;
+    }
+</style>
+</html>

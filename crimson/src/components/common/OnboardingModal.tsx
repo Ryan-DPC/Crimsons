@@ -225,18 +225,18 @@ export default function OnboardingModal({ onClose, updateSetting, appData }: Onb
                                 </button>
                             </div>
 
-                            {/* Discord */}
+                            {/* Discord — optionnel, pas de setup ici */}
                             <div className="bg-black/40 border border-white/5 p-6 rounded-3xl flex flex-col justify-between hover:border-white/10 transition-colors">
                                 <div className="flex items-start justify-between mb-4">
                                     <div className="flex flex-col">
                                         <span className="text-xs font-black text-white uppercase tracking-widest">Discord</span>
-                                        <span className="text-[8px] text-white/30 uppercase font-black tracking-widest mt-1">Connexion Automatique</span>
+                                        <span className="text-[8px] text-white/30 uppercase font-black tracking-widest mt-1">Optionnel · Premium</span>
                                     </div>
                                     <MessageSquare className="w-5 h-5 text-indigo-400" />
                                 </div>
-                                <div className="py-3 bg-white/5 border border-white/5 text-white/40 text-[9px] font-black uppercase tracking-widest text-center rounded-xl">
-                                    Détection Automatique
-                                </div>
+                                <p className="text-[10px] text-white/40 leading-relaxed uppercase font-bold tracking-wider">
+                                    Active-le plus tard dans Paramètres → Plugins.
+                                </p>
                             </div>
                         </div>
 

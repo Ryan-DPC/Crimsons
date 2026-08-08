@@ -1,6 +1,6 @@
 # CRIMSONS
 
-Assistant de bureau pour joueurs : League of Legends (draft / auto-accept), Spotify, Discord, Twitch, Philips Hue, et contrôle depuis un Stream Deck / StreamDock — le tout dans une app Windows native.
+Assistant de bureau pour joueurs : League of Legends (draft / auto-accept / pick-ban), Spotify, et contrôle Stream Deck / StreamDock — le tout dans une app Windows native. Discord et d’autres intégrations arrivent en plugins optionnels / externes.
 
 Version actuelle : **3.1.4**.
 
@@ -14,7 +14,7 @@ Version actuelle : **3.1.4**.
                                                                 │
                      ┌──────────────────────────────────────────┼──────────┐
                      ▼                                          ▼          ▼
-              LCU (LoL client)                         Spotify / Hue / …   StreamDock plugins
+              LCU (LoL client)                              Spotify     StreamDock plugins
                                                                           (plugins/)
 ```
 
@@ -23,9 +23,18 @@ Version actuelle : **3.1.4**.
 | `crimson/` | App Tauri 2 : UI React, commandes natives, lance le sidecar |
 | `server/` (`crimson-server`) | Sidecar : WebSocket local, intégrations, bridge StreamDock |
 | `crimson/src-tauri/crates/lcu_commands` | Logique LCU / draft partagée |
-| `plugins/streamdeck/` | Plugins StreamDock (Spotify, Discord, Hue, Twitch, Crimsons) |
+| `plugins/streamdeck/` | **Base :** Crimsons (LoL) + Spotify. Discord optionnel. |
+| `plugins/streamdeck/optional/` | Stubs / futurs plugins externes (Hue, Twitch, …) |
 
 Auth / droits premium : Supabase (client + vérif côté serveur).
+
+## Plugins StreamDock
+
+| Pack | Contenu |
+| --- | --- |
+| **Base** (injecté par défaut) | LoL + Spotify |
+| **Optionnel** | Discord — `.\scripts\inject_plugins.ps1 -IncludeDiscord` (Premium) |
+| **Externes (plus tard)** | Hue, Twitch, … téléchargeables ; gratuits ou payants selon le catalogue / la communauté |
 
 ## Développement
 
@@ -51,7 +60,8 @@ Build release local (sidecar + bundle Tauri) :
 Injecter / synchroniser les plugins StreamDock après modification :
 
 ```powershell
-.\scripts\inject_plugins.ps1
+.\scripts\inject_plugins.ps1                 # LoL + Spotify
+.\scripts\inject_plugins.ps1 -IncludeDiscord # + Discord
 ```
 
 ## Variables d'environnement

@@ -4,47 +4,48 @@
 
 ---
 
-## 🎯 Vision du Projet
+## Vision du Projet
 Offrir un écosystème connecté qui permet au joueur de ne jamais avoir à quitter son jeu des yeux ou à faire des alt-tabs incessants. Crimsons s'occupe de la musique, des statistiques de jeu, et de la communication de manière unifiée.
 
 ---
 
-## 🔌 Modèle Économique & Plugins
+## Modèle Économique & Plugins
 
 Crimsons fonctionne sur un modèle **Freemium**. L'assistance de base pour League of Legends est accessible à tous, tandis que l'intégration des services tiers est réservée aux utilisateurs Premium.
 
-### 🟢 Accès Gratuit (Base)
-**1. ⚔️ League of Legends**
+### Accès Gratuit (Base)
+**1. League of Legends**
 - **Auto-Accept & Ready Check** : Accepte automatiquement les parties.
+- **Pick / Ban** : automatisation de la sélection en draft.
 - **Analyse de la Draft** : Statistiques en temps réel sur les alliés et les adversaires dans le lobby.
 - **Live Game State** : Détection de la phase de jeu (Lobby, Champ Select, In-Game, Post-Game).
 - **Suggestions de Builds** : Recommandation d'objets dynamiques selon la composition ennemie.
 
-### 🔴 Accès Premium (Crimsons Pro)
-**2. 🎵 Spotify Integration**
-- **Contrôle de lecture** : Play/Pause, Next, Previous depuis l'application.
-- **Affichage des Lyrics** : Fenêtre flottante "Picture in Picture" pour afficher les paroles en temps réel.
-- **Auto-DJ** : Change automatiquement de playlist selon la phase de jeu (ex: Musique épique en teamfight).
+### Accès Premium — pack StreamDock de base
+**2. Spotify Integration**
+- **Contrôle de lecture** : Play/Pause, Next, Previous depuis l'application et StreamDock.
+- **Affichage des Lyrics** : Fenêtre flottante pour afficher les paroles en temps réel.
+- *(Roadmap)* Auto-DJ selon la phase de jeu.
 
-**3. 💬 Discord Integration**
-- **Rich Presence Dynamique** : Affiche le statut détaillé de la partie en cours sur Discord.
+### Plugins optionnels / externes
+Le pack livré par défaut est **LoL + Spotify**. Le reste s’installe à la demande :
 
-**4. 🟣 Twitch Integration**
-- **Alerte de Stream** : Notification quand vos streamers favoris lancent un live.
-- **Mini-Player** : Regarder un stream dans l'application pendant les temps morts ou les files d'attente.
+| Plugin | Statut |
+| --- | --- |
+| **Discord** | Optionnel maintenu (Premium) — mute / deafen / caméra / join salon. Inject : `-IncludeDiscord`. |
+| **Twitch, Hue, …** | Futurs plugins **externes** téléchargeables (gratuits ou payants). Décisions produit + communauté. |
 
 ---
 
-## 🎨 Direction Artistique & Design
+## Direction Artistique & Design
 
 - **Couleurs Principales** : Noir Profond (`#050505`), Gris Anthracite (`#111115`), et Rouge Cramoisi (`#DC2626` à `#991B1B`).
-- **Typographie** : Moderne, sans-serif (ex: *Inter*, *Roboto* ou *Outfit*) avec des graisses très prononcées (Black/ExtraBold) pour les titres, et du suivi (letter-spacing) pour un effet premium.
-- **Effets** : Glassmorphism (fonds semi-transparents avec flou d'arrière-plan), lueurs diffuses (Glows), et micro-animations fluides.
+- **Typographie** : Moderne, sans-serif avec graisses prononcées pour les titres.
+- **Effets** : Glassmorphism, micro-animations fluides.
 
 ---
 
-## 🚀 Prochaines Étapes
-1. **Validation du Logo** : Choisir l'identité visuelle finale.
-2. **Maquette UI (Figma/Code)** : Implémenter le nouveau design validé.
-3. **Refactorisation** : Nettoyer le code existant pour accueillir l'architecture des plugins.
-4. **Alpha Test** : Compiler l'application et la tester en conditions réelles.
+## Prochaines Étapes
+1. Catalogue / téléchargement in-app des plugins externes.
+2. Trancher le modèle payant vs gratuit par plugin avec la communauté.
+3. Continuer le polish UI et les intégrations optionnelles (Discord Rich Presence, etc.).

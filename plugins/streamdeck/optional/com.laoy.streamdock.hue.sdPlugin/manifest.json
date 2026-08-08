@@ -31,10 +31,10 @@
     }
   ],
   "Author": "Laoy",
-  "Description": "Philips Hue Lighting Control (Coming Soon)",
+  "Description": "Philips Hue — stub for future external Crimsons plugin catalog (not shipped in base pack)",
   "Icon": "static/icon/hue_toggle@2x.png",
-  "Name": "Philips Hue (Soon)",
-  "Category": "Philips Hue (Soon)",
+  "Name": "Philips Hue (External)",
+  "Category": "Philips Hue (External)",
   "CategoryIcon": "static/icon/hue_toggle@2x.png",
   "Version": "3.1.0",
   "SDKVersion": 1,

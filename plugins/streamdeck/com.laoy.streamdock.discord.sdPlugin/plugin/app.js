@@ -6,14 +6,12 @@ let actionContexts = {
     "com.laoy.streamdock.discord.joinvoice": [],
     "com.laoy.streamdock.discord.togglecamera": []
 };
+/** @type {Record<string, { channelId?: string }>} */
+let settingsByContext = {};
 
-// Discord Integration State
 let currentVoiceSettings = { mute: false, deaf: false };
 let currentVideoState = { cameraOn: false };
 
-// ==========================================
-// CRIMSON BACKEND CONNECT
-// ==========================================
 function crimsonAuthToken() {
     try {
         var fs = require('fs');
@@ -43,6 +41,41 @@ function crimsonWsUrl(port) {
     return token ? (base + '/?token=' + encodeURIComponent(token)) : base;
 }
 
+function handleHardwareEvent(jsonObj) {
+    const event = jsonObj['event'];
+    const action = jsonObj['action'];
+    const context = jsonObj['context'];
+    const payload = jsonObj['payload'] || {};
+
+    if (!event) return;
+
+    if (event === "willAppear") {
+        if (actionContexts[action] && !actionContexts[action].includes(context)) {
+            actionContexts[action].push(context);
+        }
+        if (payload.settings) {
+            settingsByContext[context] = payload.settings;
+        }
+    }
+
+    if (event === "willDisappear") {
+        if (actionContexts[action]) {
+            actionContexts[action] = actionContexts[action].filter(c => c !== context);
+        }
+        delete settingsByContext[context];
+    }
+
+    if (event === "didReceiveSettings") {
+        settingsByContext[context] = payload.settings || {};
+    }
+
+    // When the Crimson bridge owns the StreamDock socket, keyDown is handled
+    // server-side. Still handle locally for the fallback direct-HW path.
+    if (event === "keyDown") {
+        handleKeyDown(action, context);
+    }
+}
+
 const crimsonAPI = {
     ws: null,
     queue: [],
@@ -69,10 +102,14 @@ const crimsonAPI = {
                     currentVoiceSettings.mute = state.is_muted;
                     currentVoiceSettings.deaf = state.is_deaf;
                     currentVideoState.cameraOn = state.is_camera_on;
-                    
+
                     updateActionState("com.laoy.streamdock.discord.togglemute", state.is_muted ? 1 : 0);
                     updateActionState("com.laoy.streamdock.discord.toggledeafen", state.is_deaf ? 1 : 0);
                     updateActionState("com.laoy.streamdock.discord.togglecamera", state.is_camera_on ? 1 : 0);
+                }
+                // Hardware events rebroadcast by the Crimson StreamDock bridge
+                if (data.event) {
+                    handleHardwareEvent(data);
                 }
             } catch (e) {
                 console.error("[Discord] Error parsing Crimson message", e);
@@ -81,7 +118,7 @@ const crimsonAPI = {
         this.ws.onclose = () => {
             console.warn("[Discord] Crimson connection closed. Reconnecting in 2s...");
             setTimeout(() => this.connect(), 2000);
-            
+
             setTimeout(() => {
                 if (!streamDeckSocket || streamDeckSocket.readyState === WebSocket.CLOSED) {
                     if (window.connectHw) {
@@ -152,25 +189,10 @@ function connectElgatoStreamDeckSocket(inPort, inPluginUUID, inRegisterEvent, in
         };
 
         streamDeckSocket.onmessage = function (evt) {
-            const jsonObj = JSON.parse(evt.data);
-            const event = jsonObj['event'];
-            const action = jsonObj['action'];
-            const context = jsonObj['context'];
-
-            if (event === "willAppear") {
-                if (actionContexts[action] && !actionContexts[action].includes(context)) {
-                    actionContexts[action].push(context);
-                }
-            }
-
-            if (event === "willDisappear") {
-                if (actionContexts[action]) {
-                    actionContexts[action] = actionContexts[action].filter(c => c !== context);
-                }
-            }
-
-            if (event === "keyDown") {
-                handleKeyDown(action, context);
+            try {
+                handleHardwareEvent(JSON.parse(evt.data));
+            } catch (e) {
+                console.error("[Discord] Hardware message error", e);
             }
         };
     };
@@ -179,7 +201,13 @@ function connectElgatoStreamDeckSocket(inPort, inPluginUUID, inRegisterEvent, in
     connectHw();
 }
 
-async function handleKeyDown(action, context) {
+function handleKeyDown(action, context) {
+    // Prefer server-side handling when Crimson bridge owns the socket
+    // (avoids duplicate commands). Local path covers Crimson-offline fallback.
+    if (crimsonAPI.ws && crimsonAPI.ws.readyState === WebSocket.OPEN) {
+        return;
+    }
+
     let execAction = null;
     let execParams = {};
 
@@ -190,18 +218,26 @@ async function handleKeyDown(action, context) {
         case "com.laoy.streamdock.discord.toggledeafen":
             execAction = 'toggleDeafen';
             break;
-        case "com.laoy.streamdock.discord.joinvoice":
+        case "com.laoy.streamdock.discord.joinvoice": {
+            const channelId = (settingsByContext[context] && settingsByContext[context].channelId || '').trim();
+            if (!channelId) {
+                console.warn("[Discord] Voice Channel: configure channelId in the Property Inspector.");
+                return;
+            }
             execAction = 'joinVoiceChannel';
-            execParams = { channelId: "YOUR_CHANNEL_ID_HERE" }; // User should configure this in PI
+            execParams = { channelId: channelId };
             break;
+        }
         case "com.laoy.streamdock.discord.togglecamera":
             execAction = 'toggleCamera';
             break;
+        default:
+            console.warn("[Discord] Unsupported action:", action);
+            return;
     }
 
     if (execAction) {
         console.log(`[Discord] Executing ${execAction}...`);
-        // Forward to Crimson backend
         crimsonAPI.send({
             type: "DISCORD_COMMAND",
             endpoint: execAction,
