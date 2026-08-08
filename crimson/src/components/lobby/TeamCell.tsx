@@ -23,7 +23,7 @@ const TeamCell = ({ p, isBlue, forceMockMe }: TeamCellProps) => {
     
     const cid = p.championId || p.championPickIntent || 0;
     const art = getChampArt(cid, champs);
-    const isMe = forceMockMe || p.cellId === (lobbyState?.localPlayerCellId ?? 0);
+    const isMe = forceMockMe || p.cellId === (lobbyState?.localPlayerCellId ?? -1);
     const champName = getChampName(cid, champs);
     const displayName = isMe ? 'YOU' : (cid && champName !== 'Inconnu' ? champName : (isBlue ? 'Allié' : 'Ennemi'));
 

@@ -54,7 +54,7 @@ export default function HomeTab() {
     const losses = seasonStats ? seasonStats.losses : (validMatches.length - recentWins);
     
     let totalKills = 0, totalDeaths = 0, totalAssists = 0;
-    hist.forEach(m => {
+    validMatches.forEach(m => {
         if (m.stats) {
             totalKills += m.stats.kills || 0;
             totalDeaths += m.stats.deaths || 0;
@@ -169,7 +169,7 @@ export default function HomeTab() {
                                 <div className="flex items-center gap-3">
                                     <img src={getChampIcon(m.championId, champs, v)} className="w-8 h-8 rounded-full border border-white/10 shadow-lg group-hover:scale-110 transition-transform" alt="" />
                                     <div className="flex items-center gap-2">
-                                        <span className="text-white font-bold text-[11px] min-w-[50px]">{champs.find(c => c.id === String(m.championId))?.name || 'Champ'}</span>
+                                        <span className="text-white font-bold text-[11px] min-w-[50px]">{champs.find(c => c.id === m.championId)?.name || 'Champ'}</span>
                                         <span className="text-white/20 text-[10px]">|</span>
                                         <span className={`text-[10px] font-black uppercase tracking-widest min-w-[55px] ${isWin ? 'text-green-500' : 'text-red-500'}`}>{isWin ? 'Victory' : 'Defeat'}</span>
                                         <span className="text-white/20 text-[10px]">|</span>

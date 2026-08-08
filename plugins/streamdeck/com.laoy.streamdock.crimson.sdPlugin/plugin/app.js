@@ -461,6 +461,9 @@ window.connectElgatoStreamDeckSocket = function(inPort, inPluginUUID, inRegister
             handleDialRotate(action, ticks);
         }
     };
+    };
+
+    window.connectHw = connectHw;
     connectHw();
 };
 

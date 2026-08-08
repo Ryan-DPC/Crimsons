@@ -601,11 +601,14 @@ if ($prev -ne [IntPtr]::Zero) { [Win32]::SetForegroundWindow($prev) | Out-Null }
     }
 
     async fn send_vol_command(cmd: String) {
-        if let Some(tx) = &*PS_VOL_TX.lock().await {
-            let _ = tx.send(cmd).await;
-        } else {
+        // Hold the guard in a single named binding. Using `if let Some(..) =
+        // &*PS_VOL_TX.lock().await` would keep the temporary MutexGuard alive
+        // across the whole if/else (edition 2021), so re-locking the same
+        // non-reentrant tokio::Mutex in the else branch deadlocked on first use.
+        let mut guard = PS_VOL_TX.lock().await;
+        if guard.is_none() {
             let (tx, mut rx) = tokio::sync::mpsc::channel::<String>(100);
-            *PS_VOL_TX.lock().await = Some(tx.clone());
+            *guard = Some(tx.clone());
 
             let script = r#"
 Add-Type -TypeDefinition @"
@@ -685,8 +688,13 @@ while ($line = [Console]::ReadLine()) {
                 }
             });
 
-            let _ = tx.send(cmd).await;
         }
+
+        // Sender is guaranteed present now; clone it and release the lock
+        // before awaiting the send so we never hold the mutex across .await.
+        let tx = guard.as_ref().unwrap().clone();
+        drop(guard);
+        let _ = tx.send(cmd).await;
     }
 }
 

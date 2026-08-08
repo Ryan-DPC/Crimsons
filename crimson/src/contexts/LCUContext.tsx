@@ -535,7 +535,13 @@ export const LCUProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         };
 
         ws.onmessage = async (event) => {
-            const msg = JSON.parse(event.data);
+            let msg;
+            try {
+                msg = JSON.parse(event.data);
+            } catch (e) {
+                console.error('Failed to parse WS message:', e);
+                return;
+            }
             handleWsMessage(msg);
         };
 
@@ -698,7 +704,11 @@ export const LCUProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     useEffect(() => {
         const cname = getChampName(simMode ? 517 : myChamp, champs);
         if (!cname || cname === 'Inconnu' || cname === '') {
-            if (myChamp === 0 && !simMode) setBuilds([]);
+            if (myChamp === 0 && !simMode) {
+                setBuilds([]);
+                // Reset the fetch guard so re-picking the same champion reloads builds.
+                lastFetchParams.current = '';
+            }
             return;
         }
 
