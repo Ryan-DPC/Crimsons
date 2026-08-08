@@ -35,10 +35,13 @@ dashmap = "5.5"
 lazy_static = "1.4"
 urlencoding = "2.1"
 rdev = "0.5.3"
-windows = { version = "0.58", features = ["Win32_Media_Audio", "Win32_System_Com", "Win32_Foundation"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 tracing-appender = "0.2"
+
+# Win32 APIs (audio-session control, COM) are only used on Windows.
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.58", features = ["Win32_Media_Audio", "Win32_System_Com", "Win32_Foundation"] }
 
 [build-dependencies]
 winres = "0.1"

@@ -2,7 +2,7 @@
 
 ## Cursor Cloud specific instructions
 
-CRIMSONS is a **Windows-native Tauri 2 desktop app** (React UI + Rust sidecar). See `README.md` for the full architecture. On the Linux cloud VM, only the **frontend** (`crimson/`) is runnable/testable; the Rust workspace is Windows-only.
+CRIMSONS is a **Windows-native Tauri 2 desktop app** (React UI + Rust sidecar). See `README.md` for the full architecture. On the Linux cloud VM, the **frontend** (`crimson/`) always runs, and the **Rust sidecar** (`server/`) now builds/tests/runs on Linux too (see below). The full Tauri desktop app and the peripheral/client integrations remain Windows-oriented.
 
 ### What runs on Linux (the frontend — `crimson/`)
 
@@ -25,9 +25,21 @@ Placeholder values (e.g. `https://mock.supabase.co` / any string) are enough to 
 
 The app is a Tauri app, so `@tauri-apps/api/*` calls (window controls, `invoke`, `getVersion`) are no-ops/errors in a plain browser but degrade gracefully — the login screen renders and form interaction works without any mocks.
 
-### What does NOT run on Linux (Windows-only)
+### Building the Rust sidecar (`server/`) on Linux
 
-- `crimson-server` (`server/`) depends on the `windows` crate and Discord named pipes; `crimson/src-tauri` depends on it plus the Tauri GTK/webkit stack. CI builds/tests the Rust workspace only on `windows-latest`.
-- Full end-to-end features (local WebSocket sidecar on port `40510`, League Client/LCU, Spotify, Discord, StreamDock plugins) require Windows + the real clients/hardware.
-- `cargo build`/`cargo test` will not work here: the sidecar needs Windows, and even the cross-platform `lcu_commands` crate pulls in `tauri` (needs system GTK/webkit) and a transitive dep now requiring Rust edition 2024 (>1.83). Run Rust checks on Windows CI instead.
-- `tools/integration_tester` and `tools/mock-lcu` are Node helpers that talk to the sidecar WS (`40510`); they only do something useful when the Windows sidecar is running.
+The `crimson-server` sidecar builds, unit-tests, and runs on Linux (Discord IPC is transport-abstracted: named pipe on Windows, Unix socket elsewhere; the Win32-only `windows` crate is target-gated). It is NOT in the update script (system deps / toolchain changes are out of scope there). Prerequisites, one-time:
+
+- Rust >= 1.85 (a transitive dep requires edition 2024). The VM's pinned default may be older — `rustup default stable` fixes it.
+- System libs: `sudo apt-get install -y pkg-config libssl-dev libx11-dev libxi-dev libxtst-dev` (OpenSSL for `native-tls`; X11 for `rdev` hotkeys).
+
+Then, from the repo root:
+
+- `cargo build -p crimson-server` — compiles on Linux.
+- `cargo test -p crimson-server --lib` — the same suite CI runs on Windows (origin/auth + automation + storage tests).
+- Run it with `CRIMSON_DEV=1 ./target/debug/crimson-server` (the dev guard refuses to start otherwise). It listens on `127.0.0.1:40510`. Note `get_data_dir()` keys off `APPDATA` (empty on Linux), so logs/data land under `./com.laoy.crimsons/` relative to the CWD.
+
+### Still Windows-only
+
+- The full **Tauri desktop app** (`crimson/src-tauri`, and `lcu_commands` which pulls in `tauri`) needs the GTK/webkit stack (`libwebkit2gtk-4.1-dev`, `libgtk-3-dev`, `libsoup-3.0-dev`, `librsvg2-dev`, `libayatana-appindicator3-dev`) and has not been ported/verified on Linux.
+- **Runtime** integrations still require Windows + real clients/hardware: League Client/LCU (Riot blocks Linux via Vanguard), StreamDock (Windows/macOS host app), and the PowerShell-based Discord aux-audio/screenshare helpers (`server/src/discord.rs`) which no-op-fail on Linux. Core Discord IPC (mute/deafen/voice status) works on Linux if Discord is running.
+- `tools/integration_tester` and `tools/mock-lcu` are Node helpers that talk to the sidecar WS (`40510`).

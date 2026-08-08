@@ -3,8 +3,17 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use crate::events::WsSender;
 use serde_json::json;
+#[cfg(windows)]
 use tokio::net::windows::named_pipe::ClientOptions;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+// Discord IPC transport. Windows exposes a named pipe; Linux/macOS expose a
+// Unix domain socket. Both implement AsyncRead + AsyncWrite, so all of the
+// framing/handshake code below is shared and only `connect_to_ipc` differs.
+#[cfg(windows)]
+type IpcStream = tokio::net::windows::named_pipe::NamedPipeClient;
+#[cfg(not(windows))]
+type IpcStream = tokio::net::UnixStream;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct DiscordState {
@@ -160,7 +169,7 @@ impl DiscordService {
     }
 
     async fn wait_for_ready(
-        pipe: &mut tokio::net::windows::named_pipe::NamedPipeClient,
+        pipe: &mut IpcStream,
         state: &Arc<RwLock<DiscordState>>,
         sender: &WsSender,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -300,7 +309,7 @@ impl DiscordService {
     }
 
     async fn dispatch_command(
-        pipe: &mut tokio::net::windows::named_pipe::NamedPipeClient,
+        pipe: &mut IpcStream,
         endpoint: &str,
         params: &serde_json::Value,
         state: &Arc<RwLock<DiscordState>>,
@@ -387,7 +396,8 @@ impl DiscordService {
         Ok(())
     }
 
-    async fn connect_to_ipc() -> Result<tokio::net::windows::named_pipe::NamedPipeClient, Box<dyn std::error::Error + Send + Sync>> {
+    #[cfg(windows)]
+    async fn connect_to_ipc() -> Result<IpcStream, Box<dyn std::error::Error + Send + Sync>> {
         for i in 0..10 {
             let path = format!(r"\\.\pipe\discord-ipc-{}", i);
             match ClientOptions::new().open(&path) {
@@ -398,8 +408,38 @@ impl DiscordService {
         Err("Could not find Discord IPC pipe (is Discord running?)".into())
     }
 
+    #[cfg(not(windows))]
+    async fn connect_to_ipc() -> Result<IpcStream, Box<dyn std::error::Error + Send + Sync>> {
+        // On Linux/macOS Discord exposes the RPC as a Unix domain socket named
+        // `discord-ipc-{0..9}`. It normally lives under $XDG_RUNTIME_DIR, but
+        // sandboxed builds (Flatpak/Snap) and some setups place it elsewhere,
+        // so probe the common base directories.
+        let mut bases: Vec<String> = Vec::new();
+        if let Ok(dir) = std::env::var("XDG_RUNTIME_DIR") {
+            bases.push(dir.clone());
+            bases.push(format!("{}/app/com.discordapp.Discord", dir));
+            bases.push(format!("{}/snap.discord", dir));
+        }
+        for key in ["TMPDIR", "TMP", "TEMP"] {
+            if let Ok(dir) = std::env::var(key) {
+                bases.push(dir);
+            }
+        }
+        bases.push("/tmp".to_string());
+
+        for base in bases {
+            for i in 0..10 {
+                let path = format!("{}/discord-ipc-{}", base.trim_end_matches('/'), i);
+                if let Ok(stream) = tokio::net::UnixStream::connect(&path).await {
+                    return Ok(stream);
+                }
+            }
+        }
+        Err("Could not find Discord IPC socket (is Discord running?)".into())
+    }
+
     async fn send_handshake(
-        pipe: &mut tokio::net::windows::named_pipe::NamedPipeClient,
+        pipe: &mut IpcStream,
         client_id: &str,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let payload = json!({ "v": 1, "client_id": client_id }).to_string();
@@ -407,7 +447,7 @@ impl DiscordService {
     }
 
     async fn subscribe_event(
-        pipe: &mut tokio::net::windows::named_pipe::NamedPipeClient,
+        pipe: &mut IpcStream,
         evt: &str,
         args: serde_json::Value,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -423,7 +463,7 @@ impl DiscordService {
     }
 
     async fn send_command(
-        pipe: &mut tokio::net::windows::named_pipe::NamedPipeClient,
+        pipe: &mut IpcStream,
         cmd: &str,
         args: serde_json::Value,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -437,7 +477,7 @@ impl DiscordService {
     }
 
     async fn send_raw_packet(
-        pipe: &mut tokio::net::windows::named_pipe::NamedPipeClient,
+        pipe: &mut IpcStream,
         opcode: u32,
         payload: &str,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -451,7 +491,7 @@ impl DiscordService {
 
     /// Read one complete Discord IPC frame (8-byte header + JSON body).
     async fn read_frame(
-        pipe: &mut tokio::net::windows::named_pipe::NamedPipeClient,
+        pipe: &mut IpcStream,
         scratch: &mut Vec<u8>,
     ) -> Result<serde_json::Value, Box<dyn std::error::Error + Send + Sync>> {
         let mut header = [0u8; 8];
