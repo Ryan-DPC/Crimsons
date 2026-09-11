@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
+import { syncSessionFromSidecar } from '../lib/sessionSync';
 import { invoke } from '@tauri-apps/api/core';
 
 interface AuthContextType {
@@ -26,23 +27,68 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [user, setUser] = useState<User | null>(null);
     const [isPremium, setIsPremium] = useState(false);
     const [loading, setLoading] = useState(true);
+    const signingOutRef = useRef(false);
+    const applyingRef = useRef(false);
 
     useEffect(() => {
-        // Initial session fetch
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            setSession(session);
-            setUser(session?.user ?? null);
-            checkPremiumStatus(session?.user?.id);
+        let cancelled = false;
+
+        const apply = (next: Session | null) => {
+            if (cancelled) return;
+            setSession(next);
+            setUser(next?.user ?? null);
+            checkPremiumStatus(next?.user?.id);
+        };
+
+        const recover = async (current: Session | null): Promise<Session | null> => {
+            if (signingOutRef.current) return current;
+            applyingRef.current = true;
+            try {
+                return await syncSessionFromSidecar(current);
+            } finally {
+                applyingRef.current = false;
+            }
+        };
+
+        supabase.auth.getSession().then(async ({ data: { session: initial } }) => {
+            const next = await recover(initial);
+            apply(next);
         });
 
-        // Listen for auth changes
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-            setSession(session);
-            setUser(session?.user ?? null);
-            checkPremiumStatus(session?.user?.id);
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, nextSession) => {
+            // Un SIGNED_OUT apres refresh rate n'est pas une deconnexion
+            // volontaire : le sidecar a souvent deja le nouveau jeton.
+            if (event === 'SIGNED_OUT' && !signingOutRef.current) {
+                const recovered = await recover(null);
+                if (recovered?.access_token) {
+                    apply(recovered);
+                    return;
+                }
+            }
+            if (applyingRef.current && event === 'TOKEN_REFRESHED') {
+                apply(nextSession);
+                return;
+            }
+            apply(nextSession);
         });
 
-        return () => subscription.unsubscribe();
+        const onVisibility = () => {
+            if (document.visibilityState !== 'visible' || signingOutRef.current) return;
+            // La webview throttle les timers quand la fenetre est cachee :
+            // supabase-js n'a pas pu renouveler, le sidecar si. Adopter ses
+            // jetons AVANT que l'auto-refresh rejoue l'ancien refresh token.
+            supabase.auth.getSession().then(async ({ data: { session: current } }) => {
+                const next = await recover(current);
+                if (next?.refresh_token !== current?.refresh_token) apply(next);
+            });
+        };
+        document.addEventListener('visibilitychange', onVisibility);
+
+        return () => {
+            cancelled = true;
+            subscription.unsubscribe();
+            document.removeEventListener('visibilitychange', onVisibility);
+        };
     }, []);
 
     const checkPremiumStatus = async (userId?: string): Promise<boolean> => {
@@ -92,6 +138,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     const signOut = async () => {
+        signingOutRef.current = true;
         // Explicit logout — clear sidecar refresh so StreamDock does not stay premium.
         try {
             let token = await invoke<string | null>('crimson_get_auth_token').catch(() => null);
@@ -122,6 +169,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             console.error('Failed to stop server:', e);
         }
         await supabase.auth.signOut();
+        signingOutRef.current = false;
     };
 
     return (
