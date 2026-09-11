@@ -3,6 +3,11 @@ import { createClient, type SupportedStorage } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
+/** False si la build a été produite sans secrets Vite (écran noir / Failed to fetch). */
+export function isSupabaseConfigured(): boolean {
+    return Boolean(supabaseUrl && supabaseAnonKey && /^https?:\/\//i.test(supabaseUrl));
+}
+
 const memory = new Map<string, string>();
 
 async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
