@@ -75,7 +75,9 @@ pub fn run() {
         commands::download_music_video,
         commands::check_plugin_presence,
         commands::crimson_get_actual_server_path,
-        commands::crimson_get_auth_token
+        commands::crimson_get_auth_token,
+        commands::crimson_read_supabase_session,
+        commands::crimson_write_supabase_session
     ])
     .setup(|app| {
       let handle = app.handle().clone();
