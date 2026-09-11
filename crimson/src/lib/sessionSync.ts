@@ -16,6 +16,9 @@ function tokensFromUnknown(raw: unknown): TokenPair | null {
 }
 
 export async function readSidecarSessionTokens(): Promise<TokenPair | null> {
+    if (typeof window === 'undefined' || !(window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__) {
+        return null;
+    }
     try {
         const { invoke } = await import('@tauri-apps/api/core');
         const json = await invoke<string | null>('crimson_read_supabase_session');

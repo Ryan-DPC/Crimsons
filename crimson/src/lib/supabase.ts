@@ -19,7 +19,12 @@ async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null
     }
 }
 
+function isTauriRuntime(): boolean {
+    return typeof window !== 'undefined' && !!(window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__;
+}
+
 async function readSharedSession(): Promise<string | null> {
+    if (!isTauriRuntime()) return null;
     try {
         const { invoke } = await import('@tauri-apps/api/core');
         return await withTimeout(invoke<string | null>('crimson_read_supabase_session'), 1500);
@@ -29,11 +34,12 @@ async function readSharedSession(): Promise<string | null> {
 }
 
 async function writeSharedSession(value: string): Promise<void> {
+    if (!isTauriRuntime()) return;
     try {
         const { invoke } = await import('@tauri-apps/api/core');
         await withTimeout(invoke('crimson_write_supabase_session', { json: value }), 1500);
     } catch {
-        /* browser / sidecar absent */
+        /* sidecar absent */
     }
 }
 
