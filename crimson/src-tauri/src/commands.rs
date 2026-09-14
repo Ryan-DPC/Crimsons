@@ -311,6 +311,19 @@ pub fn crimson_get_auth_token() -> Option<String> {
     crimson_server::auth::read_token().filter(|t| !t.is_empty())
 }
 
+/// Session Supabase partagee avec le sidecar. supabase-js s'en sert comme
+/// stockage persistant : WebView localStorage ne survit pas toujours, et le
+/// sidecar peut avoir fait tourner le refresh pendant que l'UI etait fermee.
+#[tauri::command]
+pub fn crimson_read_supabase_session() -> Option<String> {
+    crimson_server::entitlement::read_session_json()
+}
+
+#[tauri::command]
+pub fn crimson_write_supabase_session(json: String) -> Result<(), String> {
+    crimson_server::entitlement::write_session_json(&json)
+}
+
 #[tauri::command]
 pub fn crimson_get_actual_server_path(app: tauri::AppHandle) -> Option<String> {
     find_server_path(&app).map(|p| {

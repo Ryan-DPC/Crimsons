@@ -5,6 +5,7 @@ import type { Summoner, Match, RuneBuild, RadarResult } from '../types';
 import { getChampName } from '../utils/lolDisplay';
 import runesDataJson from '../assets/data/runesData.json';
 import { useAuth } from './AuthContext';
+import { applyAuthSessionUpdate } from '../lib/sessionSync';
 
 interface LCUContextType {
     sum: Summoner | null;
@@ -557,6 +558,11 @@ export const LCUProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                             refresh_token: s.refresh_token ?? null,
                         }));
                     } catch { /* ignore */ }
+                } else {
+                    // Sidecar may already hold a rotated session (autostart).
+                    try {
+                        ws.send(JSON.stringify({ type: 'AUTH_SESSION_GET' }));
+                    } catch { /* ignore */ }
                 }
             }
             socketsRef.current[port] = ws;
@@ -725,6 +731,8 @@ export const LCUProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 setSpotifyState((prev: any) => ({ ...(prev || {}), has_token: true }));
                 console.log("Spotify Connected Successfully");
             }).catch(console.error);
+        } else if (msg.type === 'AUTH_SESSION_UPDATED') {
+            applyAuthSessionUpdate(msg).catch(() => {});
         }
     };
 

@@ -623,6 +623,18 @@ async fn handle_connection(
             )).await;
         }
 
+        // Si le sidecar a deja une session (autostart), l'UI l'adopte avant
+        // d'essayer un refresh localStorage perime.
+        if let Some((access, refresh)) = crate::entitlement::exported_tokens() {
+            let _ = ws_stream.send(tokio_tungstenite::tungstenite::Message::Text(
+                json!({
+                    "type": "AUTH_SESSION_UPDATED",
+                    "access_token": access,
+                    "refresh_token": refresh,
+                }).to_string().into()
+            )).await;
+        }
+
         // Push current LCU state if connected
         if crate::lcu::is_lcu_connected() {
             if let Ok(phase_str) = crate::lcu::lcu_request_async("GET".into(), "/lol-gameflow/v1/gameflow-phase".into(), None).await {
@@ -906,6 +918,24 @@ async fn handle_connection(
                                                 // services. La deconnexion explicite utilise AUTH_LOGOUT.
                                                 tracing::debug!("[AUTH] AUTH_SESSION sans jeton ignore (pas de clear)");
                                             }
+                                        }
+                                        continue;
+                                    }
+
+                                    if value["type"] == "AUTH_SESSION_GET" {
+                                        if let Some((access, refresh)) =
+                                            crate::entitlement::exported_tokens()
+                                        {
+                                            let _ = ws_stream_sender
+                                                .send(
+                                                    json!({
+                                                        "type": "AUTH_SESSION_UPDATED",
+                                                        "access_token": access,
+                                                        "refresh_token": refresh,
+                                                    })
+                                                    .to_string(),
+                                                )
+                                                .await;
                                         }
                                         continue;
                                     }

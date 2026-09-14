@@ -122,6 +122,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 5. Setup broadcast channel for internal communications
     let (tx, _) = broadcast::channel(100);
     let sender = WsSender(tx);
+    // L'UI doit apprendre les renouvellements de session faits par le sidecar
+    // (autostart / JWT expire pendant que la fenetre est cachee). Sans cela
+    // supabase-js rejoue l'ancien refresh et GoTrue deconnecte l'utilisateur.
+    crimson_server::entitlement::set_ws_sender(sender.0.clone());
 
     tracing::info!("Initializing DB");
 

@@ -1,7 +1,33 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import { Loader2, AlertCircle } from 'lucide-react';
 import logoRed from '../../assets/logos/logo_red_transparent.png';
+
+/** Traduit les erreurs brutes supabase/fetch en messages actionnables. */
+function formatLoginError(err: unknown): string {
+    const raw = err instanceof Error ? err.message : typeof err === 'string' ? err : '';
+    const lower = raw.toLowerCase();
+
+    if (!isSupabaseConfigured()) {
+        return 'Configuration Supabase manquante dans cette build. Réinstalle la dernière release.';
+    }
+    if (
+        lower.includes('failed to fetch')
+        || lower.includes('networkerror')
+        || lower.includes('load failed')
+        || lower.includes('network request failed')
+        || err instanceof TypeError
+    ) {
+        return 'Impossible de joindre le serveur d’auth (réseau / DNS / antivirus). Vérifie ta connexion, désactive VPN/proxy, ou autorise *.supabase.co.';
+    }
+    if (lower.includes('invalid login credentials') || lower.includes('invalid_credentials')) {
+        return 'Email ou mot de passe incorrect.';
+    }
+    if (lower.includes('email not confirmed')) {
+        return 'Confirme d’abord ton email (lien reçu à l’inscription).';
+    }
+    return raw || 'Une erreur est survenue.';
+}
 
 const LoginScreen = () => {
     const [email, setEmail] = useState('');
@@ -24,6 +50,9 @@ const LoginScreen = () => {
         setSuccessMessage(null);
 
         try {
+            if (!isSupabaseConfigured()) {
+                throw new Error('Configuration Supabase manquante.');
+            }
             if (isSignUp) {
                 const { error, data } = await supabase.auth.signUp({
                     email,
@@ -43,8 +72,8 @@ const LoginScreen = () => {
                 });
                 if (error) throw error;
             }
-        } catch (err: any) {
-            setError(err.message || 'Une erreur est survenue.');
+        } catch (err: unknown) {
+            setError(formatLoginError(err));
         } finally {
             setLoading(false);
         }
