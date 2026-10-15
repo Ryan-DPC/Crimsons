@@ -23,8 +23,8 @@ Version actuelle : **3.1.4**.
 | `crimson/` | App Tauri 2 : UI React, commandes natives, lance le sidecar |
 | `server/` (crate `crimson-server`, binary `crimsons-server`) | Sidecar : WebSocket local, intégrations, bridge StreamDock |
 | `crimson/src-tauri/crates/lcu_commands` | Logique LCU / draft partagée |
-| `plugins/streamdeck/` | **Base :** Crimsons (LoL) + Spotify. Discord optionnel. |
-| `plugins/streamdeck/optional/` | Stubs / futurs plugins externes (Hue, Twitch, …) |
+| `plugins/streamdeck/` | Packs StreamDock (transition) — **cible : aucun plugin dans Crimsons** ; catalogue web + API ([`docs/ADR_PLUGIN_STORE.md`](docs/ADR_PLUGIN_STORE.md)). |
+| `plugins/streamdeck/optional/` | Stubs / futurs plugins catalogue (Hue, Twitch, …) |
 
 Auth / droits premium : Supabase (client + vérif côté serveur).
 
@@ -53,11 +53,13 @@ Voir [`docs/GUIDE_UTILISATEUR.md`](docs/GUIDE_UTILISATEUR.md) : connexion sans P
 
 ## Plugins StreamDock
 
-| Pack | Contenu |
+**Cible produit :** Crimsons sans plugins embarqués. Catalogue = **site web** + **API HTTPS** ; install = sidecar. Détail : [`docs/ADR_PLUGIN_STORE.md`](docs/ADR_PLUGIN_STORE.md).
+
+| Pack (état actuel / transition) | Contenu |
 | --- | --- |
-| **Base** (injecté par défaut) | LoL + Spotify |
+| **Dev inject** (`inject_plugins.ps1`) | LoL + Spotify par défaut |
 | **Optionnel** | Discord — `.\scripts\inject_plugins.ps1 -IncludeDiscord` (Premium) |
-| **Externes (plus tard)** | Hue, Twitch, … téléchargeables ; gratuits ou payants selon le catalogue / la communauté |
+| **Catalogue** | Tous les packs (LoL, Spotify, Discord, Hue, Twitch, …) téléchargeables via API ; gratuits ou payants selon le store |
 
 ## App native vs localhost (important)
 

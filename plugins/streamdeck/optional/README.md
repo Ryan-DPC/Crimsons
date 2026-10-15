@@ -1,6 +1,8 @@
 # Plugins optionnels / externes
 
-Ces plugins **ne font pas partie du pack de base** (LoL + Spotify).
+Ces plugins **ne font pas partie du pack de base** (LoL + Spotify) en transition.
+
+**Cible :** tous les plugins (y compris LoL / Spotify / Discord) vivent dans le catalogue web indépendant — voir [`docs/ADR_PLUGIN_STORE.md`](../../../docs/ADR_PLUGIN_STORE.md). Pas de 2ᵉ app desktop ; lien via API HTTPS + install sidecar.
 
 | Plugin | Statut |
 | --- | --- |

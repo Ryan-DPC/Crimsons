@@ -27,13 +27,20 @@ Crimsons fonctionne sur un modèle **Freemium**. L'assistance de base pour Leagu
 - **Affichage des Lyrics** : Fenêtre flottante pour afficher les paroles en temps réel.
 - *(Roadmap)* Auto-DJ selon la phase de jeu.
 
-### Plugins optionnels / externes
-Le pack livré par défaut est **LoL + Spotify**. Le reste s’installe à la demande :
+### Plugins — hors de Crimsons (catalogue indépendant)
 
-| Plugin | Statut |
+**Décision :** voir [`docs/ADR_PLUGIN_STORE.md`](../docs/ADR_PLUGIN_STORE.md).
+
+- Crimsons **ne livre aucun** `.sdPlugin` de base.
+- Catalogue = **app web** + **API HTTPS** (Supabase / Storage).
+- Installation = **sidecar** Crimsons (écriture disque StreamDock) via Hub ou deep-link `crimsons://…`.
+- Pas de 2ᵉ app desktop « store ».
+
+| Plugin | Statut (transition) |
 | --- | --- |
-| **Discord** | Optionnel maintenu (Premium) — mute / deafen / caméra / join salon. Inject : `-IncludeDiscord`. |
-| **Twitch, Hue, …** | Futurs plugins **externes** téléchargeables (gratuits ou payants). Décisions produit + communauté. |
+| **LoL, Spotify** | Encore dans le repo + `inject_plugins.ps1` (dev) ; cibles catalogue, plus pack installateur. |
+| **Discord** | Optionnel maintenu (Premium) — même chemin catalogue. |
+| **Twitch, Hue, …** | Stubs → fiches catalogue quand prêts (gratuits ou payants, communauté). |
 
 ---
 
@@ -46,6 +53,7 @@ Le pack livré par défaut est **LoL + Spotify**. Le reste s’installe à la de
 ---
 
 ## Prochaines Étapes
-1. Catalogue / téléchargement in-app des plugins externes.
-2. Trancher le modèle payant vs gratuit par plugin avec la communauté.
-3. Continuer le polish UI et les intégrations optionnelles (Discord Rich Presence, etc.).
+1. Implémenter le schéma / API catalogue (ADR) + install sidecar.
+2. Site web catalogue public + deep-links ; vider le pack de base de l’installeur.
+3. Trancher le modèle payant vs gratuit par plugin avec la communauté.
+4. Continuer le polish UI et les intégrations optionnelles (Discord Rich Presence, etc.).

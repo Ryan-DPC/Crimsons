@@ -76,9 +76,10 @@ Les chemins monorepo ci-dessous remplacent l’ancienne référence au lecteur `
 * Superpositions / manque d’air (ex. Auto Selection vs grille de champions).
 * **Statut :** Ouvert.
 
-### 4. Catalogue plugins externes
-* Pas encore de store / download in-app pour Hue, Twitch, etc.
-* Décisions freemium vs payant à trancher avec la communauté.
+### 4. Catalogue plugins (hors Crimsons)
+* **Décidé** : store **web** + **API HTTPS** (Supabase) ; install via sidecar ; Crimsons sans pack de base. Voir [`docs/ADR_PLUGIN_STORE.md`](docs/ADR_PLUGIN_STORE.md).
+* Pas encore d’implémentation (schéma, download signé, `INSTALL_PLUGIN`, site).
+* Décisions freemium vs payant **par plugin** encore à trancher avec la communauté.
 
 ### 5. Discord Client ID
 * Plus de Client ID Discord en dur : l’utilisateur colle l’Application ID (Developer Portal) dans Hub → Discord.
