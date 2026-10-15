@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useRef, useState } from 'r
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { syncSessionFromSidecar } from '../lib/sessionSync';
+import { getLocalAuthToken } from '../lib/localAuthToken';
 import { invoke } from '@tauri-apps/api/core';
 
 interface AuthContextType {
@@ -141,7 +142,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         signingOutRef.current = true;
         // Explicit logout — clear sidecar refresh so StreamDock does not stay premium.
         try {
-            let token = await invoke<string | null>('crimson_get_auth_token').catch(() => null);
+            const token = await getLocalAuthToken();
             const url = token
                 ? `ws://127.0.0.1:40510/?token=${encodeURIComponent(token)}`
                 : 'ws://127.0.0.1:40510/';

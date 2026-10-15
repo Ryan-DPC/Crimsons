@@ -6,6 +6,7 @@ import { getChampName } from '../utils/lolDisplay';
 import runesDataJson from '../assets/data/runesData.json';
 import { useAuth } from './AuthContext';
 import { applyAuthSessionUpdate } from '../lib/sessionSync';
+import { getLocalAuthToken } from '../lib/localAuthToken';
 
 interface LCUContextType {
     sum: Summoner | null;
@@ -525,13 +526,7 @@ export const LCUProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // Le jeton est regenere a chaque demarrage du serveur : on le relit a
         // chaque tentative plutot que de le mettre en cache. Il transite par
         // l'URL, l'API WebSocket des navigateurs interdisant les en-tetes.
-        let token = '';
-        try {
-            token = (await invoke<string | null>('crimson_get_auth_token')) ?? '';
-        } catch {
-            // Serveur pas encore demarre : on tente sans, il acceptera tant que
-            // le mode strict n'est pas actif.
-        }
+        const token = await getLocalAuthToken();
         const url = token
             ? `ws://127.0.0.1:${port}/?token=${encodeURIComponent(token)}`
             : `ws://127.0.0.1:${port}`;
@@ -1117,7 +1112,7 @@ export const LCUProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             if (ws && ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify({ type: 'TOGGLE_PLUGIN', plugin, enabled }));
             } else {
-                let token = await invoke<string | null>('crimson_get_auth_token').catch(() => null);
+                const token = await getLocalAuthToken();
                 const url = token
                     ? `ws://127.0.0.1:40510/?token=${encodeURIComponent(token)}`
                     : 'ws://127.0.0.1:40510/';
