@@ -42,8 +42,13 @@ function App() {
   useEffect(() => {
     if (!appData) return;
 
+    let browserFinished = false;
+    try {
+      browserFinished = localStorage.getItem('crimsons_first_launch_finished') === '1';
+    } catch { /* ignore */ }
+
     // Already finished — never re-open full welcome.
-    if (appData.firstLaunchFinished === true) {
+    if (appData.firstLaunchFinished === true || browserFinished) {
       setShowOnboarding(false);
       return;
     }

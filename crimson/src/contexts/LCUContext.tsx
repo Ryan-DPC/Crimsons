@@ -122,6 +122,8 @@ export const LCUProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [simMode, setSimMode] = useState(false);
     const [tab, setTab] = useState('home');
     const [appData, setAppData] = useState<any>(null);
+    const appDataRef = useRef<any>(null);
+    useEffect(() => { appDataRef.current = appData; }, [appData]);
     const { session, loading: authLoading } = useAuth();
 
     // Update State
@@ -984,9 +986,20 @@ export const LCUProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     const updateSetting = async (key: string, value: any) => {
-        const d = await invoke<any>('get_app_data');
-        d[key] = value;
-        await invoke('set_app_data', { data: d });
+        let d: any;
+        try {
+            d = await invoke<any>('get_app_data');
+            d[key] = value;
+            await invoke('set_app_data', { data: d });
+        } catch {
+            // Navigateur / Vite sans Tauri : garder l’état en mémoire (+ localStorage pour first launch).
+            d = { ...(appDataRef.current || {}), [key]: value };
+            if (key === 'firstLaunchFinished') {
+                try {
+                    localStorage.setItem('crimsons_first_launch_finished', value ? '1' : '0');
+                } catch { /* ignore */ }
+            }
+        }
         setAppData(d);
         // Keep sidecar AtomicBool / disk in sync for auto-accept.
         if (key === 'autoAccept') {
