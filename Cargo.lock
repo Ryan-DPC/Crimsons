@@ -1258,7 +1258,7 @@ dependencies = [
 
 [[package]]
 name = "crimson-server"
-version = "3.1.4"
+version = "3.1.5"
 dependencies = [
  "ab_glyph",
  "base64 0.21.7",
@@ -1295,7 +1295,7 @@ dependencies = [
 
 [[package]]
 name = "crimsons"
-version = "3.1.4"
+version = "3.1.5"
 dependencies = [
  "base64 0.21.7",
  "chrono",
