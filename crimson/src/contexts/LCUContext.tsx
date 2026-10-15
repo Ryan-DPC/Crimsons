@@ -6,6 +6,7 @@ import { getChampName } from '../utils/lolDisplay';
 import runesDataJson from '../assets/data/runesData.json';
 import { useAuth } from './AuthContext';
 import { applyAuthSessionUpdate } from '../lib/sessionSync';
+import { getLocalAuthToken } from '../lib/localAuthToken';
 
 interface LCUContextType {
     sum: Summoner | null;
@@ -121,6 +122,8 @@ export const LCUProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [simMode, setSimMode] = useState(false);
     const [tab, setTab] = useState('home');
     const [appData, setAppData] = useState<any>(null);
+    const appDataRef = useRef<any>(null);
+    useEffect(() => { appDataRef.current = appData; }, [appData]);
     const { session, loading: authLoading } = useAuth();
 
     // Update State
@@ -525,13 +528,7 @@ export const LCUProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // Le jeton est regenere a chaque demarrage du serveur : on le relit a
         // chaque tentative plutot que de le mettre en cache. Il transite par
         // l'URL, l'API WebSocket des navigateurs interdisant les en-tetes.
-        let token = '';
-        try {
-            token = (await invoke<string | null>('crimson_get_auth_token')) ?? '';
-        } catch {
-            // Serveur pas encore demarre : on tente sans, il acceptera tant que
-            // le mode strict n'est pas actif.
-        }
+        const token = await getLocalAuthToken();
         const url = token
             ? `ws://127.0.0.1:${port}/?token=${encodeURIComponent(token)}`
             : `ws://127.0.0.1:${port}`;
@@ -989,9 +986,20 @@ export const LCUProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     const updateSetting = async (key: string, value: any) => {
-        const d = await invoke<any>('get_app_data');
-        d[key] = value;
-        await invoke('set_app_data', { data: d });
+        let d: any;
+        try {
+            d = await invoke<any>('get_app_data');
+            d[key] = value;
+            await invoke('set_app_data', { data: d });
+        } catch {
+            // Navigateur / Vite sans Tauri : garder l’état en mémoire (+ localStorage pour first launch).
+            d = { ...(appDataRef.current || {}), [key]: value };
+            if (key === 'firstLaunchFinished') {
+                try {
+                    localStorage.setItem('crimsons_first_launch_finished', value ? '1' : '0');
+                } catch { /* ignore */ }
+            }
+        }
         setAppData(d);
         // Keep sidecar AtomicBool / disk in sync for auto-accept.
         if (key === 'autoAccept') {
@@ -1117,7 +1125,7 @@ export const LCUProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             if (ws && ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify({ type: 'TOGGLE_PLUGIN', plugin, enabled }));
             } else {
-                let token = await invoke<string | null>('crimson_get_auth_token').catch(() => null);
+                const token = await getLocalAuthToken();
                 const url = token
                     ? `ws://127.0.0.1:40510/?token=${encodeURIComponent(token)}`
                     : 'ws://127.0.0.1:40510/';

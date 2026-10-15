@@ -1,39 +1,26 @@
 param(
-    # Pack de base : LoL (Crimsons) + Spotify uniquement.
-    # Discord et autres plugins optionnels : -IncludeDiscord / -Extra
-    [switch]$IncludeDiscord,
-    [string[]]$Extra = @()
+    # Plus de pack de base : lister explicitement les packages du catalogue.
+    # Ex. -Plugins com.laoy.streamdock.crimson.sdPlugin,com.laoy.streamdock.spotify.sdPlugin
+    [Parameter(Mandatory = $true)]
+    [string[]]$Plugins
 )
 
 $ScriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
 $ProjectRoot = (Resolve-Path (Join-Path $ScriptDir "..")).Path
-$pluginSource = Join-Path $ProjectRoot "plugins\streamdeck"
-$optionalSource = Join-Path $pluginSource "optional"
+$pluginSource = Join-Path $ProjectRoot "plugins\catalog"
 $pluginDest = "$env:APPDATA\HotSpot\StreamDock\plugins"
 
-# Plugins livrés / injectés par défaut
-$plugins = @(
-    "com.laoy.streamdock.crimson.sdPlugin",
-    "com.laoy.streamdock.spotify.sdPlugin"
-)
-
-if ($IncludeDiscord) {
-    $plugins += "com.laoy.streamdock.discord.sdPlugin"
+if (-not $Plugins -or $Plugins.Count -eq 0) {
+    Write-Host "Erreur: aucun plugin. Utiliser -Plugins <id.sdPlugin>[,...]" -ForegroundColor Red
+    Write-Host "Catalogue: $pluginSource\catalog.json" -ForegroundColor DarkGray
+    exit 1
 }
 
-foreach ($extra in $Extra) {
-    if ($extra -and ($plugins -notcontains $extra)) {
-        $plugins += $extra
-    }
-}
+Write-Host "Injecting catalog plugins (no base pack)..." -ForegroundColor Cyan
 
-Write-Host "Starting plugin injection (base = LoL + Spotify)..." -ForegroundColor Cyan
-
-foreach ($plugin in $plugins) {
+foreach ($plugin in $Plugins) {
+    if (-not $plugin) { continue }
     $src = Join-Path $pluginSource $plugin
-    if (-not (Test-Path $src)) {
-        $src = Join-Path $optionalSource $plugin
-    }
     $dst = Join-Path $pluginDest $plugin
 
     if (Test-Path $src) {
@@ -43,11 +30,9 @@ foreach ($plugin in $plugins) {
         }
         Copy-Item -Recurse -Force $src $dst
     } else {
-        Write-Host "Warning: Source $plugin not found in $pluginSource or optional/" -ForegroundColor Yellow
+        Write-Host "Warning: Source $plugin not found in $pluginSource" -ForegroundColor Yellow
     }
 }
 
 Write-Host "Plugin injection complete!" -ForegroundColor Cyan
-Write-Host "Tip: .\scripts\inject_plugins.ps1 -IncludeDiscord" -ForegroundColor DarkGray
-Write-Host "Hue/Twitch stubs live under plugins/streamdeck/optional/ (not shipped by default)." -ForegroundColor DarkGray
 Write-Host "Please restart StreamDock to apply changes." -ForegroundColor Yellow

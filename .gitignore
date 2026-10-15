@@ -20,6 +20,7 @@ dist-ssr/
 !.env.example
 # jetons OAuth Spotify personnels (regenerables en se reconnectant dans l'app)
 plugins/streamdeck/*/propertyInspector/utils/tokens.js
+plugins/catalog/*/propertyInspector/utils/tokens.js
 
 # --- Journaux ---
 *.log

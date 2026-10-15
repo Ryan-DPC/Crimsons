@@ -215,7 +215,7 @@ const SettingsTab = () => {
 
     useEffect(() => {
         const checkPlugins = async () => {
-            // Pack de base : LoL + Spotify. Discord = optionnel (pas Hue/Twitch en hub).
+            // Présence FS des packs catalogue (aucun pack embarqué dans Crimsons).
             const ids = {
                 leagueOfLegends: "com.laoy.streamdock.crimson",
                 spotify: "com.laoy.streamdock.spotify",
@@ -720,20 +720,17 @@ const SettingsTab = () => {
                                     {
                                         key: 'leagueOfLegends',
                                         name: 'League of Legends',
-                                        desc: 'Auto-accept, pick/ban et contrôle StreamDock (pack de base)',
-                                        tier: 'base' as const,
+                                        desc: 'Auto-accept, pick/ban et contrôle StreamDock (catalogue)',
                                     },
                                     {
                                         key: 'spotify',
                                         name: 'Spotify',
-                                        desc: 'Contrôle de lecture et covers (pack de base)',
-                                        tier: 'base' as const,
+                                        desc: 'Contrôle de lecture et covers (catalogue · Premium)',
                                     },
                                     {
                                         key: 'discord',
                                         name: 'Discord',
-                                        desc: 'Mute / deafen / caméra',
-                                        tier: 'optional' as const,
+                                        desc: 'Mute / deafen / caméra (catalogue · Premium)',
                                     },
                                 ].map((plugin) => {
                                     const isPremiumPlugin = plugin.key === 'spotify' || plugin.key === 'discord';
@@ -772,9 +769,6 @@ const SettingsTab = () => {
                                                             : "Off"}
                                                 </span>
                                                 
-                                                {plugin.tier === 'optional' && (
-                                                    <span className="text-[9px] font-black text-white/25 uppercase tracking-widest">Optionnel</span>
-                                                )}
                                                 {requiresDeckPlugin && !isInstalled && (!isPremiumPlugin || isPremium) && (
                                                     <div className="flex items-center gap-1 text-[9px] font-black text-red-500/60 uppercase tracking-widest">
                                                         <AlertCircle className="w-3 h-3" /> Plugin requis
@@ -834,7 +828,7 @@ const SettingsTab = () => {
                                             )}
                                             {plugin.key === 'discord' && !isInstalled && isPremium && (
                                                 <p className="text-[9px] text-white/20 uppercase font-black tracking-widest mt-2 border-t border-white/5 pt-2">
-                                                    Plugin StreamDock optionnel — inject : -IncludeDiscord
+                                                    Plugin StreamDock via catalogue — pas de pack embarqué
                                                 </p>
                                             )}
                                         </div>
@@ -842,7 +836,7 @@ const SettingsTab = () => {
                                 })}
                             </div>
                             <p className="mt-8 text-[10px] text-white/25 uppercase font-bold tracking-widest leading-relaxed">
-                                Pack de base : LoL + Spotify. Hue, Twitch et d’autres intégrations arriveront comme plugins externes téléchargeables (gratuits ou premium — communauté).
+                                Crimsons ne livre aucun plugin. Catalogue web / API : LoL, Spotify, Discord, Hue, Twitch… (catégories StreamDock, jeu, utilitaire, médias, etc.).
                             </p>
                         </section>
                     </div>

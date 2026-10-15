@@ -37,15 +37,15 @@ Tout se fait dans **Crimsons** + l’app Discord ouverte. Il n’y a **pas** de 
 2. Ouvre l’**app Discord** sur le PC (pas besoin de menu Plugin dans Discord).
 3. **Dans Crimsons** : Paramètres → Plugins → activer **Discord**.
 4. Mute / deafen / caméra fonctionnent via Discord IPC — **pas d’OAuth** ni de Client ID à coller.
-5. (Optionnel) Installer le plugin **StreamDock** Discord fourni avec Crimsons, puis **redémarrer Stream Dock**.
+5. (Optionnel) Installer le plugin **StreamDock** Discord depuis le catalogue, puis **redémarrer Stream Dock**.
 
 ## StreamDock
 
-Pack de base après injection / installation plugins : **LoL + Spotify**.
+Crimsons ne livre **aucun** plugin. Catalogue : `plugins/catalog/` + store web (`store/`). Dev inject explicite :
 
 ```powershell
-.\scripts\inject_plugins.ps1                 # LoL + Spotify
-.\scripts\inject_plugins.ps1 -IncludeDiscord # + Discord
+.\scripts\inject_plugins.ps1 -Plugins com.laoy.streamdock.crimson.sdPlugin,com.laoy.streamdock.spotify.sdPlugin
+.\scripts\inject_plugins.ps1 -Plugins com.laoy.streamdock.discord.sdPlugin
 ```
 
 Puis redémarrer Stream Dock. Les plugins récupèrent un jeton frais via `http://127.0.0.1:40510/local/ws-token` après un redémarrage du serveur Crimsons.

@@ -311,7 +311,7 @@ export default function OnboardingModal({
                             Lancez League of Legends : Crimsons se connecte automatiquement. Après un achat Premium, utilisez « Actualiser le statut » dans Paramètres — aucune réinstallation.
                         </p>
                         <p className="text-[10px] text-white/30 max-w-sm leading-relaxed mb-10 uppercase tracking-wider font-semibold">
-                            StreamDock : installez les plugins Crimsons (LoL + Spotify) fournis avec l’app, puis redémarrez Stream Dock.
+                            StreamDock : installez les plugins depuis le catalogue Crimsons (aucun pack n’est fourni avec l’app), puis redémarrez Stream Dock.
                         </p>
                         <button 
                             onClick={handleNext}
