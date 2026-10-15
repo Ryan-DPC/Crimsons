@@ -95,23 +95,20 @@ Premium global (`profiles.is_premium`) peut mapper à un lot d’entitlements (e
 
 ## Migration depuis l’état actuel
 
-Aujourd’hui : packs dans `plugins/streamdeck/`, injectés par `scripts/inject_plugins.ps1` (LoL + Spotify par défaut, Discord via `-IncludeDiscord`).
+**Fait (2026-10-15) :**
 
-Cible :
+1. Tous les `.sdPlugin` sous `plugins/catalog/` (plus de pack de base / `optional/`).
+2. `plugins/catalog/catalog.json` + catégories d’usage (streamdeck, jeu, utilitaire, …).
+3. Store web `store/` avec API locale `/api/catalog` (+ client Supabase prêt).
+4. Migration SQL `supabase/migrations/20261015060000_plugin_catalog.sql`.
+5. `inject_plugins.ps1` exige `-Plugins` (plus de défaut LoL+Spotify).
 
-1. Sortir **tous** les `.sdPlugin` du parcours install Crimsons (y compris LoL / Spotify).
-2. Publier chaque pack comme artefact versionné sur Storage + ligne `plugin_catalog`.
-3. Remplacer l’inject utilisateur par « Installer depuis le store » (dev : garder `inject_plugins.ps1` pour itérer sans CDN).
-4. Stubs Hue / Twitch (`plugins/streamdeck/optional/`) deviennent de vraies fiches catalogue quand prêts.
-5. Mettre à jour le guide utilisateur : plus de PowerShell pour l’utilisateur final.
+**Reste :**
 
-Ordre de livraison suggéré :
-
-1. Schéma Supabase + Storage + API download signée.
+1. Restaurer le projet Supabase INACTIVE + appliquer la migration + Storage download signé.
 2. Sidecar : `INSTALL_PLUGIN` / `UNINSTALL_PLUGIN` / `LIST_INSTALLED`.
-3. Hub : liste catalogue + boutons install (consomme l’API).
-4. Site web catalogue public (même API) + deep-links.
-5. Vider le pack de base de l’installeur Crimsons.
+3. Hub : boutons install (consomme l’API) + deep-links `crimsons://…`.
+4. Guide utilisateur final sans PowerShell.
 
 ---
 
@@ -126,5 +123,6 @@ Ordre de livraison suggéré :
 ## Références
 
 - Vision produit : [`crimson/PROJECT_CRIMSONS.md`](../crimson/PROJECT_CRIMSONS.md)
-- Plugins optionnels actuels : [`plugins/streamdeck/optional/README.md`](../plugins/streamdeck/optional/README.md)
+- Catalogue : [`plugins/catalog/README.md`](../plugins/catalog/README.md)
+- Store web : [`store/README.md`](../store/README.md)
 - Tracker : [`ETAT_DES_LIEUX.md`](../ETAT_DES_LIEUX.md) §4

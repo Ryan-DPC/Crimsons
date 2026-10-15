@@ -13,11 +13,14 @@ Les chemins monorepo ci-dessous remplacent l’ancienne référence au lecteur `
 
 ## Pack plugins (produit)
 
-| Niveau | Plugins StreamDock |
-| --- | --- |
-| **Base (injectés par défaut)** | LoL (`com.laoy.streamdock.crimson` — UUID frozen) + Spotify |
-| **Optionnel maintenu** | Discord (`-IncludeDiscord`) — Premium |
-| **Externes futurs** | Hue, Twitch, etc. sous `plugins/streamdeck/optional/` — téléchargeables plus tard (gratuits ou payants, communauté) |
+Aucun pack embarqué dans Crimsons. Source : `plugins/catalog/` + store web (`store/`).
+
+| Plugin | Catégories | Statut |
+| --- | --- | --- |
+| LoL (`com.laoy.streamdock.crimson`) | StreamDock, Jeu | Publié · gratuit |
+| Spotify | StreamDock, Médias, Utilitaire | Publié · Premium |
+| Discord | StreamDock, Communication, Utilitaire | Publié · Premium |
+| Hue / Twitch | StreamDock + smart-home / streaming | Bientôt (stubs catalogue) |
 
 ---
 
@@ -45,15 +48,14 @@ Les chemins monorepo ci-dessous remplacent l’ancienne référence au lecteur `
 * Code mort `core/` retiré du plugin Discord.
 * **IPC :** handshake attend `READY`, frames lues correctement, subscribe `VOICE_SETTINGS_UPDATE_2` (format `evt` racine), mute/deaf via `SET_VOICE_SETTINGS_2`, broadcast `DISCORD_STATE` immédiat + heartbeat UI.
 * Hub Settings : bandeau « Détection Automatique (IPC) » retiré.
-* **Non injecté par défaut** — `.\scripts\inject_plugins.ps1 -IncludeDiscord`.
+* Install catalogue : `.\scripts\inject_plugins.ps1 -Plugins com.laoy.streamdock.discord.sdPlugin`.
 * **Limite :** savoir si on est « en vocal » (`in_voice` / salon) peut exiger le scope OAuth `rpc` côté app Discord ; mute/deaf locaux marchent en IPC (`rpc.local`).
 
 ### Identité AppData
 * Canonique : **`com.laoy.crimsons`** (+ migration au démarrage).
 
 ### Hue / Twitch
-* Plus dans le hub Settings ni dans l’injection de base.
-* Stubs déplacés vers `plugins/streamdeck/optional/` pour un futur catalogue externe (Premium / communauté).
+* Plus dans le hub Settings ; stubs sous `plugins/catalog/` listés dans le store (coming_soon).
 * Serveur : stubs `FEATURE_UNAVAILABLE` conservés pour un éventuel branchement API.
 
 ### CI + doc
@@ -78,7 +80,8 @@ Les chemins monorepo ci-dessous remplacent l’ancienne référence au lecteur `
 
 ### 4. Catalogue plugins (hors Crimsons)
 * **Décidé** : store **web** + **API HTTPS** (Supabase) ; install via sidecar ; Crimsons sans pack de base. Voir [`docs/ADR_PLUGIN_STORE.md`](docs/ADR_PLUGIN_STORE.md).
-* Pas encore d’implémentation (schéma, download signé, `INSTALL_PLUGIN`, site).
+* **Fait** : `plugins/catalog/` (tous les packs), `catalog.json` + catégories, store web `store/` (`/api/catalog`), migration `20261015060000_plugin_catalog.sql`.
+* **Reste** : projet Supabase actuellement INACTIVE (appliquer la migration après restore), download signé, `INSTALL_PLUGIN` sidecar, deep-links.
 * Décisions freemium vs payant **par plugin** encore à trancher avec la communauté.
 
 ### 5. Discord Client ID

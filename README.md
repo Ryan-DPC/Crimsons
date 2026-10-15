@@ -1,6 +1,6 @@
 # CRIMSONS
 
-Assistant de bureau pour joueurs : League of Legends (draft / auto-accept / pick-ban), Spotify, et contrôle Stream Deck / StreamDock — le tout dans une app Windows native. Discord et d’autres intégrations arrivent en plugins optionnels / externes.
+Assistant de bureau pour joueurs : League of Legends (draft / auto-accept / pick-ban), Spotify, et contrôle Stream Deck / StreamDock — le tout dans une app Windows native. Les plugins StreamDock sont **hors** de Crimsons : catalogue web + API.
 
 Version actuelle : **3.1.4**.
 
@@ -15,16 +15,22 @@ Version actuelle : **3.1.4**.
                      ┌──────────────────────────────────────────┼──────────┐
                      ▼                                          ▼          ▼
               LCU (LoL client)                              Spotify     StreamDock plugins
-                                                                          (plugins/)
+                                                                          (catalogue)
+┌─────────────────────────┐     HTTPS /api ou Supabase   ┌──────────────────┐
+│  store/ (web catalogue) │ ◄───────────────────────────► │  plugin_catalog  │
+└─────────────────────────┘                               └──────────────────┘
 ```
 
 | Pièce | Rôle |
 | --- | --- |
-| `crimson/` | App Tauri 2 : UI React, commandes natives, lance le sidecar |
+| `crimson/` | App Tauri 2 : UI React, commandes natives, lance le sidecar — **aucun** `.sdPlugin` embarqué |
 | `server/` (crate `crimson-server`, binary `crimsons-server`) | Sidecar : WebSocket local, intégrations, bridge StreamDock |
 | `crimson/src-tauri/crates/lcu_commands` | Logique LCU / draft partagée |
-| `plugins/streamdeck/` | Packs StreamDock (transition) — **cible : aucun plugin dans Crimsons** ; catalogue web + API ([`docs/ADR_PLUGIN_STORE.md`](docs/ADR_PLUGIN_STORE.md)). |
-| `plugins/streamdeck/optional/` | Stubs / futurs plugins catalogue (Hue, Twitch, …) |
+| `plugins/catalog/` | Tous les packs StreamDock + `catalog.json` (catégories d’usage) |
+| `store/` | App web catalogue — listing + API locale `/api/catalog` |
+| Supabase | Auth / premium + tables `plugin_catalog` / `plugin_categories` ([migration](supabase/migrations/20261015060000_plugin_catalog.sql)) |
+
+Décision architecture : [`docs/ADR_PLUGIN_STORE.md`](docs/ADR_PLUGIN_STORE.md).
 
 Auth / droits premium : Supabase (client + vérif côté serveur).
 
@@ -49,17 +55,28 @@ The frontend folder `crimson/` and the Rust crate `crimson-server` stay as-is to
 
 ## Utilisateur final
 
-Voir [`docs/GUIDE_UTILISATEUR.md`](docs/GUIDE_UTILISATEUR.md) : connexion sans Premium, LoL automatique, setup unique Spotify / Discord, Actualiser après achat Premium, injection StreamDock.
+Voir [`docs/GUIDE_UTILISATEUR.md`](docs/GUIDE_UTILISATEUR.md) : connexion sans Premium, LoL automatique, setup unique Spotify / Discord, Actualiser après achat Premium, installation plugins via catalogue.
 
-## Plugins StreamDock
+## Plugins (catalogue)
 
-**Cible produit :** Crimsons sans plugins embarqués. Catalogue = **site web** + **API HTTPS** ; install = sidecar. Détail : [`docs/ADR_PLUGIN_STORE.md`](docs/ADR_PLUGIN_STORE.md).
+Aucun pack de base dans Crimsons. Listing : [`plugins/catalog/catalog.json`](plugins/catalog/catalog.json) + store web.
 
-| Pack (état actuel / transition) | Contenu |
-| --- | --- |
-| **Dev inject** (`inject_plugins.ps1`) | LoL + Spotify par défaut |
-| **Optionnel** | Discord — `.\scripts\inject_plugins.ps1 -IncludeDiscord` (Premium) |
-| **Catalogue** | Tous les packs (LoL, Spotify, Discord, Hue, Twitch, …) téléchargeables via API ; gratuits ou payants selon le store |
+| Plugin | Catégories | Statut | Tarif |
+| --- | --- | --- | --- |
+| League of Legends | StreamDock, Jeu | Publié | Gratuit |
+| Spotify | StreamDock, Médias, Utilitaire | Publié | Premium |
+| Discord | StreamDock, Communication, Utilitaire | Publié | Premium |
+| Philips Hue | StreamDock, Maison connectée, Utilitaire | Bientôt | TBD |
+| Twitch | StreamDock, Streaming, Communication | Bientôt | TBD |
+
+```powershell
+# Dev seulement — pas de défaut : lister les packages
+.\scripts\inject_plugins.ps1 -Plugins com.laoy.streamdock.crimson.sdPlugin,com.laoy.streamdock.spotify.sdPlugin
+```
+
+```bash
+cd store && npm install && npm run dev   # http://localhost:5174 — GET /api/catalog
+```
 
 ## App native vs localhost (important)
 
@@ -85,19 +102,17 @@ npm run dev
 # App complète fenêtre native + Vite (toujours DEV : l’UI passe par localhost:5173)
 cd crimson
 npm run tauri dev
+
+# Catalogue web
+cd store
+npm install
+npm run dev
 ```
 
 Build release local (sidecar + bundle Tauri) — produit l’exe avec UI embarquée :
 
 ```powershell
 .\scripts\build_release.ps1
-```
-
-Injecter / synchroniser les plugins StreamDock après modification :
-
-```powershell
-.\scripts\inject_plugins.ps1                 # LoL + Spotify
-.\scripts\inject_plugins.ps1 -IncludeDiscord # + Discord
 ```
 
 ## Variables d'environnement
@@ -111,6 +126,8 @@ Créer `crimson/.env` (non versionné) :
 | `CRIMSON_STRICT_AUTH` | Si `1`, le sidecar refuse les connexions WS sans jeton local (sinon log seulement) |
 
 Sans `VITE_SUPABASE_*`, le client peut afficher un écran noir (voir le workflow Release).
+
+`store/.env` (optionnel) : mêmes clés pour lire `plugin_catalog` une fois la migration appliquée.
 
 ## CI & release
 

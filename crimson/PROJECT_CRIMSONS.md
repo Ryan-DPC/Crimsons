@@ -36,11 +36,12 @@ Crimsons fonctionne sur un modèle **Freemium**. L'assistance de base pour Leagu
 - Installation = **sidecar** Crimsons (écriture disque StreamDock) via Hub ou deep-link `crimsons://…`.
 - Pas de 2ᵉ app desktop « store ».
 
-| Plugin | Statut (transition) |
-| --- | --- |
-| **LoL, Spotify** | Encore dans le repo + `inject_plugins.ps1` (dev) ; cibles catalogue, plus pack installateur. |
-| **Discord** | Optionnel maintenu (Premium) — même chemin catalogue. |
-| **Twitch, Hue, …** | Stubs → fiches catalogue quand prêts (gratuits ou payants, communauté). |
+| Plugin | Catégories | Statut |
+| --- | --- | --- |
+| **LoL** | StreamDock, Jeu | Catalogue · gratuit |
+| **Spotify** | StreamDock, Médias, Utilitaire | Catalogue · Premium |
+| **Discord** | StreamDock, Communication, Utilitaire | Catalogue · Premium |
+| **Twitch, Hue, …** | Streaming / smart-home | Catalogue · bientôt |
 
 ---
 
@@ -53,7 +54,7 @@ Crimsons fonctionne sur un modèle **Freemium**. L'assistance de base pour Leagu
 ---
 
 ## Prochaines Étapes
-1. Implémenter le schéma / API catalogue (ADR) + install sidecar.
-2. Site web catalogue public + deep-links ; vider le pack de base de l’installeur.
+1. Restaurer Supabase + appliquer `plugin_catalog` ; download signé + `INSTALL_PLUGIN` sidecar.
+2. Deep-links store → Crimsons ; polish store web.
 3. Trancher le modèle payant vs gratuit par plugin avec la communauté.
 4. Continuer le polish UI et les intégrations optionnelles (Discord Rich Presence, etc.).

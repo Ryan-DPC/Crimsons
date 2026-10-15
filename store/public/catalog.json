@@ -1,0 +1,128 @@
+{
+  "version": 1,
+  "updatedAt": "2026-10-15",
+  "categories": [
+    {
+      "id": "streamdeck",
+      "label": "StreamDock",
+      "description": "Pack installable dans Stream Dock / StreamDeck (boutons physiques)."
+    },
+    {
+      "id": "game",
+      "label": "Jeu",
+      "description": "Automatisation et infos liées à un jeu (LCU, draft, live)."
+    },
+    {
+      "id": "utility",
+      "label": "Utilitaire",
+      "description": "Outils transverses hors jeu (raccourcis, automatisations)."
+    },
+    {
+      "id": "media",
+      "label": "Médias",
+      "description": "Lecture audio / vidéo et contrôles associés."
+    },
+    {
+      "id": "communication",
+      "label": "Communication",
+      "description": "Voix, chat, présence (Discord, etc.)."
+    },
+    {
+      "id": "streaming",
+      "label": "Streaming",
+      "description": "Outils créateur / live (Twitch, ads, chat)."
+    },
+    {
+      "id": "smart-home",
+      "label": "Maison connectée",
+      "description": "Éclairage et périphériques domotiques."
+    }
+  ],
+  "plugins": [
+    {
+      "id": "league-of-legends",
+      "slug": "league-of-legends",
+      "name": "League of Legends",
+      "summary": "Auto-accept, pick/ban, stats et actions draft depuis StreamDock.",
+      "description": "Plugin StreamDock pour League of Legends via Crimsons : ready-check, pick/ban, champion, runes, dodge. Nécessite le client LoL et le sidecar Crimsons.",
+      "packageId": "com.laoy.streamdock.crimson.sdPlugin",
+      "packagePath": "com.laoy.streamdock.crimson.sdPlugin",
+      "version": "3.1.4",
+      "status": "published",
+      "pricing": "free",
+      "categories": ["streamdeck", "game"],
+      "surfaces": ["streamdock", "crimsons-hub"],
+      "requiresPremium": false,
+      "requiresCrimsons": true,
+      "icon": null
+    },
+    {
+      "id": "spotify",
+      "slug": "spotify",
+      "name": "Spotify",
+      "summary": "Contrôle de lecture Spotify (play/pause, volume, playlists) sur StreamDock.",
+      "description": "Plugin StreamDock Spotify branché sur le sidecar Crimsons. OAuth Spotify géré dans l’app Crimsons.",
+      "packageId": "com.laoy.streamdock.spotify.sdPlugin",
+      "packagePath": "com.laoy.streamdock.spotify.sdPlugin",
+      "version": "3.1.4",
+      "status": "published",
+      "pricing": "premium",
+      "categories": ["streamdeck", "media", "utility"],
+      "surfaces": ["streamdock", "crimsons-hub"],
+      "requiresPremium": true,
+      "requiresCrimsons": true,
+      "icon": null
+    },
+    {
+      "id": "discord",
+      "slug": "discord",
+      "name": "Discord",
+      "summary": "Mute, deafen et contrôles vocaux Discord depuis StreamDock.",
+      "description": "Plugin StreamDock Discord optionnel. L’intégration Discord IPC dans Crimsons fonctionne aussi sans ce pack deck.",
+      "packageId": "com.laoy.streamdock.discord.sdPlugin",
+      "packagePath": "com.laoy.streamdock.discord.sdPlugin",
+      "version": "1.1.0",
+      "status": "published",
+      "pricing": "premium",
+      "categories": ["streamdeck", "communication", "utility"],
+      "surfaces": ["streamdock", "crimsons-hub"],
+      "requiresPremium": true,
+      "requiresCrimsons": true,
+      "icon": null
+    },
+    {
+      "id": "philips-hue",
+      "slug": "philips-hue",
+      "name": "Philips Hue",
+      "summary": "Contrôle d’éclairage Hue depuis StreamDock (bientôt).",
+      "description": "Stub catalogue — scènes et toggle lumière. Non installable tant que le runtime n’est pas branché.",
+      "packageId": "com.laoy.streamdock.hue.sdPlugin",
+      "packagePath": "com.laoy.streamdock.hue.sdPlugin",
+      "version": "3.1.0",
+      "status": "coming_soon",
+      "pricing": "tbd",
+      "categories": ["streamdeck", "smart-home", "utility"],
+      "surfaces": ["streamdock"],
+      "requiresPremium": true,
+      "requiresCrimsons": true,
+      "icon": null
+    },
+    {
+      "id": "twitch",
+      "slug": "twitch",
+      "name": "Twitch",
+      "summary": "Chat, ads et viewers Twitch depuis StreamDock (bientôt).",
+      "description": "Stub catalogue — actions créateur Twitch. Non installable tant que le runtime n’est pas branché.",
+      "packageId": "com.laoy.streamdock.twitch.sdPlugin",
+      "packagePath": "com.laoy.streamdock.twitch.sdPlugin",
+      "version": "3.1.0",
+      "status": "coming_soon",
+      "pricing": "tbd",
+      "categories": ["streamdeck", "streaming", "communication"],
+      "surfaces": ["streamdock"],
+      "requiresPremium": true,
+      "requiresCrimsons": true,
+      "icon": null
+    }
+  ]
+}
