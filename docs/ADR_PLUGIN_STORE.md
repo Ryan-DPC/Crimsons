@@ -105,10 +105,12 @@ Premium global (`profiles.is_premium`) peut mapper à un lot d’entitlements (e
 
 **Reste :**
 
-1. Restaurer le projet Supabase INACTIVE + appliquer la migration + Storage download signé.
+1. Storage download signé des artefacts `.sdPlugin`.
 2. Sidecar : `INSTALL_PLUGIN` / `UNINSTALL_PLUGIN` / `LIST_INSTALLED`.
 3. Hub : boutons install (consomme l’API) + deep-links `crimsons://…`.
 4. Guide utilisateur final sans PowerShell.
+
+**Supabase (2026-10-15) :** projet Gaming restauré (`ACTIVE_HEALTHY`) ; migration `plugin_catalog` appliquée ; lecture publique anon vérifiée.
 
 ---
 

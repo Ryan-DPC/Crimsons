@@ -80,8 +80,8 @@ Aucun pack embarqué dans Crimsons. Source : `plugins/catalog/` + store web (`st
 
 ### 4. Catalogue plugins (hors Crimsons)
 * **Décidé** : store **web** + **API HTTPS** (Supabase) ; install via sidecar ; Crimsons sans pack de base. Voir [`docs/ADR_PLUGIN_STORE.md`](docs/ADR_PLUGIN_STORE.md).
-* **Fait** : `plugins/catalog/` (tous les packs), `catalog.json` + catégories, store web `store/` (`/api/catalog`), migration `20261015060000_plugin_catalog.sql`.
-* **Reste** : projet Supabase actuellement INACTIVE (appliquer la migration après restore), download signé, `INSTALL_PLUGIN` sidecar, deep-links.
+* **Fait** : `plugins/catalog/` (tous les packs), `catalog.json` + catégories, store web `store/` (`/api/catalog`), migration `plugin_catalog` **appliquée** sur projet Gaming (`plugin_catalog` ×5, `plugin_categories` ×7, REST anon OK).
+* **Reste** : download signé, `INSTALL_PLUGIN` sidecar, deep-links.
 * Décisions freemium vs payant **par plugin** encore à trancher avec la communauté.
 
 ### 5. Discord Client ID
