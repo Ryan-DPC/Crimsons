@@ -54,10 +54,24 @@ function normalizeCatalog(data: Record<string, unknown>, source: CatalogResponse
   }
 }
 
+async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<null>((resolve) => {
+        timer = setTimeout(() => resolve(null), ms)
+      }),
+    ])
+  } finally {
+    if (timer) clearTimeout(timer)
+  }
+}
+
 async function fromSupabase(): Promise<CatalogResponse | null> {
   if (!supabaseUrl || !supabaseAnonKey) return null
   const supabase = createClient(supabaseUrl, supabaseAnonKey)
-  const [cats, plugs] = await Promise.all([
+  const query = Promise.all([
     supabase.from('plugin_categories').select('id,label,description').order('id'),
     supabase
       .from('plugin_catalog')
@@ -65,18 +79,22 @@ async function fromSupabase(): Promise<CatalogResponse | null> {
         'id,slug,name,summary,description,package_id,version,status,pricing,categories,surfaces,requires_premium,requires_crimsons,icon_url,sort_order',
       )
       .order('sort_order'),
-  ])
-  if (cats.error || plugs.error) {
-    console.warn('[catalog] Supabase unavailable', cats.error ?? plugs.error)
-    return null
-  }
-  return {
-    version: 1,
-    updatedAt: new Date().toISOString().slice(0, 10),
-    categories: (cats.data ?? []) as PluginCategory[],
-    plugins: (plugs.data ?? []).map((row) => mapRow(row as Record<string, unknown>)),
-    source: 'supabase',
-  }
+  ]).then(([cats, plugs]) => {
+    if (cats.error || plugs.error) {
+      console.warn('[catalog] Supabase unavailable', cats.error ?? plugs.error)
+      return null
+    }
+    return {
+      version: 1,
+      updatedAt: new Date().toISOString().slice(0, 10),
+      categories: (cats.data ?? []) as PluginCategory[],
+      plugins: (plugs.data ?? []).map((row) => mapRow(row as Record<string, unknown>)),
+      source: 'supabase' as const,
+    }
+  })
+
+  // Projet pause / réseau lent : ne bloque pas le store local.
+  return withTimeout(query, 2000)
 }
 
 async function fromUrl(url: string, source: CatalogResponse['source']): Promise<CatalogResponse | null> {
@@ -90,12 +108,25 @@ async function fromUrl(url: string, source: CatalogResponse['source']): Promise<
   }
 }
 
-/** Liste catalogue : Supabase → API locale Vite → /catalog.json public. */
+/**
+ * Liste catalogue.
+ * En dev : API Vite d’abord (source de vérité repo), puis Supabase, puis /catalog.json.
+ * En prod : Supabase d’abord, puis /catalog.json embarqué.
+ */
 export async function fetchCatalog(): Promise<CatalogResponse> {
+  if (import.meta.env.DEV) {
+    const local = await fromUrl('/api/catalog', 'api')
+    if (local) return local
+  }
+
   const remote = await fromSupabase()
   if (remote) return remote
-  const local = await fromUrl('/api/catalog', 'api')
-  if (local) return local
+
+  if (!import.meta.env.DEV) {
+    const local = await fromUrl('/api/catalog', 'api')
+    if (local) return local
+  }
+
   const file = await fromUrl('/catalog.json', 'static')
   if (file) return file
   throw new Error('Catalogue introuvable (API, Supabase et /catalog.json).')
