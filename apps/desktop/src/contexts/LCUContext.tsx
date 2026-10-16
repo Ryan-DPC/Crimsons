@@ -575,7 +575,7 @@ export const LCUProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 await new Promise(resolve => setTimeout(resolve, delayMs));
                 try {
                     const b = await invoke<RuneBuild>('fetch_single_build', { 
-                        championName: cname, role: role, opponent: enemyMid || null, patch: v, index 
+                        championName: cname, championId: simMode ? 517 : myChamp, role: role, opponent: enemyMid || null, patch: v, index 
                     });
                     setBuilds(prev => {
                         const next = [...prev];

@@ -30,16 +30,38 @@ pub struct RuneBuild {
     pub counters: Option<Vec<CounterSuggestion>>,
 }
 
+async fn resolve_champion_id(name: &str) -> Option<u32> {
+    if let Ok(champs_str) = crate::lcu::lcu_request("GET".into(), "/lol-game-data/assets/v1/champions.json".into(), None).await {
+        if let Ok(val) = serde_json::from_str::<serde_json::Value>(&champs_str) {
+            if let Some(arr) = val.as_array() {
+                for c in arr {
+                    if let Some(c_name) = c["name"].as_str() {
+                        if c_name.to_lowercase() == name.to_lowercase() {
+                            return c["id"].as_u64().map(|id| id as u32);
+                        }
+                    }
+                    if let Some(alias) = c["alias"].as_str() {
+                        if alias.to_lowercase() == name.to_lowercase() {
+                            return c["id"].as_u64().map(|id| id as u32);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    None
+}
+
 #[tauri::command]
-pub async fn fetch_single_build(app: AppHandle, champion_name: String, role: String, opponent: Option<String>, patch: Option<String>, index: i32) -> Result<RuneBuild, String> {
+pub async fn fetch_single_build(app: AppHandle, champion_name: String, champion_id: Option<u32>, role: String, opponent: Option<String>, patch: Option<String>, index: i32) -> Result<RuneBuild, String> {
     let pool = app.state::<crate::db::DbPool>();
     let data = storage::load_data(&app);
     let key = data.gemini_api_key.unwrap_or_default();
     
-    fetch_single_build_standalone(&pool, key, champion_name, role, opponent, patch, index).await
+    fetch_single_build_standalone(&pool, key, champion_name, champion_id, role, opponent, patch, index).await
 }
 
-pub async fn fetch_single_build_standalone(pool: &crate::db::DbPool, api_key: String, champion_name: String, role: String, opponent: Option<String>, patch: Option<String>, index: i32) -> Result<RuneBuild, String> {
+pub async fn fetch_single_build_standalone(pool: &crate::db::DbPool, api_key: String, champion_name: String, champion_id: Option<u32>, role: String, opponent: Option<String>, patch: Option<String>, index: i32) -> Result<RuneBuild, String> {
     let normalized_role = match role.to_lowercase().as_str() {
         "top" => "top",
         "jungle" => "jungle",
@@ -86,25 +108,88 @@ pub async fn fetch_single_build_standalone(pool: &crate::db::DbPool, api_key: St
         }
     }
 
-    // 3. Fallback to Meta Presets
+    // 3. Fallback to LCU Client Recommended Runes
+    let resolved_id = match champion_id {
+        Some(id) => Some(id),
+        None => resolve_champion_id(&champion_name).await,
+    };
+
+    if let Some(id) = resolved_id {
+        println!("LCU Recommended Runes fallback triggered for champion ID {}", id);
+        #[derive(serde::Deserialize, Debug, Default)]
+        #[serde(rename_all = "camelCase")]
+        struct LcuRecommendedPage {
+            #[serde(default)]
+            name: String,
+            #[serde(default)]
+            primary_style_id: u32,
+            #[serde(default)]
+            sub_style_id: u32,
+            #[serde(default)]
+            selected_perk_ids: Vec<u32>,
+        }
+
+        if let Ok(lcu_res) = crate::lcu::lcu_request("GET".into(), format!("/lol-perks/v1/recommended-pages-by-champion/{}", id), None).await {
+            if let Ok(pages) = serde_json::from_str::<Vec<LcuRecommendedPage>>(&lcu_res) {
+                if !pages.is_empty() {
+                    let page_idx = (index as usize - 1).min(pages.len() - 1);
+                    let page = &pages[page_idx];
+                    let perk_ids = page.selected_perk_ids.iter().take(6).cloned().collect::<Vec<u32>>();
+                    let shards = page.selected_perk_ids.iter().skip(6).take(3).cloned().collect::<Vec<u32>>();
+                    let spells = match normalized_role {
+                        "jungle" => vec![4, 11],
+                        "support" => vec![4, 3],
+                        "adc" => vec![4, 7],
+                        _ => vec![4, 12],
+                    };
+                    let build_name = if page.name.is_empty() {
+                        format!("Recommandé {} (Client)", index)
+                    } else {
+                        format!("{} (Client)", page.name)
+                    };
+
+                    let build = RuneBuild {
+                        name: build_name,
+                        winrate: "Client LCU".to_string(),
+                        banrate: "--".to_string(),
+                        primary_style_id: page.primary_style_id,
+                        sub_style_id: page.sub_style_id,
+                        perk_ids,
+                        shards,
+                        spells,
+                        counters: None,
+                    };
+
+                    if index == 1 || index == 3 {
+                        if let Ok(serialized) = serde_json::to_string(&build) {
+                            let _ = crate::db::save_rune_cache(pool, &champion_name, &normalized_role, &current_patch, index, &serialized);
+                        }
+                    }
+                    return Ok(build);
+                }
+            }
+        }
+    }
+
+    // 4. Fallback to Meta Presets
     let presets = get_meta_presets(normalized_role);
     let fallback_idx = (index as usize - 1) % presets.len();
     Ok(presets[fallback_idx].clone())
 }
 
 #[tauri::command]
-pub async fn fetch_dynamic_runes(app: AppHandle, champion_name: String, role: String, opponent: Option<String>, patch: Option<String>) -> Result<Vec<RuneBuild>, String> {
+pub async fn fetch_dynamic_runes(app: AppHandle, champion_name: String, champion_id: Option<u32>, role: String, opponent: Option<String>, patch: Option<String>) -> Result<Vec<RuneBuild>, String> {
     let pool = app.state::<crate::db::DbPool>();
     let data = storage::load_data(&app);
     let key = data.gemini_api_key.unwrap_or_default();
     
-    fetch_dynamic_runes_standalone(&pool, key, champion_name, role, opponent, patch).await
+    fetch_dynamic_runes_standalone(&pool, key, champion_name, champion_id, role, opponent, patch).await
 }
 
-pub async fn fetch_dynamic_runes_standalone(pool: &crate::db::DbPool, api_key: String, champion_name: String, role: String, opponent: Option<String>, patch: Option<String>) -> Result<Vec<RuneBuild>, String> {
+pub async fn fetch_dynamic_runes_standalone(pool: &crate::db::DbPool, api_key: String, champion_name: String, champion_id: Option<u32>, role: String, opponent: Option<String>, patch: Option<String>) -> Result<Vec<RuneBuild>, String> {
     let mut builds = Vec::new();
     for i in 1..=3 {
-        if let Ok(b) = fetch_single_build_standalone(pool, api_key.clone(), champion_name.clone(), role.clone(), opponent.clone(), patch.clone(), i).await {
+        if let Ok(b) = fetch_single_build_standalone(pool, api_key.clone(), champion_name.clone(), champion_id, role.clone(), opponent.clone(), patch.clone(), i).await {
             builds.push(b);
         }
     }
@@ -231,7 +316,7 @@ async fn fetch_gemini_single(api_key: &str, champion: &str, role: &str, opponent
         .timeout(std::time::Duration::from_secs(30)) // Lowered timeout for single build
         .build()
         .map_err(|e| e.to_string())?;
-    let url = format!("https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key={}", api_key);
+    let url = format!("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={}", api_key);
     
     // Mask key for logging
     let masked_key = if api_key.len() > 8 {
@@ -271,7 +356,7 @@ async fn fetch_gemini_single(api_key: &str, champion: &str, role: &str, opponent
         "contents": [{"parts": [{"text": prompt}]}]
     });
 
-    println!("Sending Gemini 3 Flash request for '{}' (key: {})...", build_type, masked_key);
+    println!("Sending Gemini 2.0 Flash request for '{}' (key: {})...", build_type, masked_key);
 
     let res: Value = client.post(&url)
         .header("Content-Type", "application/json")
@@ -291,7 +376,7 @@ async fn fetch_gemini_single(api_key: &str, champion: &str, role: &str, opponent
     // Debug: success log
     if let Some(candidates) = res["candidates"].as_array() {
         if !candidates.is_empty() {
-             println!("🎉 Success: Gemini 3 Flash generated '{}' build", build_type);
+             println!("🎉 Success: Gemini 2.0 Flash generated '{}' build", build_type);
         }
     }
 

@@ -1,6 +1,6 @@
 class CrimsonAPI {
-    constructor() {
-        this.url = 'ws://127.0.0.1:40510';
+    constructor(port = 40510) {
+        this.url = `ws://127.0.0.1:${port}`;
         this.ws = null;
         this.onMessage = null;
         this.onStatusChange = null;
@@ -25,6 +25,7 @@ class CrimsonAPI {
 
         this.ws.onopen = () => {
             console.log("CrimsonAPI: Connected to Backend.");
+            if (this.onOpen) { this.onOpen(); }
             this.reconnectInterval = 1000; // Reset backoff on success
             this.attempts = 0;
             this.isConnected = true;
@@ -74,4 +75,9 @@ class CrimsonAPI {
         }
     }
 }
-const api = new CrimsonAPI();
+
+// Instantiate global API for all Crimson services (40510)
+const api = new CrimsonAPI(40510);
+// spotifyApi is aliased to api for backward compatibility
+const spotifyApi = api;
+

@@ -3,6 +3,7 @@ use reqwest::header::{AUTHORIZATION, CONTENT_TYPE};
 use std::time::{SystemTime, UNIX_EPOCH, Duration};
 use tokio::sync::RwLock;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU8, Ordering};
 use crate::events::WsSender;
 use serde_json::json;
 use sysinfo::{System, ProcessRefreshKind, RefreshKind};
@@ -84,6 +85,9 @@ impl SpotifyClient {
 pub struct SpotifyService {
     client: Arc<RwLock<SpotifyClient>>,
     sender: WsSender,
+    /// Local shuffle cycle: 0 = Off, 1 = Shuffle On, 2 = Smart Shuffle
+    /// Spotify API no longer exposes smart_shuffle so we track it ourselves.
+    shuffle_cycle: Arc<AtomicU8>,
 }
 
 impl SpotifyService {
@@ -157,11 +161,26 @@ impl SpotifyService {
         Self {
             client: Arc::new(RwLock::new(SpotifyClient::new())),
             sender,
+            shuffle_cycle: Arc::new(AtomicU8::new(0)),
         }
     }
 
     pub fn get_client(&self) -> Arc<RwLock<SpotifyClient>> {
         self.client.clone()
+    }
+
+    /// Returns 0=Off, 1=Shuffle, 2=SmartShuffle
+    pub fn get_shuffle_cycle(&self) -> u8 {
+        self.shuffle_cycle.load(Ordering::Relaxed)
+    }
+
+    /// Sync cycle from real Spotify state on startup (if shuffle is off, reset to 0)
+    pub fn sync_shuffle_from_api(&self, api_shuffle_state: bool) {
+        if !api_shuffle_state {
+            // If Spotify says shuffle is off, reset our local cycle to Off too
+            self.shuffle_cycle.store(0, Ordering::Relaxed);
+        }
+        // If shuffle is on, keep whatever local cycle we have (1 or 2)
     }
 
     pub fn subscribe_events(&self) -> tokio::sync::broadcast::Receiver<String> {
@@ -279,7 +298,7 @@ impl SpotifyService {
     pub async fn start_background_polling(&self) {
         let self_access_token = self.client.clone();
         let self_sender = self.sender.clone();
-        let self_arc = Arc::new(Self { client: self.client.clone(), sender: self.sender.clone() });
+        let self_arc = Arc::new(Self { client: self.client.clone(), sender: self.sender.clone(), shuffle_cycle: self.shuffle_cycle.clone() });
 
         tokio::spawn(async move {
             let mut last_state: Option<SpotifyState> = None;
@@ -511,7 +530,8 @@ impl SpotifyService {
             has_token: true,
             volume_percent: json["device"]["volume_percent"].as_u64().unwrap_or(50) as u32,
             shuffle_state: json["shuffle_state"].as_bool().unwrap_or(false),
-            smart_shuffle: json["smart_shuffle"].as_bool().unwrap_or(false),
+            // smart_shuffle is no longer in Spotify API - derive from local cycle state
+            smart_shuffle: false, // will be overridden after struct creation
             repeat_state: json["repeat_state"].as_str().unwrap_or("off").to_string(),
             track_uri: track["uri"].as_str().unwrap_or("").to_string(),
             track_id: track["id"].as_str().unwrap_or("").to_string(),
@@ -742,18 +762,15 @@ impl SpotifyService {
                 "POST"
             },
             "shuffle" => {
-                let playback = Self::fetch_current_playback(&token).await.unwrap_or_default();
-                let current_shuffle = playback.shuffle_state;
-                let current_smart = playback.smart_shuffle;
-                
-                if !current_shuffle && !current_smart {
-                    // Off -> On
-                    url = format!("https://api.spotify.com/v1/me/player/shuffle?state=true");
-                } else if current_shuffle && !current_smart {
-                    // On -> Smart (API might not natively support it, but we try sending true again)
+                // Simple 2-state toggle: Off (0) <-> Shuffle On (1)
+                // Note: Smart Shuffle cannot be activated via Spotify's public Web API.
+                let current_cycle = self.shuffle_cycle.load(Ordering::Relaxed);
+                let next_cycle = if current_cycle == 0 { 1 } else { 0 };
+                self.shuffle_cycle.store(next_cycle, Ordering::Relaxed);
+
+                if next_cycle == 1 {
                     url = format!("https://api.spotify.com/v1/me/player/shuffle?state=true");
                 } else {
-                    // Smart -> Off
                     url = format!("https://api.spotify.com/v1/me/player/shuffle?state=false");
                 }
                 "PUT"
@@ -952,7 +969,7 @@ impl SpotifyService {
                 let s_clone_acc = acc.to_string();
                 let s_arc = self.client.clone();
                 let sender = self.sender.clone();
-                let self_arc = Arc::new(Self { client: s_arc, sender });
+                let self_arc = Arc::new(Self { client: s_arc, sender, shuffle_cycle: self.shuffle_cycle.clone() });
 
                 tokio::spawn(async move {
                     let _ = self_arc.fetch_user_profile().await;

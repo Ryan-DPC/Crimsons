@@ -149,6 +149,10 @@ pub async fn start_streamdock_client(
                     }
 
                     if !last_base64_jpeg.is_empty() {
+                        let api_shuffle = data["shuffle_state"].as_bool().unwrap_or(false);
+                        // Sync: if Spotify says shuffle is off, reset our local cycle
+                        spotify_poll.sync_shuffle_from_api(api_shuffle);
+                        let shuffle_cycle = spotify_poll.get_shuffle_cycle();
                         let mut rs = render_state_poll.lock().await;
                         *rs = Some(RenderState {
                             album_jpeg: last_base64_jpeg.clone(),
@@ -158,8 +162,8 @@ pub async fn start_streamdock_client(
                             polled_at: std::time::Instant::now(),
                             track_name: data["track_name"].as_str().unwrap_or("Spotify").to_string(),
                             scroll_counter,
-                            shuffle_state: data["shuffle_state"].as_bool().unwrap_or(false),
-                            smart_shuffle: data["smart_shuffle"].as_bool().unwrap_or(false),
+                            shuffle_state: shuffle_cycle >= 1,
+                            smart_shuffle: shuffle_cycle == 2,
                         });
                     }
 
@@ -434,7 +438,7 @@ pub async fn start_streamdock_client(
                         *top_track_img_cache_top.lock().await = Some(img.clone());
                         let active_ctx = contexts_top.lock().await.clone();
                         for (ctx, action_name) in &active_ctx {
-                            if action_name.ends_with("info_toptrack") {
+                            if action_name.ends_with("songinfo") {
                                 let msg = json!({ "event": "setImage", "context": ctx, "payload": { "image": &img, "target": 0 }}).to_string();
                                 let _ = tx_ws_top.send(msg).await;
                             }
@@ -520,7 +524,7 @@ pub async fn start_streamdock_client(
                             last_sent_image_per_ctx.insert(ctx.clone(), img.clone());
                         }
                     }
-                } else if action_name.ends_with("info_title") || action_name.ends_with(".info") {
+                } else if action_name.ends_with("songinfo") || action_name.ends_with(".info") {
                     if tick_marquee_image.is_none() {
                         tick_marquee_image = Some(compose_marquee_image(&s.track_name, s.scroll_counter));
                     }
@@ -532,11 +536,10 @@ pub async fn start_streamdock_client(
                         }
                     }
                 } else if action_name.ends_with("shuffle") || action_name.ends_with(".shuffle") {
-                    // MiraBox shuffle might not support 3 states via setState, so we use setImage for the icon
-                    let state_idx = if s.smart_shuffle { 2 } else if s.shuffle_state { 1 } else { 0 };
+                    let state_idx = if s.shuffle_state { 1 } else { 0 };
                     
                     if is_spotify {
-                        let icon_name = if s.smart_shuffle { "btn_spotify_144_smart_shuffle.png" } else if s.shuffle_state { "btn_spotify_144_shuffle.png" } else { "btn_spotify_144_shuffle_off.png" };
+                        let icon_name = if s.shuffle_state { "btn_spotify_144_shuffle.png" } else { "btn_spotify_144_shuffle_off.png" };
                         
                         let b64 = if let Some(cached) = shuffle_icons_cache.get(icon_name) {
                             Some(cached.clone())
@@ -737,7 +740,7 @@ pub async fn process_streamdeck_event(
                         STANDARD.decode(b64_img).ok()
                     } else { None };
                     let _ = tx_hardware.send(json!({ "event": "setImage", "context": context, "payload": { "image": compose_info_image(art, art_bytes.as_deref()), "target": 0 }}).to_string()).await;
-                } else if action.ends_with("info_title") {
+                } else if action.ends_with("songinfo") {
                     let t = last["track_name"].as_str().unwrap_or("");
                     let _ = tx_hardware.send(json!({ "event": "setImage", "context": context, "payload": { "image": compose_marquee_image(t, 0), "target": 0 }}).to_string()).await;
                 }
@@ -1057,10 +1060,20 @@ pub async fn process_streamdeck_event(
             _ => ""
         };
         if !ep.is_empty() {
-            if action.contains("discord") { let _ = discord.handle_command(ep, Some(value.clone())).await; }
-            else if action.contains("hue") { let _ = hue.handle_command(ep, Some(value.clone())).await; }
-            else if action.contains("twitch") { let _ = twitch.handle_command(ep, Some(value.clone())).await; }
-            else { let _ = spotify.handle_command(ep, Some(value.clone())).await; }
+            let spotify_c = spotify.clone();
+            let discord_c = discord.clone();
+            let hue_c = hue.clone();
+            let twitch_c = twitch.clone();
+            let ep_c = ep.to_string();
+            let value_c = value.clone();
+            let action_c = action.clone();
+
+            tokio::spawn(async move {
+                if action_c.contains("discord") { let _ = discord_c.handle_command(&ep_c, Some(value_c)).await; }
+                else if action_c.contains("hue") { let _ = hue_c.handle_command(&ep_c, Some(value_c)).await; }
+                else if action_c.contains("twitch") { let _ = twitch_c.handle_command(&ep_c, Some(value_c)).await; }
+                else { let _ = spotify_c.handle_command(&ep_c, Some(value_c)).await; }
+            });
         }
     }
 }

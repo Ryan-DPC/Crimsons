@@ -190,34 +190,35 @@ async fn handle_connection(
                                     if value["type"] == "SPOTIFY_COMMAND" {
                                         if let Some(endpoint) = value["endpoint"].as_str() {
                                             let mut command_val = value.clone();
+                                            let spotify_c = spotify.clone();
+                                            let endpoint_c = endpoint.to_string();
                                             
-                                            // Fallback to persisted settings if payload is empty (v1.1.5)
-                                            if let Some(ctx) = command_val["context"].as_str() {
-                                                let mut payload = command_val["payload"].clone();
-                                                if payload["playlist"].is_null() && payload["uri"].is_null() {
-                                                    for bridge in crate::streamdock::ACTIVE_BRIDGES.iter() {
-                                                        let settings_lock = bridge.settings_per_ctx.lock().await;
-                                                        if let Some(s) = settings_lock.get(ctx) {
-                                                            crate::storage::log_to_file("streamdock.log", &format!("[SD CMD] Falling back to persisted settings for context {}", ctx));
-                                                            payload = s.clone();
+                                            tokio::spawn(async move {
+                                                // Fallback to persisted settings if payload is empty (v1.1.5)
+                                                if let Some(ctx) = command_val["context"].as_str() {
+                                                    let mut payload = command_val["payload"].clone();
+                                                    if payload["playlist"].is_null() && payload["uri"].is_null() {
+                                                        for bridge in crate::streamdock::ACTIVE_BRIDGES.iter() {
+                                                            let settings_lock = bridge.settings_per_ctx.lock().await;
+                                                            if let Some(s) = settings_lock.get(ctx) {
+                                                                payload = s.clone();
+                                                            }
                                                         }
                                                     }
-                                                }
-                                                
-                                                if endpoint == "play" {
-                                                    if let Some(uri) = payload["playlist"].as_str().or(payload["uri"].as_str()) {
-                                                         let mut p = payload.clone();
-                                                         p["context_uri"] = json!(uri);
-                                                         let _ = spotify.handle_command(endpoint, Some(p)).await;
+                                                    
+                                                    if endpoint_c == "play" {
+                                                        if let Some(uri) = payload["playlist"].as_str().or(payload["uri"].as_str()) {
+                                                             let mut p = payload.clone();
+                                                             p["context_uri"] = json!(uri);
+                                                             let _ = spotify_c.handle_command(&endpoint_c, Some(p)).await;
+                                                        }
                                                     } else {
-                                                         crate::storage::log_to_file("streamdock.log", "[SD ERROR] Play command missing playlist/uri");
+                                                        let _ = spotify_c.handle_command(&endpoint_c, Some(payload)).await;
                                                     }
                                                 } else {
-                                                    let _ = spotify.handle_command(endpoint, Some(payload)).await;
+                                                    let _ = spotify_c.handle_command(&endpoint_c, Some(command_val)).await;
                                                 }
-                                            } else {
-                                                let _ = spotify.handle_command(endpoint, Some(command_val.clone())).await;
-                                            }
+                                            });
                                         }
                                         continue;
                                     }

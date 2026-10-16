@@ -1,40 +1,0 @@
-
--------------------------------------------------------------------------------
-   ROBOCOPY     ::     Robust File Copy for Windows                              
--------------------------------------------------------------------------------
-
-  Started : Saturday, April 11, 2026 9:32:53 PM
-   Source : c:\Users\Chino\Documents\Crimson\plugins\streamdeck\com.laoy.streamdock.crimson.sdPlugin\
-     Dest : C:\Users\Chino\AppData\Roaming\HotSpot\StreamDock\plugins\com.laoy.streamdock.crimson.sdPlugin\
-
-    Files : *.*
-	    
-  Options : *.* /V /S /E /DCOPY:DA /COPY:DAT /Z /ETA /MT:8 /R:5 /W:5 
-
-------------------------------------------------------------------------------
-
-	    New File  		    1342	c:\Users\Chino\Documents\Crimson\plugins\streamdeck\com.laoy.streamdock.crimson.sdPlugin\manifest.json  0%  100%  
-	    New File  		    6340	c:\Users\Chino\Documents\Crimson\plugins\streamdeck\com.laoy.streamdock.crimson.sdPlugin\plugin\app.js100%  
-	    New File  		    1698	c:\Users\Chino\Documents\Crimson\plugins\streamdeck\com.laoy.streamdock.crimson.sdPlugin\plugin\crimson_ws.js100%  
-	    New File  		     256	c:\Users\Chino\Documents\Crimson\plugins\streamdeck\com.laoy.streamdock.crimson.sdPlugin\plugin\index.html100%  
-	    New File  		    1082	c:\Users\Chino\Documents\Crimson\plugins\streamdeck\com.laoy.streamdock.crimson.sdPlugin\plugin\streamdeck_ui.js100%  
-	    New File  		  637103	c:\Users\Chino\Documents\Crimson\plugins\streamdeck\com.laoy.streamdock.crimson.sdPlugin\static\icon\accept.png100%  
-	    New File  		  691256	c:\Users\Chino\Documents\Crimson\plugins\streamdeck\com.laoy.streamdock.crimson.sdPlugin\static\icon\autoban.png100%  
-	    New File  		  632958	c:\Users\Chino\Documents\Crimson\plugins\streamdeck\com.laoy.streamdock.crimson.sdPlugin\static\icon\autopick.png100%  
-	    New File  		  615349	c:\Users\Chino\Documents\Crimson\plugins\streamdeck\com.laoy.streamdock.crimson.sdPlugin\static\icon\dodge.png100%  
-	    New File  		  594210	c:\Users\Chino\Documents\Crimson\plugins\streamdeck\com.laoy.streamdock.crimson.sdPlugin\static\icon\inject.png100%  
-	    New File  		  548440	c:\Users\Chino\Documents\Crimson\plugins\streamdeck\com.laoy.streamdock.crimson.sdPlugin\static\icon\stats.png100%  
-
-------------------------------------------------------------------------------
-
-               Total    Copied   Skipped  Mismatch    FAILED    Extras
-    Dirs :         4         4         0         0         0         0
-   Files :        11        11         0         0         0         0
-   Bytes :    3.55 m    3.55 m         0         0         0         0
-   Times :   0:00:00   0:00:00                       0:00:00   0:00:00
-
-
-   Speed :           1,865,017,000 Bytes/sec.
-   Speed :             106,717.125 MegaBytes/min.
-   Ended : Saturday, April 11, 2026 9:32:53 PM
-

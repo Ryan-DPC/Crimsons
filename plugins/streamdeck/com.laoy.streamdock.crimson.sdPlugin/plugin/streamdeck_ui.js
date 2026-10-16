@@ -8,26 +8,43 @@ class StreamDeckUI {
     }
 
     setState(context, state) {
-        if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-            this.socket.send(JSON.stringify({ 
-                "event": "setState", "context": context, "payload": { "state": state } 
-            }));
-        }
+        this.send({ 
+            "event": "setState", "context": context, "payload": { "state": state } 
+        });
     }
 
     setTitle(context, title) {
-        if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-            this.socket.send(JSON.stringify({ 
-                "event": "setTitle", "context": context, "payload": { "title": title, "target": 0 } 
-            }));
-        }
+        this.send({ 
+            "event": "setTitle", "context": context, "payload": { "title": title, "target": 0 } 
+        });
     }
 
     setPayload(context, title, value, image) {
+        this.send({ 
+            "event": "setPayload", "context": context, "payload": { "title": title, "value": value, "image": image } 
+        });
+    }
+
+    setImage(context, image) {
+        this.send({ 
+            "event": "setImage", "context": context, "payload": { "image": image, "target": 0 } 
+        });
+    }
+
+    saveSettings(context, settings) {
+        this.send({ 
+            "event": "setSettings", "context": context, "payload": settings 
+        });
+    }
+
+    send(data) {
         if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-            this.socket.send(JSON.stringify({ 
-                "event": "setPayload", "context": context, "payload": { "title": title, "value": value, "image": image } 
-            }));
+            this.socket.send(JSON.stringify(data));
+        } else if (window.api) {
+            window.api.send({
+                type: "FORWARD_TO_STREAMDOCK",
+                payload: data
+            });
         }
     }
 }
