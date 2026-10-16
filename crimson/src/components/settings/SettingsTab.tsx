@@ -210,26 +210,46 @@ const SettingsTab = () => {
         setTimeout(() => setIsRestarting(false), 2000);
     };
 
+    const [pluginsChecked, setPluginsChecked] = useState(false);
     const [pluginsInstalled, setPluginsInstalled] = useState<Record<string, boolean>>({});
     const [pluginsState, setPluginsState] = useState<Record<string, boolean>>({});
 
+    const pluginCatalog = [
+        {
+            key: 'leagueOfLegends',
+            id: 'com.laoy.streamdock.crimson',
+            name: 'League of Legends',
+            desc: 'Auto-accept, pick/ban et contrôle StreamDock',
+            premium: false,
+        },
+        {
+            key: 'spotify',
+            id: 'com.laoy.streamdock.spotify',
+            name: 'Spotify',
+            desc: 'Contrôle de lecture et covers',
+            premium: true,
+        },
+        {
+            key: 'discord',
+            id: 'com.laoy.streamdock.discord',
+            name: 'Discord',
+            desc: 'Mute / deafen / caméra',
+            premium: true,
+        },
+    ];
+
     useEffect(() => {
         const checkPlugins = async () => {
-            // Pack de base : LoL + Spotify. Discord = optionnel (pas Hue/Twitch en hub).
-            const ids = {
-                leagueOfLegends: "com.laoy.streamdock.crimson",
-                spotify: "com.laoy.streamdock.spotify",
-                discord: "com.laoy.streamdock.discord",
-            };
             const installed: Record<string, boolean> = {};
-            for (const [key, id] of Object.entries(ids)) {
+            for (const plugin of pluginCatalog) {
                 try {
-                    installed[key] = await invoke<boolean>('check_plugin_presence', { pluginId: id });
-                } catch(e) {
-                    installed[key] = false;
+                    installed[plugin.key] = await invoke<boolean>('check_plugin_presence', { pluginId: plugin.id });
+                } catch {
+                    installed[plugin.key] = false;
                 }
             }
             setPluginsInstalled(installed);
+            setPluginsChecked(true);
         };
         checkPlugins();
     }, []);
@@ -238,12 +258,7 @@ const SettingsTab = () => {
         if (appData?.plugins) {
             setPluginsState(appData.plugins as Record<string, boolean>);
         } else {
-            // Default to true only for core features
-            setPluginsState({
-                leagueOfLegends: true,
-                spotify: false,
-                discord: false,
-            });
+            setPluginsState({});
         }
     }, [appData]);
 
@@ -711,38 +726,28 @@ const SettingsTab = () => {
                                 </div>
                                 <div>
                                     <h3 className="text-sm font-black text-white uppercase tracking-widest font-mono">Hub des Plugins</h3>
-                                    <p className="text-[10px] text-white/30 font-bold uppercase tracking-widest mt-1">Activer ou désactiver un plugin — les identifiants se gèrent dans CRIMSONS</p>
+                                    <p className="text-[10px] text-white/30 font-bold uppercase tracking-widest mt-1">Plugins externes — visibles ici seulement s’ils sont installés</p>
                                 </div>
                             </div>
                             
+                            {!pluginsChecked ? (
+                                <div className="bg-black/20 border border-white/5 rounded-3xl px-8 py-12 text-center">
+                                    <p className="text-[10px] text-white/30 uppercase font-bold tracking-widest">Détection des plugins installés…</p>
+                                </div>
+                            ) : pluginCatalog.every((plugin) => !pluginsInstalled[plugin.key]) ? (
+                                <div className="bg-black/20 border border-white/5 rounded-3xl px-8 py-12 text-center">
+                                    <p className="text-sm font-black text-white uppercase tracking-widest">Aucun plugin installé</p>
+                                    <p className="mt-3 text-[10px] text-white/30 uppercase font-bold tracking-widest leading-relaxed">
+                                        LoL, Spotify et Discord sont des plugins externes. Ils apparaissent ici une fois installés sur StreamDock.
+                                    </p>
+                                </div>
+                            ) : (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                {[
-                                    {
-                                        key: 'leagueOfLegends',
-                                        name: 'League of Legends',
-                                        desc: 'Auto-accept, pick/ban et contrôle StreamDock (pack de base)',
-                                        tier: 'base' as const,
-                                    },
-                                    {
-                                        key: 'spotify',
-                                        name: 'Spotify',
-                                        desc: 'Contrôle de lecture et covers (pack de base)',
-                                        tier: 'base' as const,
-                                    },
-                                    {
-                                        key: 'discord',
-                                        name: 'Discord',
-                                        desc: 'Mute / deafen / caméra',
-                                        tier: 'optional' as const,
-                                    },
-                                ].map((plugin) => {
-                                    const isPremiumPlugin = plugin.key === 'spotify' || plugin.key === 'discord';
-                                    const isInstalled = !!pluginsInstalled[plugin.key];
-                                    // Discord: intégration app IPC même sans plugin StreamDock installé
-                                    const requiresDeckPlugin = plugin.key !== 'discord';
-                                    let isEnabled = pluginsState[plugin.key] ?? (plugin.key === 'leagueOfLegends');
-                                    let isDisabled = requiresDeckPlugin && !isInstalled;
-                                    
+                                {pluginCatalog.filter((plugin) => pluginsInstalled[plugin.key]).map((plugin) => {
+                                    const isPremiumPlugin = plugin.premium;
+                                    let isEnabled = !!pluginsState[plugin.key];
+                                    let isDisabled = false;
+
                                     if (isPremiumPlugin && !isPremium) {
                                         isEnabled = false;
                                         isDisabled = true;
@@ -753,33 +758,18 @@ const SettingsTab = () => {
                                             key={plugin.key} 
                                             className={`bg-black/20 p-6 rounded-3xl border border-white/5 flex flex-col justify-between relative group overflow-hidden ${isDisabled ? 'opacity-50 grayscale' : ''}`}
                                         >
-                                            <div className={`absolute -inset-px rounded-3xl transition-opacity duration-500 opacity-0 group-hover:opacity-100 bg-gradient-to-br ${isInstalled || !requiresDeckPlugin ? 'from-green-500/5 to-transparent' : 'from-red-500/5 to-transparent'} pointer-events-none`} />
+                                            <div className="absolute -inset-px rounded-3xl transition-opacity duration-500 opacity-0 group-hover:opacity-100 bg-gradient-to-br from-green-500/5 to-transparent pointer-events-none" />
                                             
                                             <div className="flex justify-between items-center mb-2">
                                                 <span className={`text-[9px] font-black tracking-widest uppercase px-2.5 py-1 rounded-md border ${
                                                     isPremiumPlugin && !isPremium
                                                         ? 'bg-orange-500/10 border-orange-500/20 text-orange-400'
-                                                        : isInstalled || !requiresDeckPlugin
-                                                        ? isEnabled 
+                                                        : isEnabled 
                                                             ? 'bg-green-500/10 border-green-500/20 text-green-400 shadow-[0_0_10px_rgba(34,197,94,0.1)]' 
                                                             : 'bg-yellow-500/10 border-yellow-500/20 text-yellow-400'
-                                                        : 'bg-white/5 border-white/5 text-white/30'
                                                 }`}>
-                                                    {isPremiumPlugin && !isPremium
-                                                        ? "Premium"
-                                                        : isInstalled || !requiresDeckPlugin
-                                                            ? (isEnabled ? "Actif" : "Off")
-                                                            : "Off"}
+                                                    {isPremiumPlugin && !isPremium ? "Premium" : (isEnabled ? "Actif" : "Off")}
                                                 </span>
-                                                
-                                                {plugin.tier === 'optional' && (
-                                                    <span className="text-[9px] font-black text-white/25 uppercase tracking-widest">Optionnel</span>
-                                                )}
-                                                {requiresDeckPlugin && !isInstalled && (!isPremiumPlugin || isPremium) && (
-                                                    <div className="flex items-center gap-1 text-[9px] font-black text-red-500/60 uppercase tracking-widest">
-                                                        <AlertCircle className="w-3 h-3" /> Plugin requis
-                                                    </div>
-                                                )}
                                                 {isPremiumPlugin && !isPremium && (
                                                     <div className="flex items-center gap-1 text-[9px] font-black text-orange-500/60 uppercase tracking-widest">
                                                         <AlertCircle className="w-3 h-3" /> Lock
@@ -832,17 +822,13 @@ const SettingsTab = () => {
                                                     </p>
                                                 </div>
                                             )}
-                                            {plugin.key === 'discord' && !isInstalled && isPremium && (
-                                                <p className="text-[9px] text-white/20 uppercase font-black tracking-widest mt-2 border-t border-white/5 pt-2">
-                                                    Plugin StreamDock optionnel — inject : -IncludeDiscord
-                                                </p>
-                                            )}
                                         </div>
                                     );
                                 })}
                             </div>
+                            )}
                             <p className="mt-8 text-[10px] text-white/25 uppercase font-bold tracking-widest leading-relaxed">
-                                Pack de base : LoL + Spotify. Hue, Twitch et d’autres intégrations arriveront comme plugins externes téléchargeables (gratuits ou premium — communauté).
+                                Rien n’est livré en pack de base. Un plugin n’entre dans ce hub qu’après installation sur StreamDock.
                             </p>
                         </section>
                     </div>
