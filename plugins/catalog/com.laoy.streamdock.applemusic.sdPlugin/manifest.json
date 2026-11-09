@@ -268,11 +268,11 @@
     {
       "Name": "Timeline / Seek (Molette)",
       "UUID": "com.laoy.streamdock.applemusic.seekcontrol",
-      "Icon": "static/icon/forward.png",
+      "Icon": "static/icon/seek_control.png",
       "DisableAutomaticStates": true,
       "States": [
         {
-          "Image": "static/icon/forward.png",
+          "Image": "static/icon/seek_control.png",
           "TitleAlignment": "center",
           "FontSize": "10"
         }
