@@ -35,6 +35,22 @@ interface LCUContextType {
     availableVersion: string | null;
     remoteUpdateAssetUrl: string | null;
     
+    // Apple Music State
+    appleMusicState: {
+        track_id?: string;
+        track_name?: string;
+        artist_name?: string;
+        album_name?: string;
+        album_art?: string;
+        is_playing?: boolean;
+        progress_ms?: number;
+        duration_ms?: number;
+        volume_percent?: number;
+        cider_connected?: boolean;
+    } | null;
+    appleMusicConnected: boolean;
+    appleMusicCommand: (endpoint: string, params?: any) => void;
+    
     // Spotify State
     spotifyState: {
         track_id: string;
@@ -136,6 +152,8 @@ export const LCUProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [lolConnected, setLolConnected] = useState(false);
     const [spotifyConnected, setSpotifyConnected] = useState(false);
     const [spotifyState, setSpotifyState] = useState<any>(null);
+    const [appleMusicConnected, setAppleMusicConnected] = useState(false);
+    const [appleMusicState, setAppleMusicState] = useState<any>(null);
     const [discordConnected, setDiscordConnected] = useState(false);
     const [discordState, setDiscordState] = useState<any>(null);
     const buildsRef = useRef<(RuneBuild | null)[]>([]);
@@ -667,6 +685,12 @@ export const LCUProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     connected: !!msg.discord,
                 }));
             }
+        } else if (msg.type === 'APPLE_MUSIC_STATE') {
+            setAppleMusicState((prev: any) => ({
+                ...(prev || {}),
+                ...msg.data,
+            }));
+            setAppleMusicConnected(!!msg.data?.cider_connected);
         } else if (msg.type === 'SPOTIFY_STATE') {
             setSpotifyState((prev: any) => ({
                 ...(prev || {}),
@@ -1091,6 +1115,13 @@ export const LCUProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         await open(authUrl);
     };
 
+    const appleMusicCommand = (endpoint: string, params?: any) => {
+        const ws = socketsRef.current[40510];
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'APPLE_MUSIC_COMMAND', endpoint, ...params }));
+        }
+    };
+
     const spotifyCommand = (endpoint: string, params?: any) => {
         const ws = socketsRef.current[40510];
         if (ws && ws.readyState === WebSocket.OPEN) {
@@ -1117,6 +1148,8 @@ export const LCUProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const d = await invoke<any>('get_app_data');
         if (!d.plugins) d.plugins = {};
         d.plugins[plugin] = enabled;
+        if (plugin === 'appleMusic') d.plugins.apple_music = enabled;
+        if (plugin === 'apple_music') d.plugins.appleMusic = enabled;
         await invoke('set_app_data', { data: d });
         setAppData(d);
 

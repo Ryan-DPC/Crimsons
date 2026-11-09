@@ -218,6 +218,7 @@ const SettingsTab = () => {
             // Présence FS des packs catalogue (aucun pack embarqué dans Crimsons).
             const ids = {
                 leagueOfLegends: "com.laoy.streamdock.crimson",
+                appleMusic: "com.laoy.streamdock.applemusic",
                 spotify: "com.laoy.streamdock.spotify",
                 discord: "com.laoy.streamdock.discord",
             };
@@ -718,6 +719,11 @@ const SettingsTab = () => {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                 {[
                                     {
+                                        key: 'appleMusic',
+                                        name: 'Apple Music',
+                                        desc: 'Contrôle Cider, molettes volume et touches dédiées',
+                                    },
+                                    {
                                         key: 'leagueOfLegends',
                                         name: 'League of Legends',
                                         desc: 'Auto-accept, pick/ban et contrôle StreamDock (catalogue)',
@@ -737,7 +743,7 @@ const SettingsTab = () => {
                                     const isInstalled = !!pluginsInstalled[plugin.key];
                                     // Discord: intégration app IPC même sans plugin StreamDock installé
                                     const requiresDeckPlugin = plugin.key !== 'discord';
-                                    let isEnabled = pluginsState[plugin.key] ?? (plugin.key === 'leagueOfLegends');
+                                    let isEnabled = (plugin.key === 'appleMusic' ? (pluginsState.appleMusic ?? pluginsState.apple_music ?? true) : pluginsState[plugin.key]) ?? false;
                                     let isDisabled = requiresDeckPlugin && !isInstalled;
                                     
                                     if (isPremiumPlugin && !isPremium) {

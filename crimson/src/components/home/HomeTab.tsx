@@ -1,8 +1,12 @@
 import { useLCU } from '../../contexts/LCUContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { getChampIcon } from '../../utils/lolDisplay';
-import { Disc3, MessageSquare, Laptop, Music, MicOff, Mic, Headphones, MonitorPlay } from 'lucide-react';
-
+import { 
+    Disc3, MessageSquare, Laptop, Music, MicOff, Mic, Headphones, 
+    MonitorPlay, Play, Pause, SkipForward, SkipBack, Volume2, 
+    ShoppingBag, ExternalLink, Gamepad2, Radio, Sparkles, Check
+} from 'lucide-react';
+import logoRed from '../../assets/logos/logo_red_transparent.png';
 
 // Reusable animated toggle component
 const Toggle = ({ value, onChange, label, disabled }: {
@@ -24,9 +28,18 @@ const Toggle = ({ value, onChange, label, disabled }: {
 );
 
 export default function HomeTab() {
-    const { appData, updateSetting, sum, v, hist, champs, seasonStats, spotifyState, discordState, spotifyCommand, discordCommand, discordConnected } = useLCU();
+    const { 
+        appData, updateSetting, sum, v, hist, champs, seasonStats, 
+        spotifyState, discordState, spotifyCommand, discordCommand, discordConnected,
+        appleMusicState, appleMusicConnected, appleMusicCommand, togglePlugin, setTab
+    } = useLCU();
     const { isPremium } = useAuth();
     
+    const isLolEnabled = appData?.plugins?.leagueOfLegends ?? false;
+    const isSpotifyEnabled = isPremium && (appData?.plugins?.spotify ?? false);
+    const isDiscordEnabled = isPremium && (appData?.plugins?.discord ?? false);
+    const isAppleMusicEnabled = appData?.plugins?.apple_music ?? appData?.plugins?.appleMusic ?? false;
+
     const openLyricsWindow = async () => {
         try {
             const { WebviewWindow } = await import('@tauri-apps/api/webviewWindow');
@@ -44,11 +57,9 @@ export default function HomeTab() {
         }
     };
 
-    // Calcul des statistiques
+    // Calcul des statistiques LoL (si actif)
     const validMatches = hist.filter(m => m.gameDuration > 300);
     const recentWins = validMatches.filter(m => m.stats?.win).length;
-
-    // Compteur officiel du Split actuel si disponible, sinon historique récent
     const totalMatches = seasonStats ? (seasonStats.wins + seasonStats.losses) : validMatches.length;
     const wins = seasonStats ? seasonStats.wins : recentWins;
     const losses = seasonStats ? seasonStats.losses : (validMatches.length - recentWins);
@@ -66,7 +77,6 @@ export default function HomeTab() {
     const avgDeaths = validMatches.length ? (totalDeaths / validMatches.length).toFixed(1) : '0';
     const avgAssists = validMatches.length ? (totalAssists / validMatches.length).toFixed(1) : '0';
 
-    // --- REAL GRAPH CALCULATIONS ---
     const reversedHist = [...validMatches].slice(0, 15).reverse();
     const maxKills = Math.max(1, ...reversedHist.map(m => m.stats?.kills || 0));
     
@@ -80,12 +90,11 @@ export default function HomeTab() {
     
     const kdaSvgPoints = kdaPoints.map((kda, i) => {
         const x = (i / Math.max(1, kdaPoints.length - 1)) * 100;
-        const y = 35 - ((kda / maxKda) * 30); // Scale 5 to 35
+        const y = 35 - ((kda / maxKda) * 30);
         return `${x},${y}`;
     }).join(' L');
     const kdaSvgPath = kdaPoints.length > 0 ? `M${kdaSvgPoints}` : `M0,30 L100,30`;
     
-    // Extract last point for the glowing dot
     let lastCx = '100', lastCy = '5';
     if (kdaPoints.length > 0) {
         const lastP = kdaSvgPoints.split(' L').pop()?.split(',') || ['100', '5'];
@@ -95,157 +104,305 @@ export default function HomeTab() {
     const winPercent = totalMatches > 0 ? Math.round((wins / totalMatches) * 100) : 0;
 
     return (
-        <div className="w-full h-full flex justify-center items-start pt-12 pb-12 overflow-y-auto scrollbar-hide gap-20">
+        <div className="w-full h-full flex justify-center items-start pt-12 pb-12 overflow-y-auto scrollbar-hide gap-12">
             
-            {/* Main Stats Card (Flat Dark Mode) */}
-            <div className="w-[600px] bg-[#0a0a0c] border border-white/5 rounded-2xl flex flex-col shrink-0">
-
-                {/* Summoner Banner */}
-                <div className="p-6 flex items-center gap-5 border-b border-white/5">
-                    <div className="relative shrink-0">
-                        {sum ? <img src={`https://ddragon.leagueoflegends.com/cdn/${v}/img/profileicon/${sum.profileIconId}.png`} className="w-12 h-12 rounded-xl border border-white/10" alt="Icone" /> : <div className="w-12 h-12 bg-[#111115] border border-white/5 rounded-xl" />}
-                    </div>
-                    <div className="flex flex-col flex-1 min-w-0">
-                        <span className="text-white/40 text-[9px] uppercase font-black tracking-widest">Summoner</span>
-                        <span className="text-white font-bold text-base tracking-wide truncate">{sum ? (sum.displayName || sum.gameName) : 'Offline'}</span>
-                    </div>
-                </div>
-
-                {/* Compact Stats Row */}
-                <div className="px-6 py-5 grid grid-cols-3 gap-4 border-b border-white/5 bg-[#050505]/50">
-                    <div className="flex flex-col gap-1">
-                        <span className="text-white/50 text-[10px] uppercase font-black tracking-widest">Matches</span>
-                        <span className="text-white font-black text-lg">{totalMatches}</span>
-                    </div>
-                    <div className="flex flex-col gap-1">
-                        <span className="text-white/50 text-[10px] uppercase font-black tracking-widest">W/L</span>
-                        <span className="text-white font-black text-lg">{wins}/<span className="text-red-500">{losses}</span></span>
-                    </div>
-                    <div className="flex flex-col gap-1">
-                        <span className="text-white/50 text-[10px] uppercase font-black tracking-widest">KDA</span>
-                        <span className="text-white font-black text-lg">{avgKills}/<span className="text-red-500">{avgDeaths}</span><span className="text-white/50 text-sm">/{avgAssists}</span></span>
-                    </div>
-                </div>
-
-                {/* Recent Match History Graph Header */}
-                <div className="px-6 pt-6 pb-2 flex items-center justify-between z-10 relative">
-                    <span className="text-white/80 text-[10px] uppercase font-black tracking-widest">Recent Match History</span>
-                    <button className="px-3 py-1 bg-[#2a2a30] hover:bg-white/20 rounded-md border border-white/10 text-white/90 text-[9px] font-black tracking-widest uppercase transition-colors">Graph</button>
-                </div>
-
-                {/* Real Recent Match Graph */}
-                <div className="px-5 h-16 flex items-end justify-between gap-1 z-10 relative mt-2 mb-2">
-                    {reversedHist.map((m, i) => {
-                        const isWin = m.stats?.win;
-                        const kills = m.stats?.kills || 0;
-                        const height = Math.max(10, (kills / maxKills) * 100); // bar height based on kills
-                        return (
-                            <div key={i} className="flex-1 relative flex items-end justify-center group cursor-crosshair">
-                                <div className="w-[1px] h-full bg-white/5 absolute bottom-0" />
-                                <div 
-                                    className={`w-1.5 rounded-t-sm transition-all duration-300 ${isWin ? 'bg-white/80' : 'bg-red-500/80 group-hover:bg-red-400'}`} 
-                                    style={{ height: `${height}%` }} 
-                                />
-                            </div>
-                        );
-                    })}
-                    {/* Real line overlay (KDA) */}
-                    <div className="absolute inset-x-5 inset-y-0 pointer-events-none">
-                        <svg viewBox="0 0 100 40" className="w-full h-full overflow-visible" preserveAspectRatio="none">
-                            <path d={kdaSvgPath} fill="none" stroke="#ef4444" strokeWidth="1" strokeLinejoin="round" className="opacity-50" />
-                            {kdaPoints.length > 0 && (
-                                <circle cx={lastCx} cy={lastCy} r="2" fill="white" className="drop-shadow-[0_0_5px_rgba(255,255,255,0.8)]" />
-                            )}
-                        </svg>
-                    </div>
-                </div>
-
-                {/* Match List */}
-                <div className="px-5 py-4 flex flex-col gap-4 z-10 relative border-t border-white/5">
-                    {hist.slice(0, 3).map((m, i) => {
-                        const isWin = m.stats?.win;
-                        return (
-                            <div key={i} className="flex items-center justify-between group">
-                                <div className="flex items-center gap-3">
-                                    <img src={getChampIcon(m.championId, champs, v)} className="w-8 h-8 rounded-full border border-white/10 shadow-lg group-hover:scale-110 transition-transform" alt="" />
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-white font-bold text-[11px] min-w-[50px]">{champs.find(c => c.id === m.championId)?.name || 'Champ'}</span>
-                                        <span className="text-white/20 text-[10px]">|</span>
-                                        <span className={`text-[10px] font-black uppercase tracking-widest min-w-[55px] ${isWin ? 'text-green-500' : 'text-red-500'}`}>{isWin ? 'Victory' : 'Defeat'}</span>
-                                        <span className="text-white/20 text-[10px]">|</span>
-                                        <span className="text-white/70 text-[11px] font-bold tracking-wider">{m.stats?.kills}/{m.stats?.deaths}/{m.stats?.assists}</span>
-                                    </div>
-                                </div>
-                                <span className={`text-[10px] font-black tracking-widest ${isWin ? 'text-green-500' : 'text-red-500'}`}>{isWin ? '+24 LP' : '-18 LP'}</span>
-                            </div>
-                        )
-                    })}
-                </div>
-
-                {/* Bottom Charts */}
-                <div className="p-5 border-t border-white/5 flex gap-4 mt-auto">
-                    <div className="flex-1 flex flex-col gap-2">
-                        <span className="text-white/50 text-[9px] uppercase font-black tracking-widest">W/L Ratio</span>
-                        <div 
-                            className="w-16 h-16 rounded-full relative flex items-center justify-center mt-2"
-                            style={{ background: `conic-gradient(white ${winPercent}%, #ef4444 ${winPercent}%)` }}
-                        >
-                            <div className="absolute inset-1 bg-[#0a0a0c] rounded-full" /> {/* Inner circle to make it a donut */}
-                            <span className="text-white font-black text-[9px] uppercase tracking-widest z-10">{winPercent}%</span>
+            {/* LEFT COLUMN: Either LoL Stats or Clean Modular Hub Card */}
+            {isLolEnabled ? (
+                <div className="w-[600px] bg-[#0a0a0c] border border-white/5 rounded-2xl flex flex-col shrink-0">
+                    {/* Summoner Banner */}
+                    <div className="p-6 flex items-center gap-5 border-b border-white/5">
+                        <div className="relative shrink-0">
+                            {sum ? <img src={`https://ddragon.leagueoflegends.com/cdn/${v}/img/profileicon/${sum.profileIconId}.png`} className="w-12 h-12 rounded-xl border border-white/10" alt="Icone" /> : <div className="w-12 h-12 bg-[#111115] border border-white/5 rounded-xl" />}
+                        </div>
+                        <div className="flex flex-col flex-1 min-w-0">
+                            <span className="text-white/40 text-[9px] uppercase font-black tracking-widest">Summoner</span>
+                            <span className="text-white font-bold text-base tracking-wide truncate">{sum ? (sum.displayName || sum.gameName) : 'Offline'}</span>
                         </div>
                     </div>
-                    <div className="w-px bg-white/5" />
-                    <div className="flex-1 flex flex-col gap-2">
-                        <span className="text-white/50 text-[9px] uppercase font-black tracking-widest">KDA Graph</span>
-                        {/* Real KDA line chart */}
-                        <div className="flex-1 relative flex items-end pt-2">
+
+                    {/* Compact Stats Row */}
+                    <div className="px-6 py-5 grid grid-cols-3 gap-4 border-b border-white/5 bg-[#050505]/50">
+                        <div className="flex flex-col gap-1">
+                            <span className="text-white/50 text-[10px] uppercase font-black tracking-widest">Matches</span>
+                            <span className="text-white font-black text-lg">{totalMatches}</span>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                            <span className="text-white/50 text-[10px] uppercase font-black tracking-widest">W/L</span>
+                            <span className="text-white font-black text-lg">{wins}/<span className="text-red-500">{losses}</span></span>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                            <span className="text-white/50 text-[10px] uppercase font-black tracking-widest">KDA</span>
+                            <span className="text-white font-black text-lg">{avgKills}/<span className="text-red-500">{avgDeaths}</span><span className="text-white/50 text-sm">/{avgAssists}</span></span>
+                        </div>
+                    </div>
+
+                    {/* Recent Match History Graph Header */}
+                    <div className="px-6 pt-6 pb-2 flex items-center justify-between z-10 relative">
+                        <span className="text-white/80 text-[10px] uppercase font-black tracking-widest">Recent Match History</span>
+                        <button className="px-3 py-1 bg-[#2a2a30] hover:bg-white/20 rounded-md border border-white/10 text-white/90 text-[9px] font-black tracking-widest uppercase transition-colors">Graph</button>
+                    </div>
+
+                    {/* Real Recent Match Graph */}
+                    <div className="px-5 h-16 flex items-end justify-between gap-1 z-10 relative mt-2 mb-2">
+                        {reversedHist.map((m, i) => {
+                            const isWin = m.stats?.win;
+                            const kills = m.stats?.kills || 0;
+                            const height = Math.max(10, (kills / maxKills) * 100);
+                            return (
+                                <div key={i} className="flex-1 relative flex items-end justify-center group cursor-crosshair">
+                                    <div className="w-[1px] h-full bg-white/5 absolute bottom-0" />
+                                    <div 
+                                        className={`w-1.5 rounded-t-sm transition-all duration-300 ${isWin ? 'bg-white/80' : 'bg-red-500/80 group-hover:bg-red-400'}`} 
+                                        style={{ height: `${height}%` }} 
+                                    />
+                                </div>
+                            );
+                        })}
+                        <div className="absolute inset-x-5 inset-y-0 pointer-events-none">
                             <svg viewBox="0 0 100 40" className="w-full h-full overflow-visible" preserveAspectRatio="none">
-                                <path d={kdaSvgPath} fill="none" stroke="#ef4444" strokeWidth="2" strokeLinejoin="round" />
+                                <path d={kdaSvgPath} fill="none" stroke="#ef4444" strokeWidth="1" strokeLinejoin="round" className="opacity-50" />
                                 {kdaPoints.length > 0 && (
-                                    <circle cx={lastCx} cy={lastCy} r="2.5" fill="white" />
+                                    <circle cx={lastCx} cy={lastCy} r="2" fill="white" className="drop-shadow-[0_0_5px_rgba(255,255,255,0.8)]" />
                                 )}
                             </svg>
-                            <div className="absolute inset-0 bg-gradient-to-t from-red-500/10 to-transparent pointer-events-none" style={{ clipPath: 'polygon(0 30px, 25px 10px, 50px 25px, 75px 15px, 100px 5px, 100px 40px, 0 40px)' }} />
+                        </div>
+                    </div>
+
+                    {/* Match List */}
+                    <div className="px-5 py-4 flex flex-col gap-4 z-10 relative border-t border-white/5">
+                        {hist.slice(0, 3).map((m, i) => {
+                            const isWin = m.stats?.win;
+                            return (
+                                <div key={i} className="flex items-center justify-between group">
+                                    <div className="flex items-center gap-3">
+                                        <img src={getChampIcon(m.championId, champs, v)} className="w-8 h-8 rounded-full border border-white/10 shadow-lg group-hover:scale-110 transition-transform" alt="" />
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-white font-bold text-[11px] min-w-[50px]">{champs.find(c => c.id === m.championId)?.name || 'Champ'}</span>
+                                            <span className="text-white/20 text-[10px]">|</span>
+                                            <span className={`text-[10px] font-black uppercase tracking-widest min-w-[55px] ${isWin ? 'text-green-500' : 'text-red-500'}`}>{isWin ? 'Victory' : 'Defeat'}</span>
+                                            <span className="text-white/20 text-[10px]">|</span>
+                                            <span className="text-white/70 text-[11px] font-bold tracking-wider">{m.stats?.kills}/{m.stats?.deaths}/{m.stats?.assists}</span>
+                                        </div>
+                                    </div>
+                                    <span className={`text-[10px] font-black tracking-widest ${isWin ? 'text-green-500' : 'text-red-500'}`}>{isWin ? '+24 LP' : '-18 LP'}</span>
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    {/* Bottom Charts */}
+                    <div className="p-5 border-t border-white/5 flex gap-4 mt-auto">
+                        <div className="flex-1 flex flex-col gap-2">
+                            <span className="text-white/50 text-[9px] uppercase font-black tracking-widest">W/L Ratio</span>
+                            <div 
+                                className="w-16 h-16 rounded-full relative flex items-center justify-center mt-2"
+                                style={{ background: `conic-gradient(white ${winPercent}%, #ef4444 ${winPercent}%)` }}
+                            >
+                                <div className="absolute inset-1 bg-[#0a0a0c] rounded-full" />
+                                <span className="text-white font-black text-[9px] uppercase tracking-widest z-10">{winPercent}%</span>
+                            </div>
+                        </div>
+                        <div className="w-px bg-white/5" />
+                        <div className="flex-1 flex flex-col gap-2">
+                            <span className="text-white/50 text-[9px] uppercase font-black tracking-widest">KDA Graph</span>
+                            <div className="flex-1 relative flex items-end pt-2">
+                                <svg viewBox="0 0 100 40" className="w-full h-full overflow-visible" preserveAspectRatio="none">
+                                    <path d={kdaSvgPath} fill="none" stroke="#ef4444" strokeWidth="2" strokeLinejoin="round" />
+                                    {kdaPoints.length > 0 && (
+                                        <circle cx={lastCx} cy={lastCy} r="2.5" fill="white" />
+                                    )}
+                                </svg>
+                                <div className="absolute inset-0 bg-gradient-to-t from-red-500/10 to-transparent pointer-events-none" style={{ clipPath: 'polygon(0 30px, 25px 10px, 50px 25px, 75px 15px, 100px 5px, 100px 40px, 0 40px)' }} />
+                            </div>
                         </div>
                     </div>
                 </div>
+            ) : (
+                /* CLEAN MODULAR HUB CARD */
+                <div className="w-[600px] bg-[#0a0a0c] border border-white/5 rounded-2xl flex flex-col shrink-0 p-8 space-y-6">
+                    <div className="flex items-center justify-between border-b border-white/5 pb-6">
+                        <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-xl bg-red-600/10 border border-red-500/20 flex items-center justify-center overflow-hidden">
+                                <img src={logoRed} className="w-8 h-8 object-contain" alt="CRIMSONS" />
+                            </div>
+                            <div>
+                                <h2 className="text-lg font-black text-white uppercase tracking-wider">CRIMSONS HUB</h2>
+                                <p className="text-[10px] text-white/40 uppercase font-bold tracking-widest mt-0.5">Tableau de bord modulaire & Intégrations</p>
+                            </div>
+                        </div>
+                        <div className="px-3 py-1 bg-white/5 border border-white/10 rounded-full flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                            <span className="text-[9px] font-black text-white/70 uppercase tracking-widest">Sidecar Actif</span>
+                        </div>
+                    </div>
 
-            </div>
+                    {/* Apple Music Live Card (if plugin active) */}
+                    {isAppleMusicEnabled && (
+                        <div className="bg-[#111115] border border-red-500/20 rounded-xl p-5 flex flex-col gap-4 relative overflow-hidden group">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                                    <span className="text-[10px] font-black text-red-500 uppercase tracking-widest">Apple Music (Cider)</span>
+                                </div>
+                                <span className="text-[9px] text-white/30 font-mono">127.0.0.1:10767</span>
+                            </div>
 
-            {/* Sidebar Controls (No Heavy Blocks) */}
+                            <div className="flex items-center gap-4">
+                                {appleMusicState?.album_art ? (
+                                    <img src={appleMusicState.album_art} className="w-16 h-16 rounded-xl object-cover shadow-lg border border-white/10" alt="Cover" />
+                                ) : (
+                                    <div className="w-16 h-16 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-500">
+                                        <Music className="w-7 h-7" />
+                                    </div>
+                                )}
+                                <div className="flex flex-col flex-1 min-w-0">
+                                    <span className="text-white font-bold text-sm truncate">{appleMusicState?.track_name || 'Aucune musique en cours'}</span>
+                                    <span className="text-white/50 text-[11px] truncate mt-0.5">{appleMusicState?.artist_name || 'Cider prêt'}</span>
+                                    {appleMusicState?.album_name && (
+                                        <span className="text-white/30 text-[9px] truncate font-medium mt-0.5">{appleMusicState.album_name}</span>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Media Controls */}
+                            <div className="flex items-center justify-center gap-3 pt-2 border-t border-white/5">
+                                <button 
+                                    onClick={() => appleMusicCommand('previous')}
+                                    className="p-2.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/70 hover:text-white transition-all active:scale-95"
+                                    title="Précédent"
+                                >
+                                    <SkipBack className="w-4 h-4" />
+                                </button>
+                                <button 
+                                    onClick={() => appleMusicCommand('play_pause')}
+                                    className="p-3 rounded-xl bg-red-600 hover:bg-red-500 text-white transition-all shadow-[0_0_15px_rgba(220,38,38,0.4)] active:scale-95"
+                                    title="Lecture / Pause"
+                                >
+                                    {appleMusicState?.is_playing ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current ml-0.5" />}
+                                </button>
+                                <button 
+                                    onClick={() => appleMusicCommand('next')}
+                                    className="p-2.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/70 hover:text-white transition-all active:scale-95"
+                                    title="Suivant"
+                                >
+                                    <SkipForward className="w-4 h-4" />
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Quick Action Tiles */}
+                    <div className="grid grid-cols-2 gap-4 pt-2">
+                        <a 
+                            href="https://store.hoopslive.ch" 
+                            target="_blank" 
+                            rel="noreferrer"
+                            className="bg-[#111115] hover:bg-white/[0.04] border border-white/5 hover:border-white/15 p-4 rounded-xl flex flex-col justify-between transition-all group cursor-pointer"
+                        >
+                            <div className="flex items-center justify-between text-white/40 group-hover:text-white">
+                                <ShoppingBag className="w-5 h-5" />
+                                <ExternalLink className="w-3.5 h-3.5" />
+                            </div>
+                            <div className="mt-4">
+                                <span className="text-[11px] font-black text-white uppercase tracking-wider block">Store de Plugins</span>
+                                <span className="text-[9px] text-white/40 uppercase font-bold tracking-widest mt-0.5 block">Catalogue StreamDock</span>
+                            </div>
+                        </a>
+
+                        <button 
+                            onClick={() => togglePlugin('leagueOfLegends', true)}
+                            className="bg-[#111115] hover:bg-white/[0.04] border border-white/5 hover:border-blue-500/30 p-4 rounded-xl flex flex-col justify-between transition-all group text-left"
+                        >
+                            <div className="flex items-center justify-between text-white/40 group-hover:text-blue-400">
+                                <Gamepad2 className="w-5 h-5" />
+                                <span className="text-[9px] font-mono font-bold text-white/30">OFF</span>
+                            </div>
+                            <div className="mt-4">
+                                <span className="text-[11px] font-black text-white uppercase tracking-wider block">Activer LoL</span>
+                                <span className="text-[9px] text-white/40 uppercase font-bold tracking-widest mt-0.5 block">Auto-accept & Draft</span>
+                            </div>
+                        </button>
+                    </div>
+
+                    <div className="p-4 bg-white/[0.02] border border-white/5 rounded-xl flex items-center justify-between">
+                        <span className="text-[10px] text-white/40 uppercase font-black tracking-widest">Gérer vos plugins et identifiants</span>
+                        <button 
+                            onClick={() => setTab('settings')}
+                            className="px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-white text-[9px] font-black uppercase tracking-widest transition-all"
+                        >
+                            Paramètres
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* RIGHT COLUMN: Sidebar Controls */}
             <div className="w-[450px] flex flex-col gap-8 shrink-0 pt-2">
-                <div className="flex flex-col gap-3">
-                    <span className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-1 border-b border-white/5 pb-2">Automation</span>
-                    <Toggle
-                        label="Auto-Accept Match"
-                        value={appData?.autoAccept ?? true}
-                        onChange={(v) => updateSetting('autoAccept', v)}
-                    />
-                </div>
-
-                <div className="flex flex-col gap-3 mt-4">
-                    <span className="text-[10px] font-black text-white/40 uppercase tracking-widest border-b border-white/5 pb-2">Auto Selection</span>
-                    <div className="flex items-center gap-3">
-                        <div className="flex-1 bg-[#0a0a0c] border border-white/5 rounded-xl p-3 flex items-center gap-3 relative overflow-hidden transition-colors hover:border-blue-500/30">
-                            {appData?.autoPick ? <img src={getChampIcon(appData.autoPick, champs, v)} className="absolute inset-0 w-full h-full object-cover opacity-10" /> : null}
-                            <span className="text-[10px] font-black text-blue-500 uppercase tracking-widest relative z-10 shrink-0">Pick</span>
-                            <span className="text-white text-xs font-bold relative z-10 truncate">{appData?.autoPick ? champs.find(c => c.id === appData.autoPick)?.name : 'None'}</span>
+                {isLolEnabled ? (
+                    <>
+                        <div className="flex flex-col gap-3">
+                            <span className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-1 border-b border-white/5 pb-2">Automation League</span>
+                            <Toggle
+                                label="Auto-Accept Match"
+                                value={appData?.autoAccept ?? true}
+                                onChange={(v) => updateSetting('autoAccept', v)}
+                            />
                         </div>
-                        <div className="flex-1 bg-[#0a0a0c] border border-white/5 rounded-xl p-3 flex items-center gap-3 relative overflow-hidden transition-colors hover:border-red-500/30">
-                            {appData?.autoBan ? <img src={getChampIcon(appData.autoBan, champs, v)} className="absolute inset-0 w-full h-full object-cover opacity-10" /> : null}
-                            <span className="text-[10px] font-black text-red-500 uppercase tracking-widest relative z-10 shrink-0">Ban</span>
-                            <span className="text-white text-xs font-bold relative z-10 truncate">{appData?.autoBan ? champs.find(c => c.id === appData.autoBan)?.name : 'None'}</span>
+
+                        <div className="flex flex-col gap-3 mt-4">
+                            <span className="text-[10px] font-black text-white/40 uppercase tracking-widest border-b border-white/5 pb-2">Auto Selection</span>
+                            <div className="flex items-center gap-3">
+                                <div className="flex-1 bg-[#0a0a0c] border border-white/5 rounded-xl p-3 flex items-center gap-3 relative overflow-hidden transition-colors hover:border-blue-500/30">
+                                    {appData?.autoPick ? <img src={getChampIcon(appData.autoPick, champs, v)} className="absolute inset-0 w-full h-full object-cover opacity-10" /> : null}
+                                    <span className="text-[10px] font-black text-blue-500 uppercase tracking-widest relative z-10 shrink-0">Pick</span>
+                                    <span className="text-white text-xs font-bold relative z-10 truncate">{appData?.autoPick ? champs.find(c => c.id === appData.autoPick)?.name : 'None'}</span>
+                                </div>
+                                <div className="flex-1 bg-[#0a0a0c] border border-white/5 rounded-xl p-3 flex items-center gap-3 relative overflow-hidden transition-colors hover:border-red-500/30">
+                                    {appData?.autoBan ? <img src={getChampIcon(appData.autoBan, champs, v)} className="absolute inset-0 w-full h-full object-cover opacity-10" /> : null}
+                                    <span className="text-[10px] font-black text-red-500 uppercase tracking-widest relative z-10 shrink-0">Ban</span>
+                                    <span className="text-white text-xs font-bold relative z-10 truncate">{appData?.autoBan ? champs.find(c => c.id === appData.autoBan)?.name : 'None'}</span>
+                                </div>
+                            </div>
+                            <span className="text-[9px] text-white/30 uppercase font-bold mt-2">Edit selections in your Settings</span>
+                        </div>
+                    </>
+                ) : (
+                    <div className="flex flex-col gap-4">
+                        <span className="text-[10px] font-black text-white/40 uppercase tracking-widest border-b border-white/5 pb-2">Modules Disponibles</span>
+                        <div className="space-y-3 bg-[#0a0a0c] border border-white/5 p-4 rounded-xl">
+                            <Toggle
+                                label="Apple Music"
+                                value={isAppleMusicEnabled}
+                                onChange={(v) => togglePlugin('appleMusic', v)}
+                            />
+                            <Toggle
+                                label="League of Legends"
+                                value={isLolEnabled}
+                                onChange={(v) => togglePlugin('leagueOfLegends', v)}
+                            />
+                            <Toggle
+                                label="Spotify"
+                                value={isSpotifyEnabled}
+                                onChange={(v) => togglePlugin('spotify', v)}
+                                disabled={!isPremium}
+                            />
+                            <Toggle
+                                label="Discord"
+                                value={isDiscordEnabled}
+                                onChange={(v) => togglePlugin('discord', v)}
+                                disabled={!isPremium}
+                            />
                         </div>
                     </div>
-                    <span className="text-[9px] text-white/30 uppercase font-bold mt-2">Edit selections in your Settings</span>
-                </div>
+                )}
 
-                {isPremium && appData?.plugins?.spotify && (
+                {/* SPOTIFY WIDGET (rendered only when enabled) */}
+                {isSpotifyEnabled && (
                     <div className="flex flex-col gap-3 mt-4">
                         <span className="text-[10px] font-black text-white/40 uppercase tracking-widest border-b border-white/5 pb-2">Spotify</span>
                         <div className="bg-[#0a0a0c] border border-white/5 rounded-xl p-4 flex items-center gap-4 transition-colors hover:border-green-500/30">
                             {spotifyState?.album_art ? (
-                                <img src={spotifyState.album_art} className="w-10 h-10 rounded-lg shadow-md" />
+                                <img src={spotifyState.album_art} className="w-10 h-10 rounded-lg shadow-md" alt="" />
                             ) : (
                                 <div className="w-10 h-10 bg-white/5 rounded-lg flex items-center justify-center">
                                     <Disc3 className="w-5 h-5 text-white/20" />
@@ -277,7 +434,8 @@ export default function HomeTab() {
                     </div>
                 )}
 
-                {isPremium && appData?.plugins?.discord && (
+                {/* DISCORD WIDGET (rendered only when enabled) */}
+                {isDiscordEnabled && (
                     <div className="flex flex-col gap-3 mt-4">
                         <span className="text-[10px] font-black text-white/40 uppercase tracking-widest border-b border-white/5 pb-2">Discord</span>
                         <div className="bg-[#0a0a0c] border border-white/5 rounded-xl p-4 flex items-center gap-4 transition-colors hover:border-indigo-500/30">

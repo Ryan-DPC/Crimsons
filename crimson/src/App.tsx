@@ -32,7 +32,14 @@ function App() {
     loginSpotify, spotifyConnected,
   } = useLCU();
 
-  const { session, loading } = useAuth();
+  const { session, user, isPremium, loading } = useAuth();
+  const isLolEnabled = appData?.plugins?.leagueOfLegends ?? false;
+
+  useEffect(() => {
+    if (!isLolEnabled && (tab === 'league' || tab === 'lobby' || tab === 'history')) {
+      setTab('home');
+    }
+  }, [isLolEnabled, tab, setTab]);
 
   const [appVersion, setAppVersion] = useState<string>('1.1.0');
   const [showCloseDialog, setShowCloseDialog] = useState(false);
@@ -159,11 +166,15 @@ function App() {
                   <span className={`w-1.5 h-1.5 rounded-full ${serverConnected ? 'bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.5)]' : 'bg-red-500'}`} />
                   <span className={serverConnected ? 'text-white/50' : 'text-red-500/60'}>SERVER</span>
                 </div>
-                <span className="text-white/10">·</span>
-                <div className="flex items-center gap-1">
-                  <span className={`w-1.5 h-1.5 rounded-full ${lolConnected ? 'bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.5)] animate-pulse' : 'bg-red-500'}`} />
-                  <span className={lolConnected ? 'text-white/50' : 'text-red-500/60'}>LEAGUE</span>
-                </div>
+                {isLolEnabled && (
+                  <>
+                    <span className="text-white/10">·</span>
+                    <div className="flex items-center gap-1">
+                      <span className={`w-1.5 h-1.5 rounded-full ${lolConnected ? 'bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.5)] animate-pulse' : 'bg-red-500'}`} />
+                      <span className={lolConnected ? 'text-white/50' : 'text-red-500/60'}>LEAGUE</span>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -174,12 +185,16 @@ function App() {
           <button onClick={() => setTab('home')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all duration-300 ${tab === 'home' ? 'bg-white/10 text-white shadow-lg shadow-black/50' : 'text-white/40 hover:text-white/70'}`}>
             <Home className="w-3.5 h-3.5" /> HOME
           </button>
-          <button onClick={() => setTab('league')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all duration-300 ${tab === 'league' || tab === 'lobby' ? 'bg-white/10 text-white shadow-lg shadow-black/50' : 'text-white/40 hover:text-white/70'}`}>
-            <Swords className="w-3.5 h-3.5" /> GAME
-          </button>
-          <button onClick={() => setTab('history')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all duration-300 ${tab === 'history' ? 'bg-white/10 text-white shadow-lg shadow-black/50' : 'text-white/40 hover:text-white/70'}`}>
-            <Activity className="w-3.5 h-3.5" /> ACTIVITY
-          </button>
+          {isLolEnabled && (
+            <>
+              <button onClick={() => setTab('league')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all duration-300 ${tab === 'league' || tab === 'lobby' ? 'bg-white/10 text-white shadow-lg shadow-black/50' : 'text-white/40 hover:text-white/70'}`}>
+                <Swords className="w-3.5 h-3.5" /> GAME
+              </button>
+              <button onClick={() => setTab('history')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all duration-300 ${tab === 'history' ? 'bg-white/10 text-white shadow-lg shadow-black/50' : 'text-white/40 hover:text-white/70'}`}>
+                <Activity className="w-3.5 h-3.5" /> ACTIVITY
+              </button>
+            </>
+          )}
           <button onClick={() => setTab('settings')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all duration-300 ${tab === 'settings' ? 'bg-white/10 text-white shadow-lg shadow-black/50' : 'text-white/40 hover:text-white/70'}`}>
             <User className="w-3.5 h-3.5" /> ACCOUNT
           </button>
@@ -188,14 +203,24 @@ function App() {
         {/* RIGHT: Profile & Window Controls */}
         <div className="flex items-center gap-3 shrink-0">
           <div className="flex items-center gap-3 pr-3 border-r border-white/10">
-            <div className="flex flex-col items-end">
-              <span className="text-[10px] font-black text-white uppercase tracking-widest leading-none">{sum ? (sum.displayName || sum.gameName) : 'Offline'}</span>
-              <span className="text-[9px] font-bold text-red-500 uppercase tracking-widest mt-1">{rank?.tier ? `${rank.tier} ${rank.division}` : (sum ? `Niveau ${sum.summonerLevel}` : '')}</span>
-            </div>
-            {sum ? (
-              <img src={`https://ddragon.leagueoflegends.com/cdn/${v}/img/profileicon/${sum.profileIconId}.png`} className="w-8 h-8 rounded-full border border-white/10 shadow-lg" alt="Profile" />
+            {isLolEnabled && sum ? (
+              <>
+                <div className="flex flex-col items-end">
+                  <span className="text-[10px] font-black text-white uppercase tracking-widest leading-none">{sum.displayName || sum.gameName}</span>
+                  <span className="text-[9px] font-bold text-red-500 uppercase tracking-widest mt-1">{rank?.tier ? `${rank.tier} ${rank.division}` : `Niveau ${sum.summonerLevel}`}</span>
+                </div>
+                <img src={`https://ddragon.leagueoflegends.com/cdn/${v}/img/profileicon/${sum.profileIconId}.png`} className="w-8 h-8 rounded-full border border-white/10 shadow-lg" alt="Profile" />
+              </>
             ) : (
-              <div className="w-8 h-8 bg-[#111115] rounded-full border border-white/10" />
+              <>
+                <div className="flex flex-col items-end">
+                  <span className="text-[10px] font-black text-white uppercase tracking-widest leading-none">{user?.email?.split('@')[0] || 'CRIMSONS'}</span>
+                  <span className="text-[9px] font-bold text-red-500 uppercase tracking-widest mt-1">{isPremium ? 'PREMIUM' : 'FREE'}</span>
+                </div>
+                <div className="w-8 h-8 bg-red-600/20 border border-red-500/30 rounded-full flex items-center justify-center text-red-500 font-black text-xs">
+                  {(user?.email?.[0] || 'C').toUpperCase()}
+                </div>
+              </>
             )}
             <button className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 text-white/50 hover:text-white transition-colors ml-1">
               <Menu className="w-4 h-4" />
