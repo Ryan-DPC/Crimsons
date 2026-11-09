@@ -1,0 +1,106 @@
+{
+  "Author": "Laoy",
+  "Category": "Apple Music",
+  "CategoryIcon": "static/icon/applemusic.png",
+  "CodePath": "index.html",
+  "Description": "Apple Music controls for StreamDock via Cider (local API on port 10767)",
+  "Icon": "static/icon/applemusic.png",
+  "Name": "Apple Music (Cider)",
+  "Version": "0.1.0",
+  "SDKVersion": 2,
+  "Software": {
+    "MinimumVersion": "2.0.0"
+  },
+  "OS": [
+    {
+      "Platform": "windows",
+      "MinimumVersion": "10"
+    }
+  ],
+  "Actions": [
+    {
+      "Name": "Play / Pause",
+      "UUID": "com.laoy.streamdock.applemusic.playpause",
+      "Icon": "static/icon/play.png",
+      "States": [
+        { "Image": "static/icon/play.png", "TitleAlignment": "middle", "FontSize": "10" },
+        { "Image": "static/icon/pause.png", "TitleAlignment": "middle", "FontSize": "10" }
+      ],
+      "Tooltip": "Toggle play/pause in Cider",
+      "Context": "GLOBAL"
+    },
+    {
+      "Name": "Previous",
+      "UUID": "com.laoy.streamdock.applemusic.previous",
+      "Icon": "static/icon/previous.png",
+      "States": [
+        { "Image": "static/icon/previous.png", "TitleAlignment": "middle", "FontSize": "10" }
+      ],
+      "Tooltip": "Previous track",
+      "Context": "GLOBAL"
+    },
+    {
+      "Name": "Next",
+      "UUID": "com.laoy.streamdock.applemusic.next",
+      "Icon": "static/icon/next.png",
+      "States": [
+        { "Image": "static/icon/next.png", "TitleAlignment": "middle", "FontSize": "10" }
+      ],
+      "Tooltip": "Next track",
+      "Context": "GLOBAL"
+    },
+    {
+      "Name": "Volume Up",
+      "UUID": "com.laoy.streamdock.applemusic.volumeup",
+      "Icon": "static/icon/volume_up.png",
+      "States": [
+        { "Image": "static/icon/volume_up.png", "TitleAlignment": "middle", "FontSize": "10" }
+      ],
+      "Tooltip": "Increase Cider volume",
+      "Context": "GLOBAL"
+    },
+    {
+      "Name": "Volume Down",
+      "UUID": "com.laoy.streamdock.applemusic.volumedown",
+      "Icon": "static/icon/volume_down.png",
+      "States": [
+        { "Image": "static/icon/volume_down.png", "TitleAlignment": "middle", "FontSize": "10" }
+      ],
+      "Tooltip": "Decrease Cider volume",
+      "Context": "GLOBAL"
+    },
+    {
+      "Name": "Shuffle",
+      "UUID": "com.laoy.streamdock.applemusic.shuffle",
+      "Icon": "static/icon/shuffle.png",
+      "States": [
+        { "Image": "static/icon/shuffle.png", "TitleAlignment": "middle", "FontSize": "10" },
+        { "Image": "static/icon/shuffle_on.png", "TitleAlignment": "middle", "FontSize": "10" }
+      ],
+      "Tooltip": "Toggle shuffle",
+      "Context": "GLOBAL"
+    },
+    {
+      "Name": "Repeat",
+      "UUID": "com.laoy.streamdock.applemusic.repeat",
+      "Icon": "static/icon/repeat.png",
+      "States": [
+        { "Image": "static/icon/repeat.png", "TitleAlignment": "middle", "FontSize": "10" },
+        { "Image": "static/icon/repeat_on.png", "TitleAlignment": "middle", "FontSize": "10" }
+      ],
+      "Tooltip": "Cycle repeat mode",
+      "Context": "GLOBAL"
+    },
+    {
+      "Name": "Now Playing",
+      "UUID": "com.laoy.streamdock.applemusic.songinfo",
+      "Icon": "static/icon/songinfo.png",
+      "PropertyInspector": "propertyInspector/cider/index.html",
+      "States": [
+        { "Image": "static/icon/songinfo.png", "TitleAlignment": "bottom", "FontSize": "9" }
+      ],
+      "Tooltip": "Show current track title — open PI to set Cider apptoken",
+      "Context": "GLOBAL"
+    }
+  ]
+}

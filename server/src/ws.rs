@@ -10,6 +10,7 @@ use crate::spotify::SpotifyService;
 use crate::discord::DiscordService;
 use crate::hue::HueService;
 use crate::twitch::TwitchService;
+use crate::apple_music::AppleMusicService;
 
 pub async fn start_ws_server(
     sender: WsSender, 
@@ -17,11 +18,12 @@ pub async fn start_ws_server(
     discord_service: Arc<DiscordService>, 
     hue_service: Arc<HueService>,
     twitch_service: Arc<TwitchService>,
+    apple_music_service: Arc<AppleMusicService>,
     db: Arc<crate::db::StreamDockDB>,
     is_lol_enabled: Arc<std::sync::atomic::AtomicBool>
 ) {
     let is_auto_accept_enabled = Arc::new(std::sync::atomic::AtomicBool::new(true));
-    start_ws_server_modular(40510, sender, Some(spotify_service), Some(discord_service), Some(hue_service), Some(twitch_service), db, is_lol_enabled, is_auto_accept_enabled).await;
+    start_ws_server_modular(40510, sender, Some(spotify_service), Some(discord_service), Some(hue_service), Some(twitch_service), Some(apple_music_service), db, is_lol_enabled, is_auto_accept_enabled).await;
 }
 
 pub async fn start_ws_server_modular(
@@ -31,6 +33,7 @@ pub async fn start_ws_server_modular(
     discord_service: Option<Arc<DiscordService>>, 
     hue_service: Option<Arc<HueService>>,
     twitch_service: Option<Arc<TwitchService>>,
+    apple_music_service: Option<Arc<AppleMusicService>>,
     db: Arc<crate::db::StreamDockDB>,
     is_lol_enabled: Arc<std::sync::atomic::AtomicBool>,
     is_auto_accept_enabled: Arc<std::sync::atomic::AtomicBool>
@@ -67,18 +70,19 @@ pub async fn start_ws_server_modular(
                 let di = discord_service.clone();
                 let hu = hue_service.clone();
                 let tw = twitch_service.clone();
+                let am = apple_music_service.clone();
                 let db6 = db.clone();
                 let lol6 = is_lol_enabled.clone();
                 let aa6 = is_auto_accept_enabled.clone();
                 tokio::spawn(async move {
-                    accept_loop(l6, s, sp, di, hu, tw, db6, lol6, aa6).await;
+                    accept_loop(l6, s, sp, di, hu, tw, am, db6, lol6, aa6).await;
                 });
             }
 
             tracing::info!("WebSocket server listening on {}", addr);
             accept_loop(
                 listener, sender, spotify_service, discord_service, hue_service,
-                twitch_service, db, is_lol_enabled, is_auto_accept_enabled,
+                twitch_service, apple_music_service, db, is_lol_enabled, is_auto_accept_enabled,
             ).await;
             tracing::error!("WebSocket listener accept loop exited!");
         },
@@ -140,6 +144,7 @@ async fn accept_loop(
     discord_service: Option<Arc<DiscordService>>,
     hue_service: Option<Arc<HueService>>,
     twitch_service: Option<Arc<TwitchService>>,
+    apple_music_service: Option<Arc<AppleMusicService>>,
     db: Arc<crate::db::StreamDockDB>,
     is_lol_enabled: Arc<std::sync::atomic::AtomicBool>,
     is_auto_accept_enabled: Arc<std::sync::atomic::AtomicBool>,
@@ -150,6 +155,7 @@ async fn accept_loop(
         let discord_clone = discord_service.clone();
         let hue_clone = hue_service.clone();
         let twitch_clone = twitch_service.clone();
+        let apple_music_clone = apple_music_service.clone();
         let db_clone = db.clone();
         let is_lol_enabled_clone = is_lol_enabled.clone();
         let is_auto_accept_enabled_clone = is_auto_accept_enabled.clone();
@@ -352,7 +358,7 @@ async fn accept_loop(
                     tracing::warn!("[SPOTIFY] Callback recu sans parametre code");
                 }
             }
-            handle_connection(stream, sender_clone, spotify_clone, discord_clone, hue_clone, twitch_clone, db_clone, is_lol_enabled_clone, is_auto_accept_enabled_clone).await;
+            handle_connection(stream, sender_clone, spotify_clone, discord_clone, hue_clone, twitch_clone, apple_music_clone, db_clone, is_lol_enabled_clone, is_auto_accept_enabled_clone).await;
         });
     }
 }
@@ -506,6 +512,7 @@ async fn handle_connection(
     discord: Option<Arc<DiscordService>>, 
     hue: Option<Arc<HueService>>,
     twitch: Option<Arc<TwitchService>>,
+    apple_music: Option<Arc<AppleMusicService>>,
     db: Arc<crate::db::StreamDockDB>,
     is_lol_enabled: Arc<std::sync::atomic::AtomicBool>,
     is_auto_accept_enabled: Arc<std::sync::atomic::AtomicBool>
@@ -816,7 +823,7 @@ async fn handle_connection(
                                                 continue;
                                             }
                                             if enabled
-                                                && ["spotify", "discord"].contains(&plugin)
+                                                && ["spotify", "discord", "apple_music"].contains(&plugin)
                                                 && !crate::entitlement::is_premium().await
                                             {
                                                 tracing::warn!("[AUTH] Blocked TOGGLE_PLUGIN {} for free user", plugin);
@@ -852,6 +859,18 @@ async fn handle_connection(
                                                         if !enabled {
                                                             let empty_state = crate::discord::DiscordState::default();
                                                             let _ = sender.0.send(json!({ "type": "DISCORD_STATE", "data": empty_state }).to_string());
+                                                        }
+                                                    }
+                                                }
+                                                "apple_music" => {
+                                                    if let Some(am) = &apple_music {
+                                                        am.is_enabled.store(enabled, std::sync::atomic::Ordering::Relaxed);
+                                                        if !enabled {
+                                                            let idle = crate::apple_music::AppleMusicState {
+                                                                has_token: am.auth_snapshot_state().await.has_token,
+                                                                ..Default::default()
+                                                            };
+                                                            let _ = sender.0.send(json!({ "type": "APPLE_MUSIC_STATE", "data": idle }).to_string());
                                                         }
                                                     }
                                                 }
@@ -1014,7 +1033,7 @@ async fn handle_connection(
                                     }
 
                                     let cmd_type = value["type"].as_str().unwrap_or("");
-                                    if ["SPOTIFY_COMMAND", "DISCORD_COMMAND", "HUE_COMMAND", "TWITCH_COMMAND"].contains(&cmd_type) {
+                                    if ["SPOTIFY_COMMAND", "DISCORD_COMMAND", "HUE_COMMAND", "TWITCH_COMMAND", "APPLE_MUSIC_COMMAND"].contains(&cmd_type) {
                                         // Le verdict vient de Supabase, plus de data.json : ce
                                         // fichier est ecrit par le client et modifiable a la main.
                                         if !crate::entitlement::is_premium().await {
@@ -1106,6 +1125,45 @@ async fn handle_connection(
                                         continue;
                                     }
 
+                                    if value["type"] == "APPLE_MUSIC_CREDENTIALS" {
+                                        if let Some(am) = &apple_music {
+                                            let token = value["appToken"]
+                                                .as_str()
+                                                .or_else(|| value["apptoken"].as_str())
+                                                .or_else(|| value["token"].as_str())
+                                                .unwrap_or("")
+                                                .to_string();
+                                            am.set_app_token(token).await;
+                                            let snap = am.auth_snapshot_state().await;
+                                            let _ = sender.0.send(json!({
+                                                "type": "APPLE_MUSIC_STATE",
+                                                "data": snap
+                                            }).to_string());
+                                            tracing::info!("[APPLE_MUSIC] Cider apptoken updated");
+                                        }
+                                        continue;
+                                    }
+
+                                    if value["type"] == "APPLE_MUSIC_COMMAND" {
+                                        if let Some(am) = &apple_music {
+                                            if !am.is_enabled.load(std::sync::atomic::Ordering::Relaxed) {
+                                                tracing::info!("[APPLE_MUSIC] command ignored: service disabled");
+                                                continue;
+                                            }
+                                            if let Some(endpoint) = value["endpoint"].as_str() {
+                                                let am_clone = am.clone();
+                                                let endpoint_str = endpoint.to_string();
+                                                let val_clone = value.clone();
+                                                tokio::spawn(async move {
+                                                    if let Err(e) = am_clone.handle_command(&endpoint_str, Some(val_clone)).await {
+                                                        tracing::warn!("[APPLE_MUSIC] {}: {}", endpoint_str, e);
+                                                    }
+                                                });
+                                            }
+                                        }
+                                        continue;
+                                    }
+
                                     if value["type"] == "REGISTER_STREAMDOCK_BRIDGE" {
                                         let port_id = value["port"].as_u64()
                                             .or_else(|| value["port"].as_str().and_then(|s| s.parse::<u64>().ok()));
@@ -1116,6 +1174,7 @@ async fn handle_connection(
                                             let d_clone = discord.clone();
                                             let h_clone = hue.clone();
                                             let t_clone = twitch.clone();
+                                            let am_clone = apple_music.clone();
                                             let uuid_str = u.to_string();
                                             let sender_clone = ws_stream_sender.clone();
                                             let contexts = std::sync::Arc::new(tokio::sync::Mutex::new(std::collections::HashMap::new()));
@@ -1134,6 +1193,7 @@ async fn handle_connection(
                                                 settings_per_ctx: settings_per_ctx.clone(),
                                                 hue: h_clone.clone().unwrap_or_else(|| Arc::new(HueService::new(sender.clone()))),
                                                 twitch: t_clone.clone().unwrap_or_else(|| Arc::new(TwitchService::new(sender.clone()))),
+                                                apple_music: am_clone.clone().unwrap_or_else(|| Arc::new(AppleMusicService::new(sender.clone()))),
                                             };
 
                                             // RESTORE FROM DB (v1.2.0)
@@ -1171,7 +1231,8 @@ async fn handle_connection(
                                             let d_unwrapped = d_clone.clone().unwrap_or_else(|| Arc::new(DiscordService::new(sender.clone())));
                                             let h_unwrapped = h_clone.clone().unwrap_or_else(|| Arc::new(HueService::new(sender.clone())));
                                             let t_unwrapped = t_clone.clone().unwrap_or_else(|| Arc::new(TwitchService::new(sender.clone())));
-                                            crate::streamdock::process_streamdeck_event(sync_val, s_unwrapped.clone(), d_unwrapped.clone(), sender_clone.clone(), contexts.clone(), pi_contexts.clone(), last_state_cache.clone(), settings_per_ctx.clone(), h_unwrapped.clone(), t_unwrapped.clone(), db.clone()).await;
+                                            let am_unwrapped = am_clone.clone().unwrap_or_else(|| Arc::new(AppleMusicService::new(sender.clone())));
+                                            crate::streamdock::process_streamdeck_event(sync_val, s_unwrapped.clone(), d_unwrapped.clone(), sender_clone.clone(), contexts.clone(), pi_contexts.clone(), last_state_cache.clone(), settings_per_ctx.clone(), h_unwrapped.clone(), t_unwrapped.clone(), am_unwrapped.clone(), db.clone()).await;
 
                                             loop {
                                                 tokio::select! {
@@ -1179,7 +1240,7 @@ async fn handle_connection(
                                                         match msg_res {
                                                             Some(Ok(tokio_tungstenite::tungstenite::Message::Text(text))) => {
                                                                 if let Ok(val) = serde_json::from_str::<serde_json::Value>(&text) {
-                                                                    crate::streamdock::process_streamdeck_event(val, s_unwrapped.clone(), d_unwrapped.clone(), sender_clone.clone(), contexts.clone(), pi_contexts.clone(), last_state_cache.clone(), settings_per_ctx.clone(), h_unwrapped.clone(), t_unwrapped.clone(), db.clone()).await;
+                                                                    crate::streamdock::process_streamdeck_event(val, s_unwrapped.clone(), d_unwrapped.clone(), sender_clone.clone(), contexts.clone(), pi_contexts.clone(), last_state_cache.clone(), settings_per_ctx.clone(), h_unwrapped.clone(), t_unwrapped.clone(), am_unwrapped.clone(), db.clone()).await;
                                                                 }
                                                             }
                                                             _ => break,
@@ -1295,6 +1356,7 @@ async fn handle_connection(
                                             let d_clone = discord.clone().unwrap_or_else(|| Arc::new(DiscordService::new(sender.clone())));
                                             let h_clone = hue.clone().unwrap_or_else(|| Arc::new(crate::hue::HueService::new(sender.clone())));
                                             let t_clone = twitch.clone().unwrap_or_else(|| Arc::new(crate::twitch::TwitchService::new(sender.clone())));
+                                            let am_clone = apple_music.clone().unwrap_or_else(|| Arc::new(crate::apple_music::AppleMusicService::new(sender.clone())));
 
                                             if !crate::streamdock::try_acquire_handover(
                                                 p as u16, 
@@ -1304,6 +1366,7 @@ async fn handle_connection(
                                                 d_clone,
                                                 h_clone,
                                                 t_clone,
+                                                am_clone,
                                                 db.clone(),
                                                 sender.0.clone()
                                             ).await {

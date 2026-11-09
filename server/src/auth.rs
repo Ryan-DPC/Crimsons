@@ -74,6 +74,7 @@ fn publish_token_to_streamdock_plugins(token: &str) {
         "com.laoy.streamdock.spotify.sdPlugin",
         "com.laoy.streamdock.crimson.sdPlugin",
         "com.laoy.streamdock.discord.sdPlugin",
+        "com.laoy.streamdock.applemusic.sdPlugin",
     ];
     for id in plugin_ids {
         // Spotify/Crimsons load scripts from plugin/; Discord index.html is at plugin root.

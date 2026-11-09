@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-15",
+  "updatedAt": "2026-11-09",
   "categories": [
     {
       "id": "streamdeck",
@@ -50,8 +50,14 @@
       "version": "3.1.4",
       "status": "published",
       "pricing": "free",
-      "categories": ["streamdeck", "game"],
-      "surfaces": ["streamdock", "crimsons-hub"],
+      "categories": [
+        "streamdeck",
+        "game"
+      ],
+      "surfaces": [
+        "streamdock",
+        "crimsons-hub"
+      ],
       "requiresPremium": false,
       "requiresCrimsons": true,
       "icon": null
@@ -67,8 +73,39 @@
       "version": "3.1.4",
       "status": "published",
       "pricing": "premium",
-      "categories": ["streamdeck", "media", "utility"],
-      "surfaces": ["streamdock", "crimsons-hub"],
+      "categories": [
+        "streamdeck",
+        "media",
+        "utility"
+      ],
+      "surfaces": [
+        "streamdock",
+        "crimsons-hub"
+      ],
+      "requiresPremium": true,
+      "requiresCrimsons": true,
+      "icon": null
+    },
+    {
+      "id": "apple-music",
+      "slug": "apple-music",
+      "name": "Apple Music",
+      "summary": "Contrôle Apple Music via Cider (play/pause, volume, shuffle) sur StreamDock.",
+      "description": "Plugin StreamDock branché sur l’API locale Cider (127.0.0.1:10767). Nécessite Cider + un apptoken (Settings → Connectivity).",
+      "packageId": "com.laoy.streamdock.applemusic.sdPlugin",
+      "packagePath": "com.laoy.streamdock.applemusic.sdPlugin",
+      "version": "0.1.0",
+      "status": "published",
+      "pricing": "premium",
+      "categories": [
+        "streamdeck",
+        "media",
+        "utility"
+      ],
+      "surfaces": [
+        "streamdock",
+        "crimsons-hub"
+      ],
       "requiresPremium": true,
       "requiresCrimsons": true,
       "icon": null
@@ -84,8 +121,15 @@
       "version": "1.1.0",
       "status": "published",
       "pricing": "premium",
-      "categories": ["streamdeck", "communication", "utility"],
-      "surfaces": ["streamdock", "crimsons-hub"],
+      "categories": [
+        "streamdeck",
+        "communication",
+        "utility"
+      ],
+      "surfaces": [
+        "streamdock",
+        "crimsons-hub"
+      ],
       "requiresPremium": true,
       "requiresCrimsons": true,
       "icon": null
@@ -101,8 +145,14 @@
       "version": "3.1.0",
       "status": "coming_soon",
       "pricing": "tbd",
-      "categories": ["streamdeck", "smart-home", "utility"],
-      "surfaces": ["streamdock"],
+      "categories": [
+        "streamdeck",
+        "smart-home",
+        "utility"
+      ],
+      "surfaces": [
+        "streamdock"
+      ],
       "requiresPremium": true,
       "requiresCrimsons": true,
       "icon": null
@@ -118,8 +168,14 @@
       "version": "3.1.0",
       "status": "coming_soon",
       "pricing": "tbd",
-      "categories": ["streamdeck", "streaming", "communication"],
-      "surfaces": ["streamdock"],
+      "categories": [
+        "streamdeck",
+        "streaming",
+        "communication"
+      ],
+      "surfaces": [
+        "streamdock"
+      ],
       "requiresPremium": true,
       "requiresCrimsons": true,
       "icon": null

@@ -86,6 +86,13 @@ insert into public.plugin_catalog (
     array['streamdeck','media','utility'], array['streamdock','crimsons-hub'], true, true, 20
   ),
   (
+    'apple-music', 'apple-music', 'Apple Music',
+    'Contrôle Apple Music via Cider (play/pause, volume, shuffle) sur StreamDock.',
+    'Plugin StreamDock branché sur l’API locale Cider (127.0.0.1:10767). Nécessite Cider + apptoken.',
+    'com.laoy.streamdock.applemusic.sdPlugin', '0.1.0', 'published', 'premium',
+    array['streamdeck','media','utility'], array['streamdock','crimsons-hub'], true, true, 25
+  ),
+  (
     'discord', 'discord', 'Discord',
     'Mute, deafen et contrôles vocaux Discord depuis StreamDock.',
     'Plugin StreamDock Discord optionnel. L’intégration Discord IPC dans Crimsons fonctionne aussi sans ce pack deck.',

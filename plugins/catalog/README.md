@@ -6,6 +6,7 @@ Tous les packs StreamDock vivent **ici**, hors de l’app Crimsons. Aucun plugin
 | --- | --- | --- | --- |
 | `com.laoy.streamdock.crimson.sdPlugin` | StreamDock, Jeu | Publié | Gratuit |
 | `com.laoy.streamdock.spotify.sdPlugin` | StreamDock, Médias, Utilitaire | Publié | Premium |
+| `com.laoy.streamdock.applemusic.sdPlugin` | StreamDock, Médias, Utilitaire | Publié | Premium |
 | `com.laoy.streamdock.discord.sdPlugin` | StreamDock, Communication, Utilitaire | Publié | Premium |
 | `com.laoy.streamdock.hue.sdPlugin` | StreamDock, Maison connectée, Utilitaire | Bientôt | TBD |
 | `com.laoy.streamdock.twitch.sdPlugin` | StreamDock, Streaming, Communication | Bientôt | TBD |

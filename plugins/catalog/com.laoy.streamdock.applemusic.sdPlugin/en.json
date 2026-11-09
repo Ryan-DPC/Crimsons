@@ -1,0 +1,37 @@
+{
+  "Description": "Apple Music controls via Cider",
+  "Name": "Apple Music (Cider)",
+  "Category": "Apple Music",
+  "com.laoy.streamdock.applemusic.playpause": {
+    "Name": "Play / Pause",
+    "Tooltip": "Toggle play/pause in Cider"
+  },
+  "com.laoy.streamdock.applemusic.previous": {
+    "Name": "Previous",
+    "Tooltip": "Previous track"
+  },
+  "com.laoy.streamdock.applemusic.next": {
+    "Name": "Next",
+    "Tooltip": "Next track"
+  },
+  "com.laoy.streamdock.applemusic.volumeup": {
+    "Name": "Volume Up",
+    "Tooltip": "Increase volume"
+  },
+  "com.laoy.streamdock.applemusic.volumedown": {
+    "Name": "Volume Down",
+    "Tooltip": "Decrease volume"
+  },
+  "com.laoy.streamdock.applemusic.shuffle": {
+    "Name": "Shuffle",
+    "Tooltip": "Toggle shuffle"
+  },
+  "com.laoy.streamdock.applemusic.repeat": {
+    "Name": "Repeat",
+    "Tooltip": "Cycle repeat"
+  },
+  "com.laoy.streamdock.applemusic.songinfo": {
+    "Name": "Now Playing",
+    "Tooltip": "Current track"
+  }
+}

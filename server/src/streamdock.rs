@@ -27,6 +27,7 @@ pub struct HardwareBridge {
     pub settings_per_ctx: Arc<tokio::sync::Mutex<HashMap<String, serde_json::Value>>>,
     pub hue: Arc<crate::hue::HueService>,
     pub twitch: Arc<crate::twitch::TwitchService>,
+    pub apple_music: Arc<crate::apple_music::AppleMusicService>,
 }
 
 pub async fn try_acquire_handover(
@@ -37,6 +38,7 @@ pub async fn try_acquire_handover(
     discord: Arc<DiscordService>,
     hue: Arc<crate::hue::HueService>,
     twitch: Arc<crate::twitch::TwitchService>,
+    apple_music: Arc<crate::apple_music::AppleMusicService>,
     db: Arc<StreamDockDB>,
     broadcast_tx: broadcast::Sender<String>
 ) -> bool {
@@ -59,7 +61,7 @@ pub async fn try_acquire_handover(
     let pi_contexts = Arc::new(tokio::sync::Mutex::new(HashSet::new()));
     let last_image_per_ctx = Arc::new(tokio::sync::Mutex::new(HashMap::new()));
     let settings_per_ctx = Arc::new(tokio::sync::Mutex::new(HashMap::new()));
-    ACTIVE_BRIDGES.insert(uuid.clone(), HardwareBridge { tx: tx_ws.clone(), alive: bridge_alive.clone(), contexts: contexts.clone(), last_state_cache: last_state_cache.clone(), pi_contexts: pi_contexts.clone(), last_image_per_ctx: last_image_per_ctx.clone(), settings_per_ctx: settings_per_ctx.clone(), hue: hue.clone(), twitch: twitch.clone() });
+    ACTIVE_BRIDGES.insert(uuid.clone(), HardwareBridge { tx: tx_ws.clone(), alive: bridge_alive.clone(), contexts: contexts.clone(), last_state_cache: last_state_cache.clone(), pi_contexts: pi_contexts.clone(), last_image_per_ctx: last_image_per_ctx.clone(), settings_per_ctx: settings_per_ctx.clone(), hue: hue.clone(), twitch: twitch.clone(), apple_music: apple_music.clone() });
     let uuid_spawn = uuid.clone();
     let reg_event_spawn = register_event.clone();
     tokio::spawn(async move {
@@ -106,7 +108,7 @@ pub async fn try_acquire_handover(
                                             settings_per_ctx.lock().await.insert(context.to_string(), settings.clone());
                                         }
                                     }
-                                    process_streamdeck_event(val, spotify.clone(), discord.clone(), tx_ws.clone(), contexts.clone(), pi_contexts.clone(), last_state_cache.clone(), settings_per_ctx.clone(), hue.clone(), twitch.clone(), db.clone()).await;
+                                    process_streamdeck_event(val, spotify.clone(), discord.clone(), tx_ws.clone(), contexts.clone(), pi_contexts.clone(), last_state_cache.clone(), settings_per_ctx.clone(), hue.clone(), twitch.clone(), apple_music.clone(), db.clone()).await;
                                 }
                             }
                             _ => break,
@@ -121,7 +123,7 @@ pub async fn try_acquire_handover(
     true
 }
 
-pub async fn start_streamdock_client(_p: u16, _u: String, _r: String, _s: Arc<SpotifyService>, _d: Arc<DiscordService>, _h: Arc<crate::hue::HueService>, _t: Arc<crate::twitch::TwitchService>, _db: Arc<StreamDockDB>) {
+pub async fn start_streamdock_client(_p: u16, _u: String, _r: String, _s: Arc<SpotifyService>, _d: Arc<DiscordService>, _h: Arc<crate::hue::HueService>, _t: Arc<crate::twitch::TwitchService>, _am: Arc<crate::apple_music::AppleMusicService>, _db: Arc<StreamDockDB>) {
     // Stub
 }
 
@@ -146,7 +148,7 @@ pub async fn push_image_if_changed(context: &str, image: &str) -> bool {
     true
 }
 
-pub async fn process_streamdeck_event(value: serde_json::Value, spotify: Arc<SpotifyService>, _d: Arc<DiscordService>, _tx: mpsc::Sender<String>, contexts: Arc<tokio::sync::Mutex<HashMap<String, String>>>, _pi: Arc<tokio::sync::Mutex<HashSet<String>>>, _ls: Arc<tokio::sync::Mutex<Option<serde_json::Value>>>, _spc: Arc<tokio::sync::Mutex<HashMap<String, serde_json::Value>>>, _h: Arc<crate::hue::HueService>, _t: Arc<crate::twitch::TwitchService>, _db: Arc<StreamDockDB>) {
+pub async fn process_streamdeck_event(value: serde_json::Value, spotify: Arc<SpotifyService>, _d: Arc<DiscordService>, _tx: mpsc::Sender<String>, contexts: Arc<tokio::sync::Mutex<HashMap<String, String>>>, _pi: Arc<tokio::sync::Mutex<HashSet<String>>>, _ls: Arc<tokio::sync::Mutex<Option<serde_json::Value>>>, _spc: Arc<tokio::sync::Mutex<HashMap<String, serde_json::Value>>>, _h: Arc<crate::hue::HueService>, _t: Arc<crate::twitch::TwitchService>, _am: Arc<crate::apple_music::AppleMusicService>, _db: Arc<StreamDockDB>) {
     let event = value["event"].as_str().unwrap_or("");
     let context = value["context"].as_str().unwrap_or("");
     let mut action = value["action"].as_str().unwrap_or("").to_string();
@@ -325,6 +327,13 @@ pub async fn process_streamdeck_event(value: serde_json::Value, spotify: Arc<Spo
                 let endpoint = a.rsplit('.').next().unwrap_or("").to_string();
                 tokio::spawn(async move { let _ = t.handle_command(&endpoint, None).await; });
             }
+            a if a.starts_with("com.laoy.streamdock.applemusic.") => {
+                if _am.is_enabled.load(Ordering::Relaxed) {
+                    let am = _am.clone();
+                    let endpoint = a.rsplit('.').next().unwrap_or("").to_string();
+                    tokio::spawn(async move { let _ = am.handle_command(&endpoint, None).await; });
+                }
+            }
             _ => {}
         }
     }
@@ -400,6 +409,18 @@ pub async fn process_streamdeck_event(value: serde_json::Value, spotify: Arc<Spo
     if value["type"] == "TWITCH_COMMAND" {
         tracing::warn!("[TWITCH] StreamDock command rejected: {}", crate::twitch::UNAVAILABLE_MSG);
         let _ = _t.handle_command(value["endpoint"].as_str().unwrap_or(""), Some(value.clone())).await;
+    }
+    if value["type"] == "APPLE_MUSIC_COMMAND" {
+        if let Some(endpoint) = value["endpoint"].as_str() {
+            if _am.is_enabled.load(Ordering::Relaxed) {
+                let am = _am.clone();
+                let endpoint_str = endpoint.to_string();
+                let val_clone = value.clone();
+                tokio::spawn(async move {
+                    let _ = am.handle_command(&endpoint_str, Some(val_clone)).await;
+                });
+            }
+        }
     }
     if value["type"] == "ADJUST_AUDIO" {
         if _d.is_enabled.load(Ordering::Relaxed) {

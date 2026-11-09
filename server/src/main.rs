@@ -3,7 +3,7 @@
 use tokio::sync::broadcast;
 use std::sync::Arc;
 use crimson_server::events::WsSender;
-use crimson_server::{ws, lcu_ws, service, spotify, discord, lcu, hue, twitch, updater, auth};
+use crimson_server::{ws, lcu_ws, service, spotify, discord, lcu, hue, twitch, apple_music, updater, auth};
 use serde_json::json;
 use tracing_subscriber::EnvFilter;
 use tracing_appender::rolling;
@@ -176,10 +176,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let d = Arc::new(discord::DiscordService::new(sender.clone()));
     let h = Arc::new(hue::HueService::new(sender.clone()));
     let t = Arc::new(twitch::TwitchService::new(sender.clone()));
+    let am = Arc::new(apple_music::AppleMusicService::new(sender.clone()));
 
     crimson_server::entitlement::start_guard(vec![
         ("spotify", s.is_enabled.clone()),
         ("discord", d.is_enabled.clone()),
+        ("apple_music", am.is_enabled.clone()),
         // Hue / Twitch stay out of the entitlement guard until their APIs exist.
     ]);
 
@@ -202,6 +204,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tokio::spawn(async move { t_poll.start_background_polling().await; });
     
     tracing::info!("Hue Service stub loaded (coming soon)");
+
+    tracing::info!("Starting Apple Music (Cider) Service");
+    let am_poll = am.clone();
+    tokio::spawn(async move { am_poll.start_background_polling().await; });
     
     updater::start_background_updater().await;
 
@@ -225,20 +231,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let discord_service = Some(d.clone());
     let hue_service = Some(h.clone());
     let twitch_service = Some(t.clone());
+    let apple_music_service = Some(am.clone());
 
     // If we were ALSO started with StreamDock flags, start the bridge too
     if is_streamdock_plugin {
         if let (Some(p), Some(uuid), Some(reg_evt)) = (port, plugin_uuid, register_event) {
             let db_clone = db.clone();
+            let am_bridge = am.clone();
             tokio::spawn(async move {
-                crimson_server::streamdock::start_streamdock_client(p, uuid, reg_evt, s, d, h, t, db_clone).await;
+                crimson_server::streamdock::start_streamdock_client(p, uuid, reg_evt, s, d, h, t, am_bridge, db_clone).await;
             });
         }
     }
 
     // 8. Start External WebSocket Server
     tracing::info!("WebSocket server listening on 127.0.0.1:{}", listen_port);
-    ws::start_ws_server_modular(listen_port, sender, spotify_service, discord_service, hue_service, twitch_service, db, is_lol_enabled.clone(), is_auto_accept_enabled.clone()).await;
+    ws::start_ws_server_modular(listen_port, sender, spotify_service, discord_service, hue_service, twitch_service, apple_music_service, db, is_lol_enabled.clone(), is_auto_accept_enabled.clone()).await;
 
     Ok(())
 }

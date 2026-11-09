@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Cider token</title>
+  <style>
+    body { font-family: system-ui, sans-serif; color: #eee; background: #1a1a1c; margin: 12px; font-size: 12px; }
+    label { display: block; margin-bottom: 6px; opacity: 0.8; }
+    input { width: 100%; box-sizing: border-box; padding: 8px; border-radius: 6px; border: 1px solid #333; background: #111; color: #fff; }
+    button { margin-top: 10px; padding: 8px 12px; border: 0; border-radius: 6px; background: #fc3c44; color: #fff; font-weight: 700; cursor: pointer; }
+    p { opacity: 0.65; line-height: 1.4; }
+    .ok { color: #6f6; }
+  </style>
+</head>
+<body>
+  <p>Générez un jeton dans Cider&nbsp;: <strong>Settings → Connectivity → Manage External Application Access</strong>, scopes Playback + Audio.</p>
+  <label for="token">Cider <code>apptoken</code></label>
+  <input id="token" type="password" placeholder="Coller le jeton ici" autocomplete="off" />
+  <button id="save" type="button">Enregistrer dans Crimsons</button>
+  <p id="status"></p>
+  <script src="index.js"></script>
+</body>
+</html>
