@@ -40,7 +40,7 @@
       ],
       "requiresPremium": false,
       "requiresCrimsons": true,
-      "icon": "/icons/league-of-legends.png",
+      "icon": "/icons/league-of-legends.svg",
       "targetApp": "Crimsons & Stream Deck"
     },
     {
@@ -64,7 +64,7 @@
       ],
       "requiresPremium": true,
       "requiresCrimsons": true,
-      "icon": "/icons/spotify.png",
+      "icon": "/icons/spotify.svg",
       "targetApp": "Crimsons & Stream Deck"
     },
     {
@@ -88,7 +88,7 @@
       ],
       "requiresPremium": true,
       "requiresCrimsons": true,
-      "icon": "/icons/apple-music.png",
+      "icon": "/icons/apple-music.svg",
       "targetApp": "Crimsons & Stream Deck"
     },
     {
@@ -112,7 +112,7 @@
       ],
       "requiresPremium": true,
       "requiresCrimsons": true,
-      "icon": "/icons/discord.png",
+      "icon": "/icons/discord.svg",
       "targetApp": "Crimsons & Stream Deck"
     },
     {
@@ -135,7 +135,7 @@
       ],
       "requiresPremium": true,
       "requiresCrimsons": true,
-      "icon": "/icons/philips-hue.png",
+      "icon": "/icons/philips-hue.svg",
       "targetApp": "Crimsons & Stream Deck"
     },
     {
@@ -158,7 +158,7 @@
       ],
       "requiresPremium": true,
       "requiresCrimsons": true,
-      "icon": "/icons/twitch.png",
+      "icon": "/icons/twitch.svg",
       "targetApp": "Crimsons & Stream Deck"
     }
   ]
