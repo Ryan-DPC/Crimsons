@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <defs>
+    <linearGradient id="lol-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#091428"/>
+      <stop offset="100%" stop-color="#0a323c"/>
+    </linearGradient>
+  </defs>
+  <rect width="48" height="48" rx="12" fill="url(#lol-grad)"/>
+  <rect x="2" y="2" width="44" height="44" rx="10" fill="none" stroke="#c8aa6e" stroke-width="1.5" opacity="0.6"/>
+  <path fill="#c8aa6e" d="M19 14h3v16h8v3H19V14z"/>
+  <circle cx="33" cy="18" r="2.5" fill="#f0e6d2"/>
+</svg>

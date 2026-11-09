@@ -23,6 +23,7 @@ export interface CatalogPlugin {
   requiresPremium: boolean
   requiresCrimsons: boolean
   icon?: string | null
+  targetApp?: string
 }
 
 export interface CatalogResponse {

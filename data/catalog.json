@@ -1,41 +1,21 @@
 {
-  "version": 1,
+  "version": 2,
   "updatedAt": "2026-11-09",
   "categories": [
     {
       "id": "streamdeck",
-      "label": "StreamDock",
-      "description": "Pack installable dans Stream Dock / StreamDeck (boutons physiques)."
+      "label": "Stream Deck",
+      "description": "Extensions et profils pour Stream Deck et claviers macro."
     },
     {
       "id": "game",
-      "label": "Jeu",
-      "description": "Automatisation et infos liées à un jeu (LCU, draft, live)."
+      "label": "Jeux",
+      "description": "Intégrations et automatisations pour vos jeux favoris."
     },
     {
       "id": "utility",
-      "label": "Utilitaire",
-      "description": "Outils transverses hors jeu (raccourcis, automatisations)."
-    },
-    {
-      "id": "media",
-      "label": "Médias",
-      "description": "Lecture audio / vidéo et contrôles associés."
-    },
-    {
-      "id": "communication",
-      "label": "Communication",
-      "description": "Voix, chat, présence (Discord, etc.)."
-    },
-    {
-      "id": "streaming",
-      "label": "Streaming",
-      "description": "Outils créateur / live (Twitch, ads, chat)."
-    },
-    {
-      "id": "smart-home",
-      "label": "Maison connectée",
-      "description": "Éclairage et périphériques domotiques."
+      "label": "Utilitaires",
+      "description": "Contrôles multimédias, audio et outils du quotidien."
     }
   ],
   "plugins": [
@@ -43,8 +23,8 @@
       "id": "league-of-legends",
       "slug": "league-of-legends",
       "name": "League of Legends",
-      "summary": "Auto-accept, pick/ban, stats et actions draft depuis StreamDock.",
-      "description": "Plugin StreamDock pour League of Legends via Crimsons : ready-check, pick/ban, champion, runes, dodge. Nécessite le client LoL et le sidecar Crimsons.",
+      "summary": "Automatisation et contrôles en direct pour vos parties de League of Legends.",
+      "description": "Acceptez automatiquement vos parties, gérez vos picks & bans, appliquez vos runes et suivez vos statistiques directement sur votre Stream Deck.",
       "packageId": "com.laoy.streamdock.crimson.sdPlugin",
       "packagePath": "com.laoy.streamdock.crimson.sdPlugin",
       "version": "3.1.4",
@@ -60,14 +40,15 @@
       ],
       "requiresPremium": false,
       "requiresCrimsons": true,
-      "icon": null
+      "icon": "/icons/league-of-legends.svg",
+      "targetApp": "Application Crimsons & Stream Deck"
     },
     {
       "id": "spotify",
       "slug": "spotify",
       "name": "Spotify",
-      "summary": "Contrôle de lecture Spotify (play/pause, volume, playlists) sur StreamDock.",
-      "description": "Plugin StreamDock Spotify branché sur le sidecar Crimsons. OAuth Spotify géré dans l’app Crimsons.",
+      "summary": "Contrôle de lecture, volume et navigation de vos playlists Spotify.",
+      "description": "Pilotez votre musique en toute fluidité depuis votre Stream Deck : lecture, pause, changement de piste, réglage du volume et affichage des pochettes.",
       "packageId": "com.laoy.streamdock.spotify.sdPlugin",
       "packagePath": "com.laoy.streamdock.spotify.sdPlugin",
       "version": "3.1.4",
@@ -75,7 +56,6 @@
       "pricing": "tbd",
       "categories": [
         "streamdeck",
-        "media",
         "utility"
       ],
       "surfaces": [
@@ -84,22 +64,22 @@
       ],
       "requiresPremium": true,
       "requiresCrimsons": true,
-      "icon": null
+      "icon": "/icons/spotify.svg",
+      "targetApp": "Application Crimsons & Stream Deck"
     },
     {
       "id": "apple-music",
       "slug": "apple-music",
       "name": "Apple Music",
-      "summary": "Contrôle Apple Music via Cider (play/pause, volume, shuffle) sur StreamDock.",
-      "description": "Plugin StreamDock branché sur l’API locale Cider (127.0.0.1:10767). Nécessite Cider + un apptoken (Settings → Connectivity).",
+      "summary": "Contrôles multimédias et gestion de bibliothèque pour Apple Music via Cider.",
+      "description": "Prenez le contrôle d'Apple Music depuis votre Stream Deck : lecture, molettes de volume, avance rapide (+15s) et ajout en favoris en 1 clic.",
       "packageId": "com.laoy.streamdock.applemusic.sdPlugin",
       "packagePath": "com.laoy.streamdock.applemusic.sdPlugin",
-      "version": "0.1.0",
+      "version": "0.3.0",
       "status": "coming_soon",
       "pricing": "tbd",
       "categories": [
         "streamdeck",
-        "media",
         "utility"
       ],
       "surfaces": [
@@ -108,14 +88,15 @@
       ],
       "requiresPremium": true,
       "requiresCrimsons": true,
-      "icon": null
+      "icon": "/icons/apple-music.svg",
+      "targetApp": "Application Crimsons & Stream Deck"
     },
     {
       "id": "discord",
       "slug": "discord",
       "name": "Discord",
-      "summary": "Mute, deafen et contrôles vocaux Discord depuis StreamDock.",
-      "description": "Plugin StreamDock Discord optionnel. L’intégration Discord IPC dans Crimsons fonctionne aussi sans ce pack deck.",
+      "summary": "Contrôles vocaux, mute micro et gestion de vos salons Discord.",
+      "description": "Gérez vos communications sans quitter votre jeu : mute micro, deafen casque, activation caméra et raccourcis de salons vocaux.",
       "packageId": "com.laoy.streamdock.discord.sdPlugin",
       "packagePath": "com.laoy.streamdock.discord.sdPlugin",
       "version": "1.1.0",
@@ -123,7 +104,6 @@
       "pricing": "tbd",
       "categories": [
         "streamdeck",
-        "communication",
         "utility"
       ],
       "surfaces": [
@@ -132,14 +112,15 @@
       ],
       "requiresPremium": true,
       "requiresCrimsons": true,
-      "icon": null
+      "icon": "/icons/discord.svg",
+      "targetApp": "Application Crimsons & Stream Deck"
     },
     {
       "id": "philips-hue",
       "slug": "philips-hue",
       "name": "Philips Hue",
-      "summary": "Contrôle d’éclairage Hue depuis StreamDock (bientôt).",
-      "description": "Stub catalogue — scènes et toggle lumière. Non installable tant que le runtime n’est pas branché.",
+      "summary": "Gestion d'ambiance et contrôle d'éclairage connecté Philips Hue.",
+      "description": "Transformez votre setup en un clic : allumez ou éteignez vos lampes, basculez vos scènes lumineuses et réglez l'intensité depuis vos touches et molettes.",
       "packageId": "com.laoy.streamdock.hue.sdPlugin",
       "packagePath": "com.laoy.streamdock.hue.sdPlugin",
       "version": "3.1.0",
@@ -147,7 +128,6 @@
       "pricing": "tbd",
       "categories": [
         "streamdeck",
-        "smart-home",
         "utility"
       ],
       "surfaces": [
@@ -155,14 +135,15 @@
       ],
       "requiresPremium": true,
       "requiresCrimsons": true,
-      "icon": null
+      "icon": "/icons/philips-hue.svg",
+      "targetApp": "Application Crimsons & Stream Deck"
     },
     {
       "id": "twitch",
       "slug": "twitch",
       "name": "Twitch",
-      "summary": "Chat, ads et viewers Twitch depuis StreamDock (bientôt).",
-      "description": "Stub catalogue — actions créateur Twitch. Non installable tant que le runtime n’est pas branché.",
+      "summary": "Outils de modération, gestion du chat et interactions live Twitch.",
+      "description": "Optimisez vos streams en direct : modérez votre chat, lancez des pauses publicitaires et gardez un œil sur vos viewers en direct.",
       "packageId": "com.laoy.streamdock.twitch.sdPlugin",
       "packagePath": "com.laoy.streamdock.twitch.sdPlugin",
       "version": "3.1.0",
@@ -170,15 +151,15 @@
       "pricing": "tbd",
       "categories": [
         "streamdeck",
-        "streaming",
-        "communication"
+        "utility"
       ],
       "surfaces": [
         "streamdock"
       ],
       "requiresPremium": true,
       "requiresCrimsons": true,
-      "icon": null
+      "icon": "/icons/twitch.svg",
+      "targetApp": "Application Crimsons & Stream Deck"
     }
   ]
 }

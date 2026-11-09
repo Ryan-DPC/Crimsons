@@ -2,18 +2,7 @@ import { useEffect, useState, useTransition } from 'react'
 import { fetchCatalog } from './api/catalog'
 import type { CatalogPlugin, CatalogResponse } from './types'
 
-const PRICING_LABEL: Record<string, string> = {
-  free: 'Gratuit',
-  premium: 'Premium',
-  paid: 'Payant',
-  tbd: 'Tarif à définir',
-}
-
-const STATUS_LABEL: Record<string, string> = {
-  published: 'Disponible',
-  coming_soon: 'Bientôt',
-  deprecated: 'Déprécié',
-}
+const DIRECT_DOWNLOAD_URL = 'https://github.com/Ryan-DPC/Crimsons/releases/download/v3.1.6/CRIMSONS_3.1.6_x64-setup.exe'
 
 export default function App() {
   const [catalog, setCatalog] = useState<CatalogResponse | null>(null)
@@ -35,9 +24,6 @@ export default function App() {
     }
   }, [])
 
-  const categoryLabel = (id: string) =>
-    catalog?.categories.find((c) => c.id === id)?.label ?? id
-
   const plugins: CatalogPlugin[] =
     !catalog
       ? []
@@ -45,88 +31,162 @@ export default function App() {
         ? catalog.plugins
         : catalog.plugins.filter((p) => p.categories.includes(category))
 
+  const countForCategory = (catId: string) => {
+    if (!catalog) return 0
+    if (catId === 'all') return catalog.plugins.length
+    return catalog.plugins.filter((p) => p.categories.includes(catId)).length
+  }
+
   return (
     <div className="page">
+      {/* HEADER / HERO */}
       <header className="hero">
-        <p className="brand">CRIMSONS</p>
-        <h1>Catalogue plugins</h1>
-        <p className="lede">
-          Tous les packs StreamDock, jeu et utilitaires — hors de l’app Crimsons. Installez ce dont vous avez besoin.
+        <div className="hero-topbar">
+          <div className="brand-group">
+            <span className="brand-dot"></span>
+            <span className="brand">CRIMSONS</span>
+            <span className="brand-tag">STORE</span>
+          </div>
+          <span className="author-badge">Par Chin0Studio</span>
+        </div>
+
+        <h1 className="hero-title">Extensions & Intégrations</h1>
+        <p className="hero-subtitle">
+          Le catalogue officiel des modules et packs Stream Deck. Découvrez, personnalisez et ajoutez vos
+          fonctionnalités favorites directement pour l’application Crimsons.
         </p>
-        {catalog && (
-          <p className="meta">
-            Source : Chin0Studio · maj {catalog.updatedAt}
-            {pending ? ' · filtrage…' : ''}
-          </p>
-        )}
+
+        {/* DIRECT DOWNLOAD CARD */}
+        <div className="download-card">
+          <div className="download-left">
+            <div className="windows-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor">
+                <path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.949-1.801"/>
+              </svg>
+            </div>
+            <div className="download-info">
+              <div className="download-title">Télécharger Crimsons pour Windows</div>
+              <div className="download-specs">
+                Version 3.1.6 · Windows 10/11 (64-bit) · Installateur officiel
+              </div>
+            </div>
+          </div>
+          <a
+            href={DIRECT_DOWNLOAD_URL}
+            className="download-btn"
+            title="Télécharger directement l'installateur Crimsons (.exe)"
+          >
+            <svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M10 3v10m0 0l-4-4m4 4l4-4M3 17h14"/>
+            </svg>
+            <span>Télécharger (.exe)</span>
+          </a>
+        </div>
       </header>
 
       {error && <p className="error">{error}</p>}
-      {!catalog && !error && <p className="meta">Chargement du catalogue…</p>}
+      {!catalog && !error && <p className="loading-state">Chargement du catalogue…</p>}
 
       {catalog && (
         <>
-          <nav className="filters" aria-label="Catégories">
-            <button
-              type="button"
-              className={category === 'all' ? 'active' : ''}
-              onClick={() => startTransition(() => setCategory('all'))}
-            >
-              Tous
-            </button>
-            {catalog.categories.map((c) => (
+          {/* CATEGORY FILTERS */}
+          <div className="filters-container">
+            <nav className="filters" aria-label="Catégories">
               <button
-                key={c.id}
                 type="button"
-                title={c.description}
-                className={category === c.id ? 'active' : ''}
-                onClick={() => startTransition(() => setCategory(c.id))}
+                className={category === 'all' ? 'active' : ''}
+                onClick={() => startTransition(() => setCategory('all'))}
               >
-                {c.label}
+                <span>Tous</span>
+                <span className="count-pill">{countForCategory('all')}</span>
               </button>
-            ))}
-          </nav>
+              {catalog.categories.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  title={c.description}
+                  className={category === c.id ? 'active' : ''}
+                  onClick={() => startTransition(() => setCategory(c.id))}
+                >
+                  <span>{c.label}</span>
+                  <span className="count-pill">{countForCategory(c.id)}</span>
+                </button>
+              ))}
+            </nav>
+            {pending && <span className="pending-indicator">Mise à jour…</span>}
+          </div>
 
-          <section className="list" aria-live="polite">
-            {plugins.length === 0 && <p className="meta">Aucun plugin dans cette catégorie.</p>}
+          {/* PLUGINS GRID */}
+          <section className="plugin-grid" aria-live="polite">
+            {plugins.length === 0 && (
+              <p className="empty-state">Aucun plugin trouvé dans cette catégorie.</p>
+            )}
             {plugins.map((plugin) => (
-              <article key={plugin.id} className="plugin">
-                <div className="plugin-top">
-                  <h2>{plugin.name}</h2>
-                  <span className={`pill status-${plugin.status}`}>{STATUS_LABEL[plugin.status]}</span>
+              <article key={plugin.id} className="plugin-card">
+                <div className="card-header">
+                  <div className="card-identity">
+                    {plugin.icon ? (
+                      <img
+                        src={plugin.icon}
+                        alt={`${plugin.name} logo`}
+                        className="plugin-icon"
+                        width="44"
+                        height="44"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="plugin-icon-placeholder">
+                        {plugin.name.slice(0, 2).toUpperCase()}
+                      </div>
+                    )}
+                    <div className="plugin-titles">
+                      <h2>{plugin.name}</h2>
+                      <span className="plugin-category-tag">Stream Deck & App</span>
+                    </div>
+                  </div>
+                  <div className="card-badges">
+                    <span className="badge-coming-soon">Bientôt</span>
+                  </div>
                 </div>
-                <p className="summary">{plugin.summary}</p>
-                <dl className="facts">
-                  <div>
-                    <dt>Utilisation</dt>
-                    <dd>{plugin.categories.map(categoryLabel).join(' · ')}</dd>
+
+                <div className="card-body">
+                  <p className="plugin-summary">{plugin.summary}</p>
+                  <p className="plugin-description">{plugin.description}</p>
+
+                  <div className="integration-box">
+                    <svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor" className="integration-icon">
+                      <path fillRule="evenodd" d="M10 2a6 6 0 00-6 6c0 4.25 5.25 9.4 5.48 9.62a.75.75 0 001.04 0C10.75 17.4 16 12.25 16 8a6 6 0 00-6-6zm0 8a2 2 0 110-4 2 2 0 010 4z" clipRule="evenodd" />
+                    </svg>
+                    <span>S’installe dans : <strong>Crimsons & Stream Deck</strong></span>
                   </div>
-                  <div>
-                    <dt>Surfaces</dt>
-                    <dd>{plugin.surfaces.join(' · ')}</dd>
-                  </div>
-                  <div>
-                    <dt>Tarif</dt>
-                    <dd>{PRICING_LABEL[plugin.pricing] ?? plugin.pricing}</dd>
-                  </div>
-                  <div>
-                    <dt>Package</dt>
-                    <dd>
-                      <code>{plugin.packageId}</code> · v{plugin.version}
-                    </dd>
-                  </div>
-                </dl>
-                <p className="desc">{plugin.description}</p>
+                </div>
+
+                <div className="card-footer">
+                  <span className="pricing-tag">Tarif à définir</span>
+                  <button type="button" className="btn-card-action" disabled>
+                    Bientôt disponible
+                  </button>
+                </div>
               </article>
             ))}
           </section>
         </>
       )}
 
+      {/* FOOTER */}
       <footer className="footer">
-        API locale : <code>/api/catalog</code>, <code>/api/plugins</code>, <code>/api/categories</code>
-        {' · '}
-        Schéma Supabase : <code>plugin_catalog</code> / <code>plugin_categories</code>
+        <div className="footer-content">
+          <div className="footer-brand">
+            <strong>CRIMSONS STORE</strong> · Conçu par Chin0Studio
+          </div>
+          <div className="footer-links">
+            <a href={DIRECT_DOWNLOAD_URL} className="footer-link">
+              Télécharger Crimsons
+            </a>
+            <span className="footer-sep">·</span>
+            <span className="footer-meta">Catalogue v{catalog?.version ?? 2}</span>
+          </div>
+        </div>
       </footer>
     </div>
   )

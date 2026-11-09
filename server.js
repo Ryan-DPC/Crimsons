@@ -22,6 +22,9 @@ const MIME_TYPES = {
   '.ttf': 'font/ttf',
 };
 
+// Direct installer release URL for Crimsons Windows x64
+const DIRECT_DOWNLOAD_URL = 'https://github.com/Ryan-DPC/Crimsons/releases/download/v3.1.6/CRIMSONS_3.1.6_x64-setup.exe';
+
 function getCatalog() {
   return JSON.parse(fs.readFileSync(CATALOG_PATH, 'utf8'));
 }
@@ -29,6 +32,16 @@ function getCatalog() {
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   const pathname = decodeURIComponent(url.pathname);
+
+  // Direct download route for Crimsons App installer
+  if (pathname === '/download' || pathname === '/api/download' || pathname === '/api/download/crimsons' || pathname === '/download/crimsons') {
+    res.writeHead(302, {
+      'Location': DIRECT_DOWNLOAD_URL,
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+    });
+    res.end();
+    return;
+  }
 
   // API Routes
   if (pathname === '/api/health') {
