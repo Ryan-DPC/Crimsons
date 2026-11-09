@@ -581,15 +581,22 @@ function applyNowPlaying(state) {
         state.duration_ms ? (formatTime(state.progress_ms) + "\n" + formatTime(state.duration_ms)) : ""
     );
 
-    let title = "Cider off";
+    let title = "";
     if (state.cider_connected) {
-        if (state.track_name) {
-            title = state.artist_name 
-                ? `${state.track_name.slice(0, 16)}\n${state.artist_name.slice(0, 16)}`
-                : state.track_name.slice(0, 24);
+        if (state.album_art) {
+            // Option 1: Clean cover art only (no overlapping text)
+            title = "";
+        } else if (state.track_name) {
+            const cleanTrack = state.track_name.replace(/\s*[\(\[](feat\.|ft\.|with).*?[\)\]]/i, "").trim();
+            const cleanArtist = (state.artist_name || "").trim();
+            title = cleanArtist
+                ? `${cleanTrack.slice(0, 12)}\n${cleanArtist.slice(0, 12)}`
+                : cleanTrack.slice(0, 14);
         } else {
-            title = "—";
+            title = "Apple Music";
         }
+    } else {
+        title = "Cider off";
     }
     setTitleForAction("com.laoy.streamdock.applemusic.songinfo", title);
 
