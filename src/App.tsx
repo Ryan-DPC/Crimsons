@@ -37,6 +37,10 @@ export default function App() {
     return catalog.plugins.filter((p) => p.categories.includes(catId)).length
   }
 
+  const categoryLabel = (catId: string) => {
+    return catalog?.categories.find((c) => c.id === catId)?.label ?? catId
+  }
+
   return (
     <div className="page">
       {/* HEADER / HERO */}
@@ -60,7 +64,7 @@ export default function App() {
         <div className="download-card">
           <div className="download-left">
             <div className="windows-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor">
+              <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
                 <path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.949-1.801"/>
               </svg>
             </div>
@@ -76,7 +80,7 @@ export default function App() {
             className="download-btn"
             title="Télécharger directement l'installateur Crimsons (.exe)"
           >
-            <svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M10 3v10m0 0l-4-4m4 4l4-4M3 17h14"/>
             </svg>
             <span>Télécharger (.exe)</span>
@@ -141,7 +145,9 @@ export default function App() {
                     )}
                     <div className="plugin-titles">
                       <h2>{plugin.name}</h2>
-                      <span className="plugin-category-tag">Stream Deck & App</span>
+                      <span className="plugin-compat-badge">
+                        {categoryLabel(plugin.categories[1] || plugin.categories[0])} · Stream Deck
+                      </span>
                     </div>
                   </div>
                   <div className="card-badges">
@@ -150,15 +156,7 @@ export default function App() {
                 </div>
 
                 <div className="card-body">
-                  <p className="plugin-summary">{plugin.summary}</p>
                   <p className="plugin-description">{plugin.description}</p>
-
-                  <div className="integration-box">
-                    <svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor" className="integration-icon">
-                      <path fillRule="evenodd" d="M10 2a6 6 0 00-6 6c0 4.25 5.25 9.4 5.48 9.62a.75.75 0 001.04 0C10.75 17.4 16 12.25 16 8a6 6 0 00-6-6zm0 8a2 2 0 110-4 2 2 0 010 4z" clipRule="evenodd" />
-                    </svg>
-                    <span>S’installe dans : <strong>Crimsons & Stream Deck</strong></span>
-                  </div>
                 </div>
 
                 <div className="card-footer">
@@ -184,7 +182,7 @@ export default function App() {
               Télécharger Crimsons
             </a>
             <span className="footer-sep">·</span>
-            <span className="footer-meta">Catalogue v{catalog?.version ?? 2}</span>
+            <span className="footer-meta">v{catalog?.version ?? 2}</span>
           </div>
         </div>
       </footer>

@@ -40,8 +40,8 @@
       ],
       "requiresPremium": false,
       "requiresCrimsons": true,
-      "icon": "/icons/league-of-legends.svg",
-      "targetApp": "Application Crimsons & Stream Deck"
+      "icon": "/icons/league-of-legends.png",
+      "targetApp": "Crimsons & Stream Deck"
     },
     {
       "id": "spotify",
@@ -64,8 +64,8 @@
       ],
       "requiresPremium": true,
       "requiresCrimsons": true,
-      "icon": "/icons/spotify.svg",
-      "targetApp": "Application Crimsons & Stream Deck"
+      "icon": "/icons/spotify.png",
+      "targetApp": "Crimsons & Stream Deck"
     },
     {
       "id": "apple-music",
@@ -88,8 +88,8 @@
       ],
       "requiresPremium": true,
       "requiresCrimsons": true,
-      "icon": "/icons/apple-music.svg",
-      "targetApp": "Application Crimsons & Stream Deck"
+      "icon": "/icons/apple-music.png",
+      "targetApp": "Crimsons & Stream Deck"
     },
     {
       "id": "discord",
@@ -112,8 +112,8 @@
       ],
       "requiresPremium": true,
       "requiresCrimsons": true,
-      "icon": "/icons/discord.svg",
-      "targetApp": "Application Crimsons & Stream Deck"
+      "icon": "/icons/discord.png",
+      "targetApp": "Crimsons & Stream Deck"
     },
     {
       "id": "philips-hue",
@@ -135,8 +135,8 @@
       ],
       "requiresPremium": true,
       "requiresCrimsons": true,
-      "icon": "/icons/philips-hue.svg",
-      "targetApp": "Application Crimsons & Stream Deck"
+      "icon": "/icons/philips-hue.png",
+      "targetApp": "Crimsons & Stream Deck"
     },
     {
       "id": "twitch",
@@ -158,8 +158,8 @@
       ],
       "requiresPremium": true,
       "requiresCrimsons": true,
-      "icon": "/icons/twitch.svg",
-      "targetApp": "Application Crimsons & Stream Deck"
+      "icon": "/icons/twitch.png",
+      "targetApp": "Crimsons & Stream Deck"
     }
   ]
 }

@@ -1,20 +1,20 @@
 @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
 
 :root {
-  --bg-deep: #080507;
-  --bg-card: #130a0d;
-  --bg-card-hover: #180d12;
-  --ink: #f5eded;
-  --ink-soft: #dcd0d2;
-  --muted: #958486;
-  --line: rgba(245, 237, 237, 0.08);
-  --line-strong: rgba(245, 237, 237, 0.16);
-  --accent: #c41e3a;
-  --accent-hover: #e02848;
-  --accent-glow: rgba(196, 30, 58, 0.28);
-  --accent-soft: rgba(196, 30, 58, 0.12);
-  --warn: #e09f3e;
-  --warn-soft: rgba(224, 159, 62, 0.15);
+  --bg-deep: #0e0e11;
+  --bg-card: #151518;
+  --bg-card-hover: #19191d;
+  --ink: #f0f0f4;
+  --ink-soft: #b8b8c2;
+  --muted: #747480;
+  --line: #222228;
+  --line-strong: #32323a;
+  --accent: #b31b32;
+  --accent-hover: #c4243c;
+  --accent-soft: rgba(179, 27, 50, 0.12);
+  --badge-text: #b8ab9a;
+  --badge-bg: rgba(255, 255, 255, 0.04);
+  --badge-line: rgba(255, 255, 255, 0.08);
   font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   color: var(--ink);
   background: var(--bg-deep);
@@ -31,10 +31,7 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background:
-    radial-gradient(ellipse 80% 45% at 50% -10%, rgba(196, 30, 58, 0.24), transparent 60%),
-    radial-gradient(ellipse 60% 30% at 85% 20%, rgba(100, 15, 30, 0.25), transparent 50%),
-    linear-gradient(180deg, #100609 0%, var(--bg-deep) 35%);
+  background-color: var(--bg-deep);
   color: var(--ink);
 }
 
@@ -53,14 +50,14 @@ body {
    ========================================================= */
 
 .hero {
-  margin-bottom: 3rem;
+  margin-bottom: 2.75rem;
 }
 
 .hero-topbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.25rem;
 }
 
 .brand-group {
@@ -70,26 +67,25 @@ body {
 }
 
 .brand-dot {
-  width: 10px;
-  height: 10px;
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
   background: var(--accent);
-  box-shadow: 0 0 12px var(--accent);
 }
 
 .brand {
   font-family: 'Syne', sans-serif;
   font-weight: 800;
-  font-size: 1.5rem;
-  letter-spacing: -0.03em;
+  font-size: 1.4rem;
+  letter-spacing: -0.02em;
   color: var(--ink);
 }
 
 .brand-tag {
-  background: var(--accent);
-  color: #fff;
-  font-size: 0.7rem;
-  font-weight: 700;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--ink-soft);
+  font-size: 0.68rem;
+  font-weight: 600;
   padding: 0.15rem 0.45rem;
   border-radius: 4px;
   letter-spacing: 0.05em;
@@ -99,34 +95,32 @@ body {
   font-size: 0.8rem;
   font-weight: 500;
   color: var(--muted);
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--line);
-  padding: 0.3rem 0.75rem;
-  border-radius: 999px;
+  padding: 0.25rem 0.7rem;
+  border-radius: 6px;
 }
 
 .hero-title {
   font-family: 'Syne', sans-serif;
   font-weight: 800;
-  font-size: clamp(2rem, 5vw, 3.2rem);
+  font-size: clamp(2rem, 5vw, 3rem);
   letter-spacing: -0.03em;
-  line-height: 1.1;
-  margin: 0 0 1rem;
-  background: linear-gradient(180deg, #ffffff 30%, #d8c2c5 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  line-height: 1.15;
+  margin: 0 0 0.85rem;
+  color: #ffffff;
 }
 
 .hero-subtitle {
-  font-size: 1.1rem;
+  font-size: 1.05rem;
   line-height: 1.6;
   color: var(--ink-soft);
   max-width: 42rem;
-  margin: 0 0 2rem;
+  margin: 0 0 1.75rem;
 }
 
 /* =========================================================
-   DOWNLOAD CARD
+   DOWNLOAD CARD (SOBER / MATTE)
    ========================================================= */
 
 .download-card {
@@ -135,26 +129,24 @@ body {
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 1.25rem;
-  padding: 1.35rem 1.6rem;
-  background: linear-gradient(135deg, rgba(28, 14, 18, 0.85) 0%, rgba(16, 9, 12, 0.95) 100%);
-  border: 1px solid rgba(196, 30, 58, 0.35);
-  border-radius: 16px;
-  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.6), 0 0 25px -10px var(--accent-glow);
-  backdrop-filter: blur(8px);
+  padding: 1.25rem 1.5rem;
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
 }
 
 .download-left {
   display: flex;
   align-items: center;
-  gap: 1.1rem;
+  gap: 1rem;
 }
 
 .windows-icon {
-  width: 50px;
-  height: 50px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--line-strong);
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--line);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -165,36 +157,33 @@ body {
 .download-title {
   font-family: 'Syne', sans-serif;
   font-weight: 700;
-  font-size: 1.15rem;
-  color: #fff;
-  margin-bottom: 0.2rem;
+  font-size: 1.05rem;
+  color: #ffffff;
+  margin-bottom: 0.15rem;
 }
 
 .download-specs {
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   color: var(--muted);
 }
 
 .download-btn {
   display: inline-flex;
   align-items: center;
-  gap: 0.6rem;
-  background: linear-gradient(180deg, var(--accent) 0%, #a0152c 100%);
-  color: #fff;
+  gap: 0.55rem;
+  background: var(--accent);
+  color: #ffffff;
   font-weight: 600;
-  font-size: 0.95rem;
-  padding: 0.75rem 1.4rem;
-  border-radius: 10px;
+  font-size: 0.9rem;
+  padding: 0.65rem 1.25rem;
+  border-radius: 8px;
   text-decoration: none;
-  box-shadow: 0 4px 15px rgba(196, 30, 58, 0.4);
-  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+  transition: background 0.15s ease;
   flex-shrink: 0;
 }
 
 .download-btn:hover {
-  transform: translateY(-1px);
-  background: linear-gradient(180deg, var(--accent-hover) 0%, var(--accent) 100%);
-  box-shadow: 0 6px 20px rgba(196, 30, 58, 0.6);
+  background: var(--accent-hover);
 }
 
 /* =========================================================
@@ -205,25 +194,25 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 2rem;
+  margin-bottom: 1.75rem;
 }
 
 .filters {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: 0.45rem;
 }
 
 .filters button {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  background: rgba(255, 255, 255, 0.03);
+  gap: 0.45rem;
+  background: rgba(255, 255, 255, 0.02);
   border: 1px solid var(--line);
   color: var(--muted);
-  padding: 0.5rem 1rem;
-  border-radius: 999px;
-  font-size: 0.88rem;
+  padding: 0.45rem 0.85rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -232,21 +221,21 @@ body {
 .filters button:hover {
   color: var(--ink);
   border-color: var(--line-strong);
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .filters button.active {
-  color: #fff;
-  background: var(--accent-soft);
-  border-color: var(--accent);
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--line-strong);
 }
 
 .count-pill {
   font-size: 0.72rem;
   font-weight: 600;
-  padding: 0.1rem 0.45rem;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
+  padding: 0.05rem 0.35rem;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
   color: inherit;
 }
 
@@ -256,13 +245,13 @@ body {
 }
 
 /* =========================================================
-   PLUGINS GRID
+   PLUGINS GRID & CARDS (CLEAN & MATTE)
    ========================================================= */
 
 .plugin-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 1.5rem;
+  gap: 1.25rem;
 }
 
 .plugin-card {
@@ -270,15 +259,13 @@ body {
   flex-direction: column;
   background: var(--bg-card);
   border: 1px solid var(--line);
-  border-radius: 16px;
-  padding: 1.4rem;
-  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  border-radius: 12px;
+  padding: 1.35rem;
+  transition: border-color 0.15s ease, background 0.15s ease;
 }
 
 .plugin-card:hover {
-  transform: translateY(-2px);
-  border-color: rgba(196, 30, 58, 0.35);
-  box-shadow: 0 12px 30px -10px rgba(0, 0, 0, 0.7);
+  border-color: var(--line-strong);
   background: var(--bg-card-hover);
 }
 
@@ -287,7 +274,7 @@ body {
   align-items: flex-start;
   justify-content: space-between;
   gap: 0.75rem;
-  margin-bottom: 1rem;
+  margin-bottom: 0.85rem;
 }
 
 .card-identity {
@@ -299,38 +286,40 @@ body {
 .plugin-icon {
   width: 44px;
   height: 44px;
-  border-radius: 11px;
+  border-radius: 10px;
   object-fit: cover;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
   flex-shrink: 0;
+  background: #000;
 }
 
 .plugin-icon-placeholder {
   width: 44px;
   height: 44px;
-  border-radius: 11px;
-  background: rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   color: var(--muted);
   flex-shrink: 0;
 }
 
 .plugin-titles h2 {
   font-family: 'Syne', sans-serif;
-  font-size: 1.25rem;
+  font-size: 1.15rem;
   font-weight: 700;
   margin: 0;
-  color: #fff;
+  color: #ffffff;
   letter-spacing: -0.01em;
 }
 
-.plugin-category-tag {
+.plugin-compat-badge {
+  display: block;
   font-size: 0.75rem;
   color: var(--muted);
+  margin-top: 0.15rem;
 }
 
 .card-badges {
@@ -339,67 +328,34 @@ body {
 
 .badge-coming-soon {
   display: inline-block;
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   font-weight: 600;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--warn);
-  background: var(--warn-soft);
-  border: 1px solid rgba(224, 159, 62, 0.3);
-  padding: 0.2rem 0.55rem;
+  color: var(--badge-text);
+  background: var(--badge-bg);
+  border: 1px solid var(--badge-line);
+  padding: 0.2rem 0.5rem;
   border-radius: 6px;
 }
 
 .card-body {
   flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
-  margin-bottom: 1.25rem;
-}
-
-.plugin-summary {
-  font-weight: 600;
-  font-size: 0.95rem;
-  color: var(--ink);
-  margin: 0;
-  line-height: 1.4;
+  margin-bottom: 1.15rem;
 }
 
 .plugin-description {
   font-size: 0.88rem;
-  color: var(--muted);
+  color: var(--ink-soft);
   margin: 0;
   line-height: 1.5;
-}
-
-.integration-box {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid var(--line);
-  padding: 0.55rem 0.75rem;
-  border-radius: 8px;
-  font-size: 0.8rem;
-  color: var(--ink-soft);
-  margin-top: 0.25rem;
-}
-
-.integration-icon {
-  color: var(--accent);
-  flex-shrink: 0;
-}
-
-.integration-box strong {
-  color: #fff;
 }
 
 .card-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-top: 1rem;
+  padding-top: 0.85rem;
   border-top: 1px solid var(--line);
   gap: 0.75rem;
 }
@@ -412,15 +368,14 @@ body {
 
 .btn-card-action {
   appearance: none;
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--line);
   color: var(--muted);
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   font-weight: 500;
-  padding: 0.45rem 0.85rem;
-  border-radius: 8px;
+  padding: 0.4rem 0.75rem;
+  border-radius: 6px;
   cursor: not-allowed;
-  opacity: 0.7;
 }
 
 /* =========================================================
@@ -436,12 +391,13 @@ body {
 }
 
 .error {
-  background: rgba(232, 90, 90, 0.1);
-  border: 1px solid rgba(232, 90, 90, 0.3);
+  background: rgba(232, 90, 90, 0.08);
+  border: 1px solid rgba(232, 90, 90, 0.2);
   color: #e85a5a;
-  padding: 0.85rem 1.25rem;
+  padding: 0.75rem 1rem;
   border-radius: 8px;
   margin-bottom: 1.5rem;
+  font-size: 0.9rem;
 }
 
 /* =========================================================
@@ -449,8 +405,8 @@ body {
    ========================================================= */
 
 .footer {
-  margin-top: 4.5rem;
-  padding-top: 2rem;
+  margin-top: 4rem;
+  padding-top: 1.75rem;
   border-top: 1px solid var(--line);
 }
 
@@ -460,7 +416,7 @@ body {
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 1rem;
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   color: var(--muted);
 }
 
@@ -477,11 +433,11 @@ body {
 }
 
 .footer-link:hover {
-  color: #fff;
+  color: #ffffff;
 }
 
 .footer-sep {
-  opacity: 0.4;
+  opacity: 0.3;
 }
 
 @media (max-width: 680px) {
