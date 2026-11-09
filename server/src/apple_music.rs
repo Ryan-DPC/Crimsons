@@ -241,6 +241,7 @@ impl AppleMusicService {
         let attrs = now
             .get("attributes")
             .cloned()
+            .or_else(|| now.get("info").cloned())
             .or_else(|| now.get("data").and_then(|d| d.get("attributes")).cloned())
             .unwrap_or(now.clone());
         let artwork = attrs["artwork"]["url"]
