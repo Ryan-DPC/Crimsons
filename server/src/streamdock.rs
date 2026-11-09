@@ -156,6 +156,7 @@ pub async fn process_streamdeck_event(value: serde_json::Value, spotify: Arc<Spo
     
     if action.starts_with("com.laoy.streamdock.spotify") || 
        action.starts_with("com.laoy.streamdock.discord") || 
+       action.starts_with("com.laoy.streamdock.applemusic") || 
        action.starts_with("com.laoy.streamdock.hue") || 
        action.starts_with("com.laoy.streamdock.twitch") {
         // Meme regle que pour les commandes WebSocket : le verdict vient de

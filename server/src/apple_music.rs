@@ -70,11 +70,13 @@ impl CiderClient {
         body: Option<serde_json::Value>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let url = format!("{}{}", CIDER_BASE, path);
-        let mut req = self.with_auth(self.http.post(&url));
-        if let Some(b) = body {
-            req = req.json(&b);
-        }
-        let resp = req.send().await?;
+        let b = body.unwrap_or_else(|| json!({}));
+        let resp = self
+            .with_auth(self.http.post(&url))
+            .header("Content-Type", "application/json")
+            .json(&b)
+            .send()
+            .await?;
         let status = resp.status();
         if !status.is_success() && status.as_u16() != 204 {
             let text = resp.text().await.unwrap_or_default();
@@ -91,6 +93,7 @@ impl CiderClient {
         let url = format!("{}{}", CIDER_BASE, path);
         let resp = self
             .with_auth(self.http.patch(&url))
+            .header("Content-Type", "application/json")
             .json(&body)
             .send()
             .await?;
@@ -162,7 +165,8 @@ impl AppleMusicService {
             .as_str()
             .or_else(|| now["artwork"].as_str())
             .unwrap_or("")
-            .to_string();
+            .replace("{w}", "300")
+            .replace("{h}", "300");
         let progress_ms = data["time"]["currentTime"]
             .as_f64()
             .map(|s| (s * 1000.0) as u32)
@@ -195,7 +199,7 @@ impl AppleMusicService {
             repeat_state: repeat,
             cider_connected: true,
             has_token: !client.app_token.is_empty(),
-            track_id: now["id"].as_str().unwrap_or("").to_string(),
+            track_id: now["id"].as_str().or_else(|| now["playParams"]["id"].as_str()).unwrap_or("").to_string(),
         })
     }
 
@@ -491,7 +495,7 @@ fn cider_cache_path() -> std::path::PathBuf {
 }
 
 fn load_cider_token() -> String {
-    // Prefer dedicated cache, then data.json other.ciderAppToken.
+    // 1. Prefer dedicated cache
     if let Ok(raw) = std::fs::read_to_string(cider_cache_path()) {
         if let Ok(v) = serde_json::from_str::<serde_json::Value>(&raw) {
             if let Some(t) = v.get("appToken").and_then(|x| x.as_str()) {
@@ -501,12 +505,39 @@ fn load_cider_token() -> String {
             }
         }
     }
+    // 2. data.json other.ciderAppToken
     let data = crate::storage::load_data_from_path(crate::storage::get_data_path_from_env());
-    data.other
-        .get("ciderAppToken")
-        .and_then(|v| v.as_str())
-        .unwrap_or("")
-        .to_string()
+    if let Some(t) = data.other.get("ciderAppToken").and_then(|v| v.as_str()) {
+        if !t.is_empty() {
+            return t.to_string();
+        }
+    }
+    // 3. Auto-discover from Cider config (%APPDATA%\sh.cider.dotnet\spa-config.yml)
+    if let Ok(appdata) = std::env::var("APPDATA") {
+        let cfg_path = std::path::PathBuf::from(appdata).join("sh.cider.dotnet").join("spa-config.yml");
+        if let Ok(cfg_content) = std::fs::read_to_string(cfg_path) {
+            let mut in_tokens = false;
+            for line in cfg_content.lines() {
+                let trimmed = line.trim();
+                if trimmed.starts_with("apiTokens:") {
+                    in_tokens = true;
+                    continue;
+                }
+                if in_tokens {
+                    if trimmed.starts_with("token:") {
+                        let tok = trimmed.trim_start_matches("token:").trim().trim_matches('"').trim_matches('\'');
+                        if !tok.is_empty() {
+                            return tok.to_string();
+                        }
+                    }
+                    if !line.starts_with(' ') && !line.starts_with('\t') && !line.is_empty() {
+                        in_tokens = false;
+                    }
+                }
+            }
+        }
+    }
+    String::new()
 }
 
 fn save_cider_token(token: &str) {

@@ -1,5 +1,6 @@
 let streamDeckSocket = null;
 let globalPluginUUID = "";
+let lastAlbumArt = null;
 let actionContexts = {
     "com.laoy.streamdock.applemusic.playpause": [],
     "com.laoy.streamdock.applemusic.previous": [],
@@ -138,6 +139,22 @@ const crimsonAPI = {
         } else {
             this.queue.push(data);
         }
+    },
+    async toBase64(url) {
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.crossOrigin = "Anonymous";
+            img.onload = () => {
+                const canvas = document.createElement("canvas");
+                canvas.width = img.width;
+                canvas.height = img.height;
+                const ctx = canvas.getContext("2d");
+                ctx.drawImage(img, 0, 0);
+                resolve(canvas.toDataURL("image/png"));
+            };
+            img.onerror = () => resolve(null);
+            img.src = url;
+        });
     }
 };
 crimsonAPI.connect();
@@ -253,16 +270,49 @@ function applyNowPlaying(state) {
         (state.repeat_state && state.repeat_state !== "none") ? 1 : 0
     );
 
-    const title = state.track_name
-        ? String(state.track_name).slice(0, 24)
-        : (state.cider_connected ? "—" : "Cider off");
+    let title = "Cider off";
+    if (state.cider_connected) {
+        if (state.track_name) {
+            title = state.artist_name 
+                ? `${state.track_name.slice(0, 16)}\n${state.artist_name.slice(0, 16)}`
+                : state.track_name.slice(0, 24);
+        } else {
+            title = "—";
+        }
+    }
     setTitleForAction("com.laoy.streamdock.applemusic.songinfo", title);
+
+    if (state.album_art) {
+        if (lastAlbumArt !== state.album_art) {
+            lastAlbumArt = state.album_art;
+            crimsonAPI.toBase64(state.album_art).then(b64 => {
+                if (b64) {
+                    setImageForAction("com.laoy.streamdock.applemusic.songinfo", b64);
+                }
+            });
+        }
+    } else if (lastAlbumArt !== "") {
+        lastAlbumArt = "";
+        setImageForAction("com.laoy.streamdock.applemusic.songinfo", "static/icon/songinfo.png");
+    }
 }
 
 function setTitleForAction(action, title) {
     const contexts = actionContexts[action] || [];
     contexts.forEach(context => {
         const json = { "event": "setTitle", "context": context, "payload": { "title": title, "target": 0 } };
+        if (streamDeckSocket && streamDeckSocket.readyState === WebSocket.OPEN) {
+            streamDeckSocket.send(JSON.stringify(json));
+        } else if (crimsonAPI.ws && crimsonAPI.ws.readyState === WebSocket.OPEN) {
+            crimsonAPI.send({ type: "FORWARD_TO_STREAMDOCK", payload: json });
+        }
+    });
+}
+
+function setImageForAction(action, image) {
+    const contexts = actionContexts[action] || [];
+    contexts.forEach(context => {
+        const json = { "event": "setImage", "context": context, "payload": { "image": image, "target": 0 } };
         if (streamDeckSocket && streamDeckSocket.readyState === WebSocket.OPEN) {
             streamDeckSocket.send(JSON.stringify(json));
         } else if (crimsonAPI.ws && crimsonAPI.ws.readyState === WebSocket.OPEN) {

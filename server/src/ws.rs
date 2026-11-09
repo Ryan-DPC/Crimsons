@@ -884,6 +884,14 @@ async fn handle_connection(
                                                 }
                                                 _ => {}
                                             }
+                                            // Persist preference to data.json so entitlement::start_guard keeps it enabled
+                                            let data_path = storage::get_data_path_from_env();
+                                            let mut app_data = storage::load_data_from_path(data_path.clone());
+                                            let mut plugins_obj = app_data.other.get("plugins").and_then(|v| v.as_object().cloned()).unwrap_or_default();
+                                            plugins_obj.insert(plugin.to_string(), json!(enabled));
+                                            app_data.other.insert("plugins".to_string(), json!(plugins_obj));
+                                            storage::save_data_to_path(data_path, &app_data);
+
                                             tracing::info!("Toggled plugin {} to {} in memory", plugin, enabled);
 
                                             // Immediate heartbeat broadcast for snappy visual updates

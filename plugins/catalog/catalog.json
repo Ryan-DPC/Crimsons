@@ -48,8 +48,8 @@
       "packageId": "com.laoy.streamdock.crimson.sdPlugin",
       "packagePath": "com.laoy.streamdock.crimson.sdPlugin",
       "version": "3.1.4",
-      "status": "published",
-      "pricing": "free",
+      "status": "coming_soon",
+      "pricing": "tbd",
       "categories": [
         "streamdeck",
         "game"
@@ -71,8 +71,8 @@
       "packageId": "com.laoy.streamdock.spotify.sdPlugin",
       "packagePath": "com.laoy.streamdock.spotify.sdPlugin",
       "version": "3.1.4",
-      "status": "published",
-      "pricing": "premium",
+      "status": "coming_soon",
+      "pricing": "tbd",
       "categories": [
         "streamdeck",
         "media",
@@ -95,8 +95,8 @@
       "packageId": "com.laoy.streamdock.applemusic.sdPlugin",
       "packagePath": "com.laoy.streamdock.applemusic.sdPlugin",
       "version": "0.1.0",
-      "status": "published",
-      "pricing": "premium",
+      "status": "coming_soon",
+      "pricing": "tbd",
       "categories": [
         "streamdeck",
         "media",
@@ -119,8 +119,8 @@
       "packageId": "com.laoy.streamdock.discord.sdPlugin",
       "packagePath": "com.laoy.streamdock.discord.sdPlugin",
       "version": "1.1.0",
-      "status": "published",
-      "pricing": "premium",
+      "status": "coming_soon",
+      "pricing": "tbd",
       "categories": [
         "streamdeck",
         "communication",
