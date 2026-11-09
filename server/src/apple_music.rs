@@ -441,6 +441,77 @@ impl AppleMusicService {
                         .await?;
                 }
             }
+            "volumecontrol" => {
+                let ticks = params
+                    .as_ref()
+                    .and_then(|p| {
+                        p.get("ticks")
+                            .or_else(|| p.get("payload").and_then(|v| v.get("ticks")))
+                            .and_then(|v| v.as_i64())
+                    })
+                    .unwrap_or(0);
+                let step = params
+                    .as_ref()
+                    .and_then(|p| {
+                        p.get("step")
+                            .or_else(|| p.get("payload").and_then(|v| v.get("step")))
+                            .and_then(|v| v.as_f64())
+                    })
+                    .unwrap_or(DEFAULT_VOLUME_STEP);
+                let delta = (ticks as f64) * step;
+                if delta != 0.0 {
+                    self.adjust_volume(&client, delta).await?;
+                }
+            }
+            "skip" => {
+                let ticks = params
+                    .as_ref()
+                    .and_then(|p| {
+                        p.get("ticks")
+                            .or_else(|| p.get("payload").and_then(|v| v.get("ticks")))
+                            .and_then(|v| v.as_i64())
+                    })
+                    .unwrap_or(1);
+                if ticks > 0 {
+                    if client.post_json("/api/v2/playback/next", None).await.is_err() {
+                        client.post_json("/api/v1/playback/next", None).await?;
+                    }
+                } else {
+                    if client.post_json("/api/v2/playback/previous", None).await.is_err() {
+                        client.post_json("/api/v1/playback/previous", None).await?;
+                    }
+                }
+            }
+            "seekrelative" => {
+                let ticks = params
+                    .as_ref()
+                    .and_then(|p| {
+                        p.get("ticks")
+                            .or_else(|| p.get("payload").and_then(|v| v.get("ticks")))
+                            .and_then(|v| v.as_i64())
+                    })
+                    .unwrap_or(0);
+                let step_sec = params
+                    .as_ref()
+                    .and_then(|p| {
+                        p.get("step")
+                            .or_else(|| p.get("payload").and_then(|v| v.get("step")))
+                            .and_then(|v| v.as_f64())
+                    })
+                    .unwrap_or(5.0);
+                let delta_sec = (ticks as f64) * step_sec;
+                let current_sec = self.fetch_state().await.progress_ms as f64 / 1000.0;
+                let target_sec = (current_sec + delta_sec).max(0.0);
+                if client
+                    .post_json("/api/v2/playback/seek", Some(json!({ "position": target_sec })))
+                    .await
+                    .is_err()
+                {
+                    client
+                        .post_json("/api/v1/playback/seek", Some(json!({ "position": target_sec })))
+                        .await?;
+                }
+            }
             "mute" => {
                 let state = self.fetch_state().await;
                 let current = state.volume_percent as f64 / 100.0;

@@ -328,6 +328,19 @@ pub async fn process_streamdeck_event(value: serde_json::Value, spotify: Arc<Spo
                 let endpoint = a.rsplit('.').next().unwrap_or("").to_string();
                 tokio::spawn(async move { let _ = t.handle_command(&endpoint, None).await; });
             }
+            "com.laoy.streamdock.applemusic.volumecontrol" => {
+                if _am.is_enabled.load(Ordering::Relaxed) {
+                    let am = _am.clone();
+                    tokio::spawn(async move { let _ = am.handle_command("mute", None).await; });
+                }
+            }
+            "com.laoy.streamdock.applemusic.previousornext" |
+            "com.laoy.streamdock.applemusic.seekcontrol" => {
+                if _am.is_enabled.load(Ordering::Relaxed) {
+                    let am = _am.clone();
+                    tokio::spawn(async move { let _ = am.handle_command("playpause", None).await; });
+                }
+            }
             a if a.starts_with("com.laoy.streamdock.applemusic.") => {
                 if _am.is_enabled.load(Ordering::Relaxed) {
                     let am = _am.clone();
@@ -370,6 +383,31 @@ pub async fn process_streamdeck_event(value: serde_json::Value, spotify: Arc<Spo
                         let direction = if ticks > 0 { 1 } else { -1 };
                         tokio::spawn(async move {
                             let _ = s.handle_command("skip", Some(json!({ "ticks": direction }))).await;
+                        });
+                    }
+                }
+                "com.laoy.streamdock.applemusic.volumecontrol" => {
+                    if _am.is_enabled.load(Ordering::Relaxed) {
+                        let am = _am.clone();
+                        tokio::spawn(async move {
+                            let _ = am.handle_command("volumecontrol", Some(json!({ "ticks": ticks }))).await;
+                        });
+                    }
+                }
+                "com.laoy.streamdock.applemusic.previousornext" => {
+                    if _am.is_enabled.load(Ordering::Relaxed) {
+                        let am = _am.clone();
+                        let direction = if ticks > 0 { 1 } else { -1 };
+                        tokio::spawn(async move {
+                            let _ = am.handle_command("skip", Some(json!({ "ticks": direction }))).await;
+                        });
+                    }
+                }
+                "com.laoy.streamdock.applemusic.seekcontrol" => {
+                    if _am.is_enabled.load(Ordering::Relaxed) {
+                        let am = _am.clone();
+                        tokio::spawn(async move {
+                            let _ = am.handle_command("seekrelative", Some(json!({ "ticks": ticks }))).await;
                         });
                     }
                 }

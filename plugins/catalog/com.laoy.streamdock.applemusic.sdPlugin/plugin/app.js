@@ -14,7 +14,10 @@ let actionContexts = {
     "com.laoy.streamdock.applemusic.addtolibrary": [],
     "com.laoy.streamdock.applemusic.seekforward": [],
     "com.laoy.streamdock.applemusic.seekbackward": [],
-    "com.laoy.streamdock.applemusic.clearqueue": []
+    "com.laoy.streamdock.applemusic.clearqueue": [],
+    "com.laoy.streamdock.applemusic.volumecontrol": [],
+    "com.laoy.streamdock.applemusic.previousornext": [],
+    "com.laoy.streamdock.applemusic.seekcontrol": []
 };
 
 /** Prefer live /local/ws-token over injected global (stale after server restart). */
@@ -91,8 +94,13 @@ function handleHardwareEvent(jsonObj) {
         }
     }
 
-    if (event === "keyDown") {
+    if (event === "keyDown" || (event === "dialPress" && jsonObj['payload']?.pressed)) {
         handleKeyDown(action);
+    }
+
+    if (event === "dialRotate") {
+        const ticks = (jsonObj['payload'] && jsonObj['payload'].ticks) || 0;
+        handleDialRotate(action, ticks);
     }
 }
 
@@ -263,6 +271,15 @@ function handleKeyDown(action) {
         case "com.laoy.streamdock.applemusic.clearqueue":
             endpoint = "clearqueue";
             break;
+        case "com.laoy.streamdock.applemusic.volumecontrol":
+            endpoint = "mute";
+            break;
+        case "com.laoy.streamdock.applemusic.previousornext":
+            endpoint = "playpause";
+            break;
+        case "com.laoy.streamdock.applemusic.seekcontrol":
+            endpoint = "playpause";
+            break;
         default:
             console.warn("[AppleMusic] Unsupported action:", action);
             return;
@@ -274,6 +291,41 @@ function handleKeyDown(action) {
         endpoint: endpoint,
         payload: {}
     });
+}
+
+
+function formatTime(ms) {
+    if (!ms || ms < 0) return "0:00";
+    const totalSecs = Math.floor(ms / 1000);
+    const mins = Math.floor(totalSecs / 60);
+    const secs = totalSecs % 60;
+    return mins + ":" + secs.toString().padStart(2, '0');
+}
+
+function handleDialRotate(action, ticks) {
+    if (!crimsonAPI.ws || crimsonAPI.ws.readyState !== WebSocket.OPEN) {
+        console.warn("[AppleMusic] dialRotate ignored: crimson-server not connected");
+        return;
+    }
+    if (action === "com.laoy.streamdock.applemusic.volumecontrol") {
+        crimsonAPI.send({
+            type: "APPLE_MUSIC_COMMAND",
+            endpoint: "volumecontrol",
+            payload: { ticks: ticks }
+        });
+    } else if (action === "com.laoy.streamdock.applemusic.previousornext") {
+        crimsonAPI.send({
+            type: "APPLE_MUSIC_COMMAND",
+            endpoint: "skip",
+            payload: { ticks: ticks > 0 ? 1 : -1 }
+        });
+    } else if (action === "com.laoy.streamdock.applemusic.seekcontrol") {
+        crimsonAPI.send({
+            type: "APPLE_MUSIC_COMMAND",
+            endpoint: "seekrelative",
+            payload: { ticks: ticks }
+        });
+    }
 }
 
 function applyNowPlaying(state) {
@@ -296,6 +348,26 @@ function applyNowPlaying(state) {
     updateActionState(
         "com.laoy.streamdock.applemusic.addtolibrary",
         state.in_library ? 1 : 0
+    );
+    updateActionState(
+        "com.laoy.streamdock.applemusic.volumecontrol",
+        state.volume_percent === 0 ? 1 : 0
+    );
+    setTitleForAction(
+        "com.laoy.streamdock.applemusic.volumecontrol",
+        state.cider_connected ? (state.volume_percent + "%") : "—"
+    );
+    updateActionState(
+        "com.laoy.streamdock.applemusic.previousornext",
+        state.is_playing ? 1 : 0
+    );
+    setTitleForAction(
+        "com.laoy.streamdock.applemusic.previousornext",
+        state.is_playing ? "Lecture" : "Pause"
+    );
+    setTitleForAction(
+        "com.laoy.streamdock.applemusic.seekcontrol",
+        state.duration_ms ? (formatTime(state.progress_ms) + "\n" + formatTime(state.duration_ms)) : ""
     );
 
     let title = "Cider off";

@@ -6,7 +6,7 @@
   "Description": "Apple Music controls for StreamDock via Cider (local API on port 10767)",
   "Icon": "static/icon/applemusic.png",
   "Name": "Apple Music (Cider)",
-  "Version": "0.2.0",
+  "Version": "0.3.0",
   "SDKVersion": 2,
   "Software": {
     "MinimumVersion": "2.0.0"
@@ -23,8 +23,16 @@
       "UUID": "com.laoy.streamdock.applemusic.playpause",
       "Icon": "static/icon/play.png",
       "States": [
-        { "Image": "static/icon/play.png", "TitleAlignment": "middle", "FontSize": "10" },
-        { "Image": "static/icon/pause.png", "TitleAlignment": "middle", "FontSize": "10" }
+        {
+          "Image": "static/icon/play.png",
+          "TitleAlignment": "middle",
+          "FontSize": "10"
+        },
+        {
+          "Image": "static/icon/pause.png",
+          "TitleAlignment": "middle",
+          "FontSize": "10"
+        }
       ],
       "Tooltip": "Toggle play/pause in Cider",
       "Context": "GLOBAL"
@@ -34,7 +42,11 @@
       "UUID": "com.laoy.streamdock.applemusic.previous",
       "Icon": "static/icon/previous.png",
       "States": [
-        { "Image": "static/icon/previous.png", "TitleAlignment": "middle", "FontSize": "10" }
+        {
+          "Image": "static/icon/previous.png",
+          "TitleAlignment": "middle",
+          "FontSize": "10"
+        }
       ],
       "Tooltip": "Previous track",
       "Context": "GLOBAL"
@@ -44,7 +56,11 @@
       "UUID": "com.laoy.streamdock.applemusic.next",
       "Icon": "static/icon/next.png",
       "States": [
-        { "Image": "static/icon/next.png", "TitleAlignment": "middle", "FontSize": "10" }
+        {
+          "Image": "static/icon/next.png",
+          "TitleAlignment": "middle",
+          "FontSize": "10"
+        }
       ],
       "Tooltip": "Next track",
       "Context": "GLOBAL"
@@ -54,7 +70,11 @@
       "UUID": "com.laoy.streamdock.applemusic.volumeup",
       "Icon": "static/icon/volume_up.png",
       "States": [
-        { "Image": "static/icon/volume_up.png", "TitleAlignment": "middle", "FontSize": "10" }
+        {
+          "Image": "static/icon/volume_up.png",
+          "TitleAlignment": "middle",
+          "FontSize": "10"
+        }
       ],
       "Tooltip": "Increase Cider volume",
       "Context": "GLOBAL"
@@ -64,7 +84,11 @@
       "UUID": "com.laoy.streamdock.applemusic.volumedown",
       "Icon": "static/icon/volume_down.png",
       "States": [
-        { "Image": "static/icon/volume_down.png", "TitleAlignment": "middle", "FontSize": "10" }
+        {
+          "Image": "static/icon/volume_down.png",
+          "TitleAlignment": "middle",
+          "FontSize": "10"
+        }
       ],
       "Tooltip": "Decrease Cider volume",
       "Context": "GLOBAL"
@@ -74,8 +98,16 @@
       "UUID": "com.laoy.streamdock.applemusic.shuffle",
       "Icon": "static/icon/shuffle.png",
       "States": [
-        { "Image": "static/icon/shuffle.png", "TitleAlignment": "middle", "FontSize": "10" },
-        { "Image": "static/icon/shuffle_on.png", "TitleAlignment": "middle", "FontSize": "10" }
+        {
+          "Image": "static/icon/shuffle.png",
+          "TitleAlignment": "middle",
+          "FontSize": "10"
+        },
+        {
+          "Image": "static/icon/shuffle_on.png",
+          "TitleAlignment": "middle",
+          "FontSize": "10"
+        }
       ],
       "Tooltip": "Toggle shuffle",
       "Context": "GLOBAL"
@@ -85,8 +117,16 @@
       "UUID": "com.laoy.streamdock.applemusic.repeat",
       "Icon": "static/icon/repeat.png",
       "States": [
-        { "Image": "static/icon/repeat.png", "TitleAlignment": "middle", "FontSize": "10" },
-        { "Image": "static/icon/repeat_on.png", "TitleAlignment": "middle", "FontSize": "10" }
+        {
+          "Image": "static/icon/repeat.png",
+          "TitleAlignment": "middle",
+          "FontSize": "10"
+        },
+        {
+          "Image": "static/icon/repeat_on.png",
+          "TitleAlignment": "middle",
+          "FontSize": "10"
+        }
       ],
       "Tooltip": "Cycle repeat mode",
       "Context": "GLOBAL"
@@ -97,7 +137,11 @@
       "Icon": "static/icon/songinfo.png",
       "PropertyInspector": "propertyInspector/cider/index.html",
       "States": [
-        { "Image": "static/icon/songinfo.png", "TitleAlignment": "bottom", "FontSize": "9" }
+        {
+          "Image": "static/icon/songinfo.png",
+          "TitleAlignment": "bottom",
+          "FontSize": "9"
+        }
       ],
       "Tooltip": "Show current track title — open PI to set Cider apptoken",
       "Context": "GLOBAL"
@@ -107,8 +151,16 @@
       "UUID": "com.laoy.streamdock.applemusic.love",
       "Icon": "static/icon/love.png",
       "States": [
-        { "Image": "static/icon/love.png", "TitleAlignment": "middle", "FontSize": "10" },
-        { "Image": "static/icon/love_on.png", "TitleAlignment": "middle", "FontSize": "10" }
+        {
+          "Image": "static/icon/love.png",
+          "TitleAlignment": "middle",
+          "FontSize": "10"
+        },
+        {
+          "Image": "static/icon/love_on.png",
+          "TitleAlignment": "middle",
+          "FontSize": "10"
+        }
       ],
       "Tooltip": "Toggle Favorite / Love in Apple Music",
       "Context": "GLOBAL"
@@ -118,7 +170,11 @@
       "UUID": "com.laoy.streamdock.applemusic.addtolibrary",
       "Icon": "static/icon/add_library.png",
       "States": [
-        { "Image": "static/icon/add_library.png", "TitleAlignment": "middle", "FontSize": "10" }
+        {
+          "Image": "static/icon/add_library.png",
+          "TitleAlignment": "middle",
+          "FontSize": "10"
+        }
       ],
       "Tooltip": "Add current song to your Apple Music library",
       "Context": "GLOBAL"
@@ -128,7 +184,11 @@
       "UUID": "com.laoy.streamdock.applemusic.seekforward",
       "Icon": "static/icon/forward.png",
       "States": [
-        { "Image": "static/icon/forward.png", "TitleAlignment": "middle", "FontSize": "10" }
+        {
+          "Image": "static/icon/forward.png",
+          "TitleAlignment": "middle",
+          "FontSize": "10"
+        }
       ],
       "Tooltip": "Fast forward 15 seconds",
       "Context": "GLOBAL"
@@ -138,7 +198,11 @@
       "UUID": "com.laoy.streamdock.applemusic.seekbackward",
       "Icon": "static/icon/rewind.png",
       "States": [
-        { "Image": "static/icon/rewind.png", "TitleAlignment": "middle", "FontSize": "10" }
+        {
+          "Image": "static/icon/rewind.png",
+          "TitleAlignment": "middle",
+          "FontSize": "10"
+        }
       ],
       "Tooltip": "Rewind 15 seconds",
       "Context": "GLOBAL"
@@ -148,9 +212,78 @@
       "UUID": "com.laoy.streamdock.applemusic.clearqueue",
       "Icon": "static/icon/clear_queue.png",
       "States": [
-        { "Image": "static/icon/clear_queue.png", "TitleAlignment": "middle", "FontSize": "10" }
+        {
+          "Image": "static/icon/clear_queue.png",
+          "TitleAlignment": "middle",
+          "FontSize": "10"
+        }
       ],
       "Tooltip": "Clear the Apple Music queue",
+      "Context": "GLOBAL"
+    },
+    {
+      "Name": "Volume (Molette)",
+      "UUID": "com.laoy.streamdock.applemusic.volumecontrol",
+      "Icon": "static/icon/volume_control.png",
+      "DisableAutomaticStates": true,
+      "States": [
+        {
+          "Image": "static/icon/volume_control.png",
+          "TitleAlignment": "center",
+          "FontSize": "10"
+        },
+        {
+          "Image": "static/icon/volume_mute.png",
+          "TitleAlignment": "center",
+          "FontSize": "10"
+        }
+      ],
+      "Settings": {
+        "step": 0.05
+      },
+      "Controllers": [
+        "Knob"
+      ],
+      "Tooltip": "Ajuster le volume (tourner) et Mute (appuyer)",
+      "Context": "GLOBAL"
+    },
+    {
+      "Name": "Précédent / Suivant (Molette)",
+      "UUID": "com.laoy.streamdock.applemusic.previousornext",
+      "Icon": "static/icon/prevornext.png",
+      "DisableAutomaticStates": true,
+      "States": [
+        {
+          "Image": "static/icon/prevornext.png",
+          "TitleAlignment": "center",
+          "FontSize": "10"
+        }
+      ],
+      "Controllers": [
+        "Knob"
+      ],
+      "Tooltip": "Piste suivante/précédente (tourner) et Play/Pause (appuyer)",
+      "Context": "GLOBAL"
+    },
+    {
+      "Name": "Timeline / Seek (Molette)",
+      "UUID": "com.laoy.streamdock.applemusic.seekcontrol",
+      "Icon": "static/icon/forward.png",
+      "DisableAutomaticStates": true,
+      "States": [
+        {
+          "Image": "static/icon/forward.png",
+          "TitleAlignment": "center",
+          "FontSize": "10"
+        }
+      ],
+      "Settings": {
+        "step": 5
+      },
+      "Controllers": [
+        "Knob"
+      ],
+      "Tooltip": "Avancer / Reculer dans le morceau (tourner) et Play/Pause (appuyer)",
       "Context": "GLOBAL"
     }
   ]
