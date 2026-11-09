@@ -6,7 +6,7 @@
   "Description": "Apple Music controls for StreamDock via Cider (local API on port 10767)",
   "Icon": "static/icon/applemusic.png",
   "Name": "Apple Music (Cider)",
-  "Version": "0.1.0",
+  "Version": "0.2.0",
   "SDKVersion": 2,
   "Software": {
     "MinimumVersion": "2.0.0"
@@ -100,6 +100,57 @@
         { "Image": "static/icon/songinfo.png", "TitleAlignment": "bottom", "FontSize": "9" }
       ],
       "Tooltip": "Show current track title — open PI to set Cider apptoken",
+      "Context": "GLOBAL"
+    },
+    {
+      "Name": "Love / Favorite",
+      "UUID": "com.laoy.streamdock.applemusic.love",
+      "Icon": "static/icon/love.png",
+      "States": [
+        { "Image": "static/icon/love.png", "TitleAlignment": "middle", "FontSize": "10" },
+        { "Image": "static/icon/love_on.png", "TitleAlignment": "middle", "FontSize": "10" }
+      ],
+      "Tooltip": "Toggle Favorite / Love in Apple Music",
+      "Context": "GLOBAL"
+    },
+    {
+      "Name": "Add to Library",
+      "UUID": "com.laoy.streamdock.applemusic.addtolibrary",
+      "Icon": "static/icon/add_library.png",
+      "States": [
+        { "Image": "static/icon/add_library.png", "TitleAlignment": "middle", "FontSize": "10" }
+      ],
+      "Tooltip": "Add current song to your Apple Music library",
+      "Context": "GLOBAL"
+    },
+    {
+      "Name": "Forward +15s",
+      "UUID": "com.laoy.streamdock.applemusic.seekforward",
+      "Icon": "static/icon/forward.png",
+      "States": [
+        { "Image": "static/icon/forward.png", "TitleAlignment": "middle", "FontSize": "10" }
+      ],
+      "Tooltip": "Fast forward 15 seconds",
+      "Context": "GLOBAL"
+    },
+    {
+      "Name": "Rewind -15s",
+      "UUID": "com.laoy.streamdock.applemusic.seekbackward",
+      "Icon": "static/icon/rewind.png",
+      "States": [
+        { "Image": "static/icon/rewind.png", "TitleAlignment": "middle", "FontSize": "10" }
+      ],
+      "Tooltip": "Rewind 15 seconds",
+      "Context": "GLOBAL"
+    },
+    {
+      "Name": "Clear Queue",
+      "UUID": "com.laoy.streamdock.applemusic.clearqueue",
+      "Icon": "static/icon/clear_queue.png",
+      "States": [
+        { "Image": "static/icon/clear_queue.png", "TitleAlignment": "middle", "FontSize": "10" }
+      ],
+      "Tooltip": "Clear the Apple Music queue",
       "Context": "GLOBAL"
     }
   ]

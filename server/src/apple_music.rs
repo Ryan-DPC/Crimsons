@@ -24,6 +24,10 @@ pub struct AppleMusicState {
     pub cider_connected: bool,
     pub has_token: bool,
     pub track_id: String,
+    #[serde(default)]
+    pub in_favorites: bool,
+    #[serde(default)]
+    pub in_library: bool,
 }
 
 struct CiderClient {
@@ -105,6 +109,20 @@ impl CiderClient {
         Ok(())
     }
 
+    async fn delete_json(&self, path: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let url = format!("{}{}", CIDER_BASE, path);
+        let resp = self
+            .with_auth(self.http.delete(&url))
+            .header("Content-Type", "application/json")
+            .send()
+            .await?;
+        let status = resp.status();
+        if !status.is_success() && status.as_u16() != 204 {
+            let text = resp.text().await.unwrap_or_default();
+            return Err(format!("Cider DELETE {} -> {} {}", path, status, text).into());
+        }
+        Ok(())
+    }
 }
 
 pub struct AppleMusicService {
@@ -200,6 +218,8 @@ impl AppleMusicService {
             cider_connected: true,
             has_token: !client.app_token.is_empty(),
             track_id: now["id"].as_str().or_else(|| now["playParams"]["id"].as_str()).unwrap_or("").to_string(),
+            in_favorites: now["inFavorites"].as_bool().unwrap_or(false),
+            in_library: now["inLibrary"].as_bool().unwrap_or(false),
         })
     }
 
@@ -265,6 +285,8 @@ impl AppleMusicService {
             cider_connected: true,
             has_token: !client.app_token.is_empty(),
             track_id: now["id"].as_str().unwrap_or("").to_string(),
+            in_favorites: false,
+            in_library: false,
         })
     }
 
@@ -468,6 +490,122 @@ impl AppleMusicService {
                 {
                     client
                         .post_json("/api/v1/playback/toggle-repeat", None)
+                        .await?;
+                }
+            }
+            "seekforward" | "forward" => {
+                let offset_sec = params
+                    .as_ref()
+                    .and_then(|p| p.get("seconds").or_else(|| p.get("offset")).and_then(|v| v.as_f64()))
+                    .unwrap_or(15.0);
+                let current_sec = self.fetch_state().await.progress_ms as f64 / 1000.0;
+                let target_sec = current_sec + offset_sec;
+                if client
+                    .post_json("/api/v2/playback/seek", Some(json!({ "position": target_sec })))
+                    .await
+                    .is_err()
+                {
+                    client
+                        .post_json("/api/v1/playback/seek", Some(json!({ "position": target_sec })))
+                        .await?;
+                }
+            }
+            "seekbackward" | "rewind" => {
+                let offset_sec = params
+                    .as_ref()
+                    .and_then(|p| p.get("seconds").or_else(|| p.get("offset")).and_then(|v| v.as_f64()))
+                    .unwrap_or(15.0);
+                let current_sec = self.fetch_state().await.progress_ms as f64 / 1000.0;
+                let target_sec = (current_sec - offset_sec).max(0.0);
+                if client
+                    .post_json("/api/v2/playback/seek", Some(json!({ "position": target_sec })))
+                    .await
+                    .is_err()
+                {
+                    client
+                        .post_json("/api/v1/playback/seek", Some(json!({ "position": target_sec })))
+                        .await?;
+                }
+            }
+            "seek" => {
+                let pos_sec = params
+                    .as_ref()
+                    .and_then(|p| p.get("position").or_else(|| p.get("time")).and_then(|v| v.as_f64()))
+                    .unwrap_or(0.0);
+                if client
+                    .post_json("/api/v2/playback/seek", Some(json!({ "position": pos_sec })))
+                    .await
+                    .is_err()
+                {
+                    client
+                        .post_json("/api/v1/playback/seek", Some(json!({ "position": pos_sec })))
+                        .await?;
+                }
+            }
+            "love" | "like" => {
+                if client
+                    .post_json("/api/v2/library/now-playing/love", None)
+                    .await
+                    .is_err()
+                {
+                    client
+                        .post_json("/api/v1/playback/love", None)
+                        .await?;
+                }
+            }
+            "dislike" | "unlike" => {
+                if client
+                    .post_json("/api/v2/library/now-playing/dislike", None)
+                    .await
+                    .is_err()
+                {
+                    client
+                        .post_json("/api/v1/playback/dislike", None)
+                        .await?;
+                }
+            }
+            "togglelove" => {
+                let state = self.fetch_state().await;
+                if state.in_favorites {
+                    if client
+                        .post_json("/api/v2/library/now-playing/dislike", None)
+                        .await
+                        .is_err()
+                    {
+                        client
+                            .post_json("/api/v1/playback/dislike", None)
+                            .await?;
+                    }
+                } else {
+                    if client
+                        .post_json("/api/v2/library/now-playing/love", None)
+                        .await
+                        .is_err()
+                    {
+                        client
+                            .post_json("/api/v1/playback/love", None)
+                            .await?;
+                    }
+                }
+            }
+            "addtolibrary" | "addlibrary" => {
+                if client
+                    .post_json("/api/v2/library/now-playing/add", None)
+                    .await
+                    .is_err()
+                {
+                    client
+                        .post_json("/api/v1/playback/add-to-library", None)
+                        .await?;
+                }
+            }
+            "removefromlibrary" => {
+                client.delete_json("/api/v2/library/now-playing").await?;
+            }
+            "clearqueue" => {
+                if client.delete_json("/api/v2/queue").await.is_err() {
+                    client
+                        .post_json("/api/v1/playback/queue/clear-queue", None)
                         .await?;
                 }
             }

@@ -9,7 +9,12 @@ let actionContexts = {
     "com.laoy.streamdock.applemusic.volumedown": [],
     "com.laoy.streamdock.applemusic.shuffle": [],
     "com.laoy.streamdock.applemusic.repeat": [],
-    "com.laoy.streamdock.applemusic.songinfo": []
+    "com.laoy.streamdock.applemusic.songinfo": [],
+    "com.laoy.streamdock.applemusic.love": [],
+    "com.laoy.streamdock.applemusic.addtolibrary": [],
+    "com.laoy.streamdock.applemusic.seekforward": [],
+    "com.laoy.streamdock.applemusic.seekbackward": [],
+    "com.laoy.streamdock.applemusic.clearqueue": []
 };
 
 /** Prefer live /local/ws-token over injected global (stale after server restart). */
@@ -243,6 +248,21 @@ function handleKeyDown(action) {
         case "com.laoy.streamdock.applemusic.songinfo":
             endpoint = "songinfo";
             break;
+        case "com.laoy.streamdock.applemusic.love":
+            endpoint = "togglelove";
+            break;
+        case "com.laoy.streamdock.applemusic.addtolibrary":
+            endpoint = "addtolibrary";
+            break;
+        case "com.laoy.streamdock.applemusic.seekforward":
+            endpoint = "seekforward";
+            break;
+        case "com.laoy.streamdock.applemusic.seekbackward":
+            endpoint = "seekbackward";
+            break;
+        case "com.laoy.streamdock.applemusic.clearqueue":
+            endpoint = "clearqueue";
+            break;
         default:
             console.warn("[AppleMusic] Unsupported action:", action);
             return;
@@ -268,6 +288,14 @@ function applyNowPlaying(state) {
     updateActionState(
         "com.laoy.streamdock.applemusic.repeat",
         (state.repeat_state && state.repeat_state !== "none") ? 1 : 0
+    );
+    updateActionState(
+        "com.laoy.streamdock.applemusic.love",
+        state.in_favorites ? 1 : 0
+    );
+    updateActionState(
+        "com.laoy.streamdock.applemusic.addtolibrary",
+        state.in_library ? 1 : 0
     );
 
     let title = "Cider off";
