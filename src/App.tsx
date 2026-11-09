@@ -55,7 +55,7 @@ export default function App() {
         </p>
         {catalog && (
           <p className="meta">
-            Source : {catalog.source} · maj {catalog.updatedAt}
+            Source : Chin0Studio · maj {catalog.updatedAt}
             {pending ? ' · filtrage…' : ''}
           </p>
         )}
