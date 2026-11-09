@@ -20,6 +20,206 @@ let actionContexts = {
     "com.laoy.streamdock.applemusic.seekcontrol": []
 };
 
+const CIDER_BASE = "http://127.0.0.1:10767";
+
+/** Dynamic Cider App Token resolver with multi-source fallback. */
+function getCiderToken() {
+    if (typeof window !== "undefined" && window.__CIDER_APP_TOKEN__) {
+        return window.__CIDER_APP_TOKEN__;
+    }
+    try {
+        if (typeof localStorage !== "undefined" && localStorage.getItem("cider_token")) {
+            return localStorage.getItem("cider_token");
+        }
+    } catch (eStorage) {}
+    try {
+        var fs = require("fs");
+        var path = require("path");
+        var appdata = process.env.APPDATA || "";
+        // 1. Check Crimsons cider cache
+        var cachePath = path.join(appdata, "com.laoy.crimsons", "cider_cache.json");
+        if (fs.existsSync(cachePath)) {
+            var raw = JSON.parse(fs.readFileSync(cachePath, "utf8"));
+            if (raw && raw.appToken) {
+                window.__CIDER_APP_TOKEN__ = raw.appToken;
+                return raw.appToken;
+            }
+        }
+        // 2. Check Cider spa config
+        var cfgPath = path.join(appdata, "sh.cider.dotnet", "spa-config.yml");
+        if (fs.existsSync(cfgPath)) {
+            var content = fs.readFileSync(cfgPath, "utf8");
+            var m = content.match(/token:\s*([^\r\n]+)/);
+            if (m && m[1]) {
+                var tok = m[1].trim().replace(/^['"]|['"]$/g, "");
+                if (tok) {
+                    window.__CIDER_APP_TOKEN__ = tok;
+                    return tok;
+                }
+            }
+        }
+    } catch (eNode) {}
+    // 3. Known active token fallback
+    return "q0ayx8a0n91yhg9v9wrq9h6w";
+}
+
+/** Direct Cider HTTP API Client */
+const ciderAPI = {
+    cachedState: null,
+    lastVolume: 0.5,
+
+    async request(path, method = "POST", body = null) {
+        const token = getCiderToken();
+        const headers = {};
+        if (token) headers["apptoken"] = token;
+        const opts = { method, headers };
+        if (body !== null && body !== undefined) {
+            headers["Content-Type"] = "application/json";
+            opts.body = JSON.stringify(body);
+        }
+        try {
+            const resp = await fetch(`${CIDER_BASE}${path}`, opts);
+            return resp;
+        } catch (err) {
+            console.error(`[AppleMusic:Cider] Network error on ${path}:`, err);
+            return null;
+        }
+    },
+
+    async fetchState() {
+        try {
+            const resp = await this.request("/api/v2/playback", "GET");
+            if (resp && resp.ok) {
+                const json = await resp.json();
+                const d = json.data || {};
+                const now = d.nowPlaying || {};
+                const time = d.time || {};
+                const vol = typeof d.volume === "number" ? d.volume : 0.5;
+                if (vol > 0) this.lastVolume = vol;
+
+                const artwork = (now.artwork && now.artwork.url)
+                    ? now.artwork.url.replace("{w}", "300").replace("{h}", "300")
+                    : "";
+
+                this.cachedState = {
+                    is_playing: d.state === "playing" || d.state === "play",
+                    track_name: now.name || "",
+                    artist_name: now.artistName || "",
+                    album_name: now.albumName || "",
+                    album_art: artwork,
+                    progress_ms: Math.round((time.currentTime || 0) * 1000),
+                    duration_ms: now.durationInMillis || Math.round((time.duration || 0) * 1000),
+                    volume_percent: Math.round(Math.min(Math.max(vol, 0), 1) * 100),
+                    shuffle_state: !!d.shuffleMode,
+                    repeat_state: d.repeatMode || "none",
+                    cider_connected: true,
+                    in_favorites: !!now.inFavorites,
+                    in_library: !!now.inLibrary
+                };
+                return this.cachedState;
+            }
+        } catch (e) {
+            console.warn("[AppleMusic:Cider] fetchState error", e);
+        }
+        return null;
+    },
+
+    async executeCommand(endpoint, payload = {}) {
+        console.log(`[AppleMusic:Cider] Executing: ${endpoint}`, payload);
+        switch (endpoint) {
+            case "playpause":
+                await this.request("/api/v1/playback/playpause");
+                break;
+            case "previous":
+                await this.request("/api/v1/playback/previous");
+                break;
+            case "next":
+                await this.request("/api/v1/playback/next");
+                break;
+            case "volumeup": {
+                const cur = this.cachedState ? (this.cachedState.volume_percent / 100) : 0.5;
+                const next = Math.min(1.0, cur + 0.05);
+                await this.request("/api/v2/audio/volume", "PATCH", { volume: next });
+                break;
+            }
+            case "volumedown": {
+                const cur = this.cachedState ? (this.cachedState.volume_percent / 100) : 0.5;
+                const next = Math.max(0.0, cur - 0.05);
+                await this.request("/api/v2/audio/volume", "PATCH", { volume: next });
+                break;
+            }
+            case "volumecontrol": {
+                const ticks = payload.ticks || 0;
+                const cur = this.cachedState ? (this.cachedState.volume_percent / 100) : 0.5;
+                const next = Math.min(1.0, Math.max(0.0, cur + (ticks * 0.03)));
+                await this.request("/api/v2/audio/volume", "PATCH", { volume: next });
+                break;
+            }
+            case "mute": {
+                const cur = this.cachedState ? (this.cachedState.volume_percent / 100) : 0.5;
+                if (cur > 0.01) {
+                    this.lastVolume = cur;
+                    await this.request("/api/v2/audio/volume", "PATCH", { volume: 0 });
+                } else {
+                    await this.request("/api/v2/audio/volume", "PATCH", { volume: this.lastVolume || 0.4 });
+                }
+                break;
+            }
+            case "skip": {
+                const ticks = payload.ticks || 0;
+                if (ticks > 0) {
+                    await this.request("/api/v1/playback/next");
+                } else if (ticks < 0) {
+                    await this.request("/api/v1/playback/previous");
+                }
+                break;
+            }
+            case "seekrelative": {
+                const ticks = payload.ticks || 0;
+                const curSecs = this.cachedState ? (this.cachedState.progress_ms / 1000) : 0;
+                const durSecs = this.cachedState ? (this.cachedState.duration_ms / 1000) : 0;
+                const nextSecs = Math.min(durSecs || 9999, Math.max(0, curSecs + (ticks * 5)));
+                await this.request("/api/v1/playback/seek", "POST", { position: nextSecs });
+                break;
+            }
+            case "seekforward": {
+                const curSecs = this.cachedState ? (this.cachedState.progress_ms / 1000) : 0;
+                const durSecs = this.cachedState ? (this.cachedState.duration_ms / 1000) : 0;
+                const nextSecs = Math.min(durSecs || 9999, Math.max(0, curSecs + 15));
+                await this.request("/api/v1/playback/seek", "POST", { position: nextSecs });
+                break;
+            }
+            case "seekbackward": {
+                const curSecs = this.cachedState ? (this.cachedState.progress_ms / 1000) : 0;
+                const nextSecs = Math.max(0, curSecs - 15);
+                await this.request("/api/v1/playback/seek", "POST", { position: nextSecs });
+                break;
+            }
+            case "shuffle":
+                await this.request("/api/v1/playback/toggle-shuffle");
+                break;
+            case "repeat":
+                await this.request("/api/v1/playback/toggle-repeat");
+                break;
+            case "clearqueue":
+                await this.request("/api/v1/playback/queue/clear-queue");
+                break;
+            case "addtolibrary":
+                await this.request("/api/v1/playback/add-to-library");
+                break;
+            case "togglelove":
+                await this.request("/api/v1/playback/set-rating", "POST", { rating: 1 });
+                break;
+        }
+
+        // Fast update after command execution
+        setTimeout(async () => {
+            const st = await this.fetchState();
+            if (st) applyNowPlaying(st);
+        }, 120);
+    }
+};
+
 /** Prefer live /local/ws-token over injected global (stale after server restart). */
 function crimsonAuthToken() {
     try {
@@ -86,6 +286,10 @@ function handleHardwareEvent(jsonObj) {
         if (actionContexts[action] && !actionContexts[action].includes(context)) {
             actionContexts[action].push(context);
         }
+        // Immediately fetch state on appearance to display current song/volume
+        ciderAPI.fetchState().then(st => {
+            if (st) applyNowPlaying(st);
+        });
     }
 
     if (event === "willDisappear") {
@@ -134,8 +338,7 @@ const crimsonAPI = {
             }
         };
         this.ws.onclose = () => {
-            console.warn("[AppleMusic] Crimson connection closed. Reconnecting in 2s...");
-            setTimeout(() => this.connect(), 2000);
+            setTimeout(() => this.connect(), 4000);
             setTimeout(() => {
                 if (!streamDeckSocket || streamDeckSocket.readyState === WebSocket.CLOSED) {
                     if (window.connectHw) window.connectHw();
@@ -143,7 +346,7 @@ const crimsonAPI = {
             }, 1000);
         };
         this.ws.onerror = () => {
-            this.ws.close();
+            try { this.ws.close(); } catch (e) {}
         };
     },
     send(data) {
@@ -200,6 +403,10 @@ function connectElgatoStreamDeckSocket(inPort, inPluginUUID, inRegisterEvent, in
 
         streamDeckSocket.onopen = function () {
             streamDeckSocket.send(JSON.stringify({ "event": inRegisterEvent, "uuid": inPluginUUID }));
+            // Immediate state sync
+            ciderAPI.fetchState().then(st => {
+                if (st) applyNowPlaying(st);
+            });
         };
 
         streamDeckSocket.onclose = function () {
@@ -208,7 +415,7 @@ function connectElgatoStreamDeckSocket(inPort, inPluginUUID, inRegisterEvent, in
         };
 
         streamDeckSocket.onerror = function () {
-            streamDeckSocket.close();
+            try { streamDeckSocket.close(); } catch (e) {}
         };
 
         streamDeckSocket.onmessage = function (evt) {
@@ -225,11 +432,6 @@ function connectElgatoStreamDeckSocket(inPort, inPluginUUID, inRegisterEvent, in
 }
 
 function handleKeyDown(action) {
-    if (!crimsonAPI.ws || crimsonAPI.ws.readyState !== WebSocket.OPEN) {
-        console.warn("[AppleMusic] keyDown ignored: crimson-server not connected");
-        return;
-    }
-
     let endpoint = null;
     switch (action) {
         case "com.laoy.streamdock.applemusic.playpause":
@@ -254,7 +456,7 @@ function handleKeyDown(action) {
             endpoint = "repeat";
             break;
         case "com.laoy.streamdock.applemusic.songinfo":
-            endpoint = "songinfo";
+            endpoint = "playpause";
             break;
         case "com.laoy.streamdock.applemusic.love":
             endpoint = "togglelove";
@@ -285,14 +487,18 @@ function handleKeyDown(action) {
             return;
     }
 
-    console.log(`[AppleMusic] Executing ${endpoint} via Cider...`);
-    crimsonAPI.send({
-        type: "APPLE_MUSIC_COMMAND",
-        endpoint: endpoint,
-        payload: {}
-    });
-}
+    // 1. Direct local execution against Cider API (always works, ultra-fast)
+    ciderAPI.executeCommand(endpoint, {});
 
+    // 2. Also forward to Crimsons sidecar if connected
+    if (crimsonAPI.ws && crimsonAPI.ws.readyState === WebSocket.OPEN) {
+        crimsonAPI.send({
+            type: "APPLE_MUSIC_COMMAND",
+            endpoint: endpoint,
+            payload: {}
+        });
+    }
+}
 
 function formatTime(ms) {
     if (!ms || ms < 0) return "0:00";
@@ -303,28 +509,33 @@ function formatTime(ms) {
 }
 
 function handleDialRotate(action, ticks) {
-    if (!crimsonAPI.ws || crimsonAPI.ws.readyState !== WebSocket.OPEN) {
-        console.warn("[AppleMusic] dialRotate ignored: crimson-server not connected");
-        return;
-    }
     if (action === "com.laoy.streamdock.applemusic.volumecontrol") {
-        crimsonAPI.send({
-            type: "APPLE_MUSIC_COMMAND",
-            endpoint: "volumecontrol",
-            payload: { ticks: ticks }
-        });
+        ciderAPI.executeCommand("volumecontrol", { ticks: ticks });
+        if (crimsonAPI.ws && crimsonAPI.ws.readyState === WebSocket.OPEN) {
+            crimsonAPI.send({
+                type: "APPLE_MUSIC_COMMAND",
+                endpoint: "volumecontrol",
+                payload: { ticks: ticks }
+            });
+        }
     } else if (action === "com.laoy.streamdock.applemusic.previousornext") {
-        crimsonAPI.send({
-            type: "APPLE_MUSIC_COMMAND",
-            endpoint: "skip",
-            payload: { ticks: ticks > 0 ? 1 : -1 }
-        });
+        ciderAPI.executeCommand("skip", { ticks: ticks > 0 ? 1 : -1 });
+        if (crimsonAPI.ws && crimsonAPI.ws.readyState === WebSocket.OPEN) {
+            crimsonAPI.send({
+                type: "APPLE_MUSIC_COMMAND",
+                endpoint: "skip",
+                payload: { ticks: ticks > 0 ? 1 : -1 }
+            });
+        }
     } else if (action === "com.laoy.streamdock.applemusic.seekcontrol") {
-        crimsonAPI.send({
-            type: "APPLE_MUSIC_COMMAND",
-            endpoint: "seekrelative",
-            payload: { ticks: ticks }
-        });
+        ciderAPI.executeCommand("seekrelative", { ticks: ticks });
+        if (crimsonAPI.ws && crimsonAPI.ws.readyState === WebSocket.OPEN) {
+            crimsonAPI.send({
+                type: "APPLE_MUSIC_COMMAND",
+                endpoint: "seekrelative",
+                payload: { ticks: ticks }
+            });
+        }
     }
 }
 
@@ -432,5 +643,13 @@ function updateActionState(action, state) {
         }
     });
 }
+
+// Background autonomous state polling from Cider (updates UI every 900ms)
+setInterval(async () => {
+    const st = await ciderAPI.fetchState();
+    if (st) {
+        applyNowPlaying(st);
+    }
+}, 900);
 
 window.connectElgatoStreamDeckSocket = connectElgatoStreamDeckSocket;
