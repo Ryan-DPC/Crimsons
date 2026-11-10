@@ -399,7 +399,7 @@ export const LCUProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             const data = await invoke<any>('get_app_data');
             setAppData(data);
 
-            const isLolEnabled = data?.plugins?.leagueOfLegends ?? true;
+            const isLolEnabled = data?.plugins?.leagueOfLegends ?? false;
             if (!isLolEnabled) {
                 setSum(null);
                 setGamePhase('None');
@@ -1004,7 +1004,7 @@ export const LCUProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const doImport = async (build: RuneBuild, index: number) => {
         if (!build || build.primaryStyleId === 0) return;
-        const isLolEnabled = appData?.plugins?.leagueOfLegends ?? true;
+        const isLolEnabled = appData?.plugins?.leagueOfLegends ?? false;
         if (!isLolEnabled) return;
         setIsImporting(index);
         try {

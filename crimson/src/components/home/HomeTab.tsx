@@ -1,6 +1,8 @@
 import { useLCU } from '../../contexts/LCUContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { getChampIcon } from '../../utils/lolDisplay';
+import { usePluginPresence } from '../../hooks/usePluginPresence';
+import PluginEmptyState from '../common/PluginEmptyState';
 import { Disc3, MessageSquare, Laptop, Music, MicOff, Mic, Headphones, MonitorPlay } from 'lucide-react';
 
 
@@ -26,7 +28,12 @@ const Toggle = ({ value, onChange, label, disabled }: {
 export default function HomeTab() {
     const { appData, updateSetting, sum, v, hist, champs, seasonStats, spotifyState, discordState, spotifyCommand, discordCommand, discordConnected } = useLCU();
     const { isPremium } = useAuth();
-    
+    const { installed, ready } = usePluginPresence();
+    const hasLol = installed.leagueOfLegends;
+    const hasSpotify = isPremium && installed.spotify && !!appData?.plugins?.spotify;
+    const hasDiscord = isPremium && installed.discord && !!appData?.plugins?.discord;
+    const hasAnyPlugin = hasLol || hasSpotify || hasDiscord;
+
     const openLyricsWindow = async () => {
         try {
             const { WebviewWindow } = await import('@tauri-apps/api/webviewWindow');
@@ -94,10 +101,15 @@ export default function HomeTab() {
 
     const winPercent = totalMatches > 0 ? Math.round((wins / totalMatches) * 100) : 0;
 
+    if (ready && !hasAnyPlugin) {
+        return <PluginEmptyState />;
+    }
+
     return (
         <div className="w-full h-full flex justify-center items-start pt-12 pb-12 overflow-y-auto scrollbar-hide gap-20">
             
-            {/* Main Stats Card (Flat Dark Mode) */}
+            {/* Main Stats Card (Flat Dark Mode) — LoL plugin only */}
+            {hasLol && (
             <div className="w-[600px] bg-[#0a0a0c] border border-white/5 rounded-2xl flex flex-col shrink-0">
 
                 {/* Summoner Banner */}
@@ -211,9 +223,12 @@ export default function HomeTab() {
                 </div>
 
             </div>
+            )}
 
             {/* Sidebar Controls (No Heavy Blocks) */}
             <div className="w-[450px] flex flex-col gap-8 shrink-0 pt-2">
+                {hasLol && (
+                <>
                 <div className="flex flex-col gap-3">
                     <span className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-1 border-b border-white/5 pb-2">Automation</span>
                     <Toggle
@@ -239,8 +254,10 @@ export default function HomeTab() {
                     </div>
                     <span className="text-[9px] text-white/30 uppercase font-bold mt-2">Edit selections in your Settings</span>
                 </div>
+                </>
+                )}
 
-                {isPremium && appData?.plugins?.spotify && (
+                {hasSpotify && (
                     <div className="flex flex-col gap-3 mt-4">
                         <span className="text-[10px] font-black text-white/40 uppercase tracking-widest border-b border-white/5 pb-2">Spotify</span>
                         <div className="bg-[#0a0a0c] border border-white/5 rounded-xl p-4 flex items-center gap-4 transition-colors hover:border-green-500/30">
@@ -277,7 +294,7 @@ export default function HomeTab() {
                     </div>
                 )}
 
-                {isPremium && appData?.plugins?.discord && (
+                {hasDiscord && (
                     <div className="flex flex-col gap-3 mt-4">
                         <span className="text-[10px] font-black text-white/40 uppercase tracking-widest border-b border-white/5 pb-2">Discord</span>
                         <div className="bg-[#0a0a0c] border border-white/5 rounded-xl p-4 flex items-center gap-4 transition-colors hover:border-indigo-500/30">
