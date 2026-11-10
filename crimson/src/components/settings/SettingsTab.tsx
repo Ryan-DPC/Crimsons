@@ -7,7 +7,7 @@ import {
     Settings as SettingsIcon, Shield, Check, 
     RefreshCw, Zap, Power, 
     AlertCircle, Activity, Layout, Terminal,
-    Key, Compass, Music
+    Key, Compass
 } from 'lucide-react';
 
 // Reusable animated toggle component
@@ -35,10 +35,9 @@ const Toggle = ({ value, onChange, label, description, disabled }: {
 
 const SettingsTab = () => {
     const { 
-        appData, updateSetting, loginSpotify,
+        appData, updateSetting,
         updateStatus, updateProgress, availableVersion, 
         checkUpdates, installUpdate, serverConnected, 
-        spotifyConnected, spotifyState,
         resyncAuthSession
     } = useLCU();
     
@@ -56,35 +55,17 @@ const SettingsTab = () => {
     const [geminiTestStatus, setGeminiTestStatus] = useState<'idle' | 'testing' | 'ok' | 'fail'>('idle');
     const [geminiTestMsg, setGeminiTestMsg] = useState<string | null>(null);
     const [premiumTokenInput, setPremiumTokenInput] = useState(appData?.premiumToken || '');
-    const [spotifyIdInput, setSpotifyIdInput] = useState('');
-    const [spotifySecretInput, setSpotifySecretInput] = useState('');
-    const [spotifyEditing, setSpotifyEditing] = useState(!(appData?.spotifyClientId && appData?.spotifyClientSecret));
-    const [spotifyReplacingSecret, setSpotifyReplacingSecret] = useState(false);
-    const [spotifyError, setSpotifyError] = useState<string | null>(null);
 
     useEffect(() => {
         if (appData) {
             setPremiumTokenInput(appData.premiumToken || '');
             const hasGemini = !!appData.geminiApiKey;
-            const savedId = appData.spotifyClientId || spotifyState?.saved_client_id || '';
-            const hasSpotifyCreds = !!(savedId && (appData.spotifyClientSecret || spotifyState?.has_credentials));
-            const associated = hasSpotifyCreds || spotifyConnected || !!spotifyState?.has_token;
             if (!geminiEditing) {
                 setGeminiKeyInput(hasGemini ? '' : '');
             }
             if (!hasGemini) setGeminiEditing(true);
-            if (!associated) {
-                setSpotifyEditing(true);
-            }
-            if (!spotifyEditing) {
-                setSpotifyIdInput(savedId);
-                setSpotifySecretInput('');
-                setSpotifyReplacingSecret(false);
-            } else if (!spotifyIdInput && savedId) {
-                setSpotifyIdInput(savedId);
-            }
         }
-    }, [appData, spotifyConnected, spotifyState?.has_token]);
+    }, [appData]);
 
     const handleSaveGeminiKey = async () => {
         const key = geminiKeyInput.trim();
@@ -144,41 +125,6 @@ const SettingsTab = () => {
             setPremiumRefreshing(false);
         }
     };
-
-    const savedSpotifyId = appData?.spotifyClientId || spotifyState?.saved_client_id || '';
-    const hasSavedSecret = !!(appData?.spotifyClientSecret || spotifyState?.has_credentials);
-
-    const resolveSpotifyCredentials = () => {
-        const clientId = spotifyIdInput.trim() || savedSpotifyId;
-        const clientSecret = spotifySecretInput.trim() || (appData?.spotifyClientSecret || '');
-        return { clientId, clientSecret, canReuseSecret: hasSavedSecret || !!clientSecret };
-    };
-
-    const handleConnectSpotify = async () => {
-        const { clientId, clientSecret, canReuseSecret } = resolveSpotifyCredentials();
-
-        if (!clientId || (!clientSecret && !canReuseSecret)) {
-            setSpotifyError("Renseignez d'abord le Client ID et le Client Secret de votre application Spotify.");
-            setSpotifyEditing(true);
-            return;
-        }
-        setSpotifyError(null);
-
-        try {
-            localStorage.removeItem('spotify_client_secret');
-            localStorage.removeItem('spotify_client_id');
-            await loginSpotify(clientId, clientSecret);
-            setSpotifyIdInput(clientId);
-            setSpotifySecretInput('');
-            setSpotifyReplacingSecret(false);
-            setSpotifyEditing(false);
-        } catch (e) {
-            console.error("Failed to open Spotify auth", e);
-            setSpotifyError("Impossible d'ouvrir la page d'autorisation Spotify.");
-        }
-    };
-
-
 
     useEffect(() => {
         getVersion().then(setCurrentVersion).catch(console.error);
@@ -462,140 +408,6 @@ const SettingsTab = () => {
                                 </div>
                             </div>
 
-                            {/* SPOTIFY — identifiants propres a chaque utilisateur */}
-                            <div className="bg-white/[0.02] border border-white/5 p-10 rounded-[2.5rem] space-y-6">
-                                <div className="flex items-center justify-between mb-2">
-                                    <div className="flex items-center gap-4">
-                                        <div className="p-3 bg-green-500/10 rounded-xl text-green-500">
-                                            <Music className="w-5 h-5" />
-                                        </div>
-                                        <div>
-                                            <h3 className="text-sm font-black text-white uppercase tracking-widest font-mono">Spotify</h3>
-                                            <span className="text-[9px] text-white/30 font-bold uppercase tracking-widest">Votre application, vos identifiants</span>
-                                        </div>
-                                    </div>
-                                    <div className={`flex items-center gap-2.5 px-4 py-1.5 rounded-full border ${(spotifyConnected || spotifyState?.has_token) ? 'bg-green-500/10 border-green-500/20 text-green-500' : 'bg-white/5 border-white/10 text-white/40'}`}>
-                                        <Activity className={`w-3.5 h-3.5 ${(spotifyConnected || spotifyState?.has_token) ? 'animate-pulse' : ''}`} />
-                                        <span className="text-[10px] font-black uppercase tracking-tighter">{(spotifyConnected || spotifyState?.has_token) ? 'Connecté' : 'Non connecté'}</span>
-                                    </div>
-                                </div>
-
-                                {(spotifyConnected || spotifyState?.has_token) && !spotifyEditing ? (
-                                    <>
-                                        <p className="text-[10px] text-white/40 leading-relaxed uppercase tracking-wider font-semibold">
-                                            Identifiants enregistrés. Spotify peut être contrôlé via StreamDock une fois le plugin installé.
-                                        </p>
-                                        <div className="flex gap-2">
-                                            <button
-                                                onClick={handleConnectSpotify}
-                                                className="flex-1 py-3 bg-green-600/80 hover:bg-green-500 text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all"
-                                            >
-                                                Reconnecter Spotify
-                                            </button>
-                                            <button
-                                                onClick={() => {
-                                                    setSpotifyEditing(true);
-                                                    setSpotifyIdInput(savedSpotifyId);
-                                                    setSpotifySecretInput('');
-                                                    setSpotifyReplacingSecret(false);
-                                                }}
-                                                className="px-4 py-3 bg-white/5 hover:bg-white/10 text-white/60 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all border border-white/5"
-                                            >
-                                                Identifiants
-                                            </button>
-                                        </div>
-                                    </>
-                                ) : (
-                                    <>
-                                        <p className="text-[10px] text-white/40 leading-relaxed uppercase tracking-wider font-semibold">
-                                            Setup une seule fois : 1) créer une app sur le dashboard Spotify Developer · 2) y déclarer l’URL de redirection · 3) coller Client ID / Secret · 4) Associer. Contrôle StreamDock = Premium.
-                                        </p>
-
-                                        <div className="flex items-center justify-between gap-4 bg-black/40 border border-white/5 px-4 py-3 rounded-xl">
-                                            <span className="text-[9px] font-black text-white/40 uppercase tracking-widest shrink-0">URL de redirection à déclarer</span>
-                                            <code className="text-[10px] font-mono text-white/70 truncate">http://127.0.0.1:40510/callback</code>
-                                        </div>
-
-                                        <div className="flex flex-col gap-2">
-                                            <div className="flex justify-between items-center pl-2">
-                                                <label className="text-[9px] font-black text-white/40 uppercase tracking-widest">Client ID</label>
-                                                <a
-                                                    href="https://developer.spotify.com/dashboard"
-                                                    target="_blank"
-                                                    rel="noreferrer"
-                                                    className="text-red-500 hover:text-red-400 text-[8px] font-black uppercase tracking-widest transition-colors flex items-center gap-1"
-                                                >
-                                                    <Compass size={10} /> Créer une application
-                                                </a>
-                                            </div>
-                                            <input
-                                                type="text"
-                                                value={spotifyIdInput}
-                                                onChange={(e) => setSpotifyIdInput(e.target.value)}
-                                                placeholder="Client ID de votre application Spotify..."
-                                                autoComplete="off"
-                                                spellCheck={false}
-                                                className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-[10px] font-mono text-white outline-none focus:border-red-600 transition-colors"
-                                            />
-                                        </div>
-
-                                        <div className="flex flex-col gap-2">
-                                            <label className="text-[9px] font-black text-white/40 uppercase tracking-widest pl-2">Client Secret</label>
-                                            {hasSavedSecret && !spotifyReplacingSecret ? (
-                                                <div className="flex gap-2 items-center">
-                                                    <div className="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-[10px] font-mono text-white/50 uppercase tracking-widest">
-                                                        Enregistré
-                                                    </div>
-                                                    <button
-                                                        onClick={() => {
-                                                            setSpotifyReplacingSecret(true);
-                                                            setSpotifySecretInput('');
-                                                        }}
-                                                        className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all border border-white/5"
-                                                        type="button"
-                                                    >
-                                                        Remplacer
-                                                    </button>
-                                                </div>
-                                            ) : (
-                                                <input
-                                                    type="password"
-                                                    value={spotifySecretInput}
-                                                    onChange={(e) => setSpotifySecretInput(e.target.value)}
-                                                    placeholder={hasSavedSecret ? 'Nouveau secret… (vide = conserver)' : 'Client Secret de votre application Spotify...'}
-                                                    autoComplete="off"
-                                                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-[10px] font-mono text-white outline-none focus:border-red-600 transition-colors"
-                                                />
-                                            )}
-                                        </div>
-
-                                        {spotifyError && (
-                                            <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 px-4 py-3 rounded-xl text-[9px] font-black text-red-400 uppercase tracking-widest">
-                                                <AlertCircle size={12} className="shrink-0" />
-                                                {spotifyError}
-                                            </div>
-                                        )}
-
-                                        <div className="flex gap-2">
-                                            <button
-                                                onClick={handleConnectSpotify}
-                                                disabled={!resolveSpotifyCredentials().clientId || !resolveSpotifyCredentials().canReuseSecret}
-                                                className="flex-1 py-3 bg-green-600 hover:bg-green-500 disabled:bg-white/5 disabled:text-white/30 disabled:cursor-not-allowed text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all"
-                                            >
-                                                {(spotifyConnected || spotifyState?.has_token) ? 'Reconnecter Spotify' : 'Associer Spotify'}
-                                            </button>
-                                            {(spotifyConnected || spotifyState?.has_token) && (
-                                                <button
-                                                    onClick={() => setSpotifyEditing(false)}
-                                                    className="px-4 py-3 bg-white/5 hover:bg-white/10 text-white/60 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all border border-white/5"
-                                                >
-                                                    Annuler
-                                                </button>
-                                            )}
-                                        </div>
-                                    </>
-                                )}
-                            </div>
                         </div>
                     </div>
                 )}
