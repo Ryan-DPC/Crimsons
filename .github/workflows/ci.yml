@@ -39,6 +39,26 @@ jobs:
       - name: Typecheck
         run: npx tsc -b --pretty false
 
+  go-sidecar:
+    name: Go sidecar (test + build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server-go
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22.x"
+          cache-dependency-path: server-go/go.sum
+
+      - name: Test
+        run: go test ./...
+
+      - name: Build
+        run: go build -o bin/crimsons-server ./cmd/crimsons-server
+
   rust:
     name: Rust (clippy + tests)
     # crimson-server depend du crate `windows` et de named pipes Discord.

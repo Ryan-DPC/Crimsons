@@ -2,7 +2,7 @@
 
 ## Cursor Cloud specific instructions
 
-CRIMSONS is a **Windows-native Tauri 2 desktop app** (React UI + Rust sidecar). See `README.md` for the full architecture. On the Linux cloud VM, the **frontend** (`crimson/`) always runs, and the **Rust sidecar** (`server/`) now builds/tests/runs on Linux too (see below). The full Tauri desktop app and the peripheral/client integrations remain Windows-oriented.
+CRIMSONS is a **Windows-native Tauri 2 desktop app** (React UI + local sidecar). See `README.md` for the full architecture. On the Linux cloud VM, the **frontend** (`crimson/`) always runs. The sidecar is being migrated from Rust (`server/`) to Go (`server-go/`) — same binary name `crimsons-server`, same WS `:40510`. Until feature parity, both trees exist; production packaging still builds the Rust crate. The full Tauri desktop app and the peripheral/client integrations remain Windows-oriented.
 
 ### Dev vs shipped UI (Windows)
 
@@ -31,7 +31,16 @@ Placeholder values (e.g. `https://mock.supabase.co` / any string) are enough to 
 
 The app is a Tauri app, so `@tauri-apps/api/*` calls (window controls, `invoke`, `getVersion`) are no-ops/errors in a plain browser but degrade gracefully — the login screen renders and form interaction works without any mocks.
 
-### Building the Rust sidecar (`server/`) on Linux
+### Building the Go sidecar (`server-go/`) on Linux — preferred for new work
+
+```bash
+cd server-go && make test && make build
+CRIMSON_DEV=1 ./bin/crimsons-server   # listens on 127.0.0.1:40510
+```
+
+Requires Go >= 1.22. Data dir: `%APPDATA%/com.laoy.crimsons` or `./com.laoy.crimsons` when `APPDATA` is empty. See `server-go/README.md` for the porting checklist (Spotify / Discord / LCU / StreamDock still Rust-only).
+
+### Building the Rust sidecar (`server/`) on Linux — still the shipped binary
 
 The `crimson-server` crate (binary `crimsons-server`) builds, unit-tests, and runs on Linux (Discord IPC is transport-abstracted: named pipe on Windows, Unix socket elsewhere; the Win32-only `windows` crate is target-gated). It is NOT in the update script (system deps / toolchain changes are out of scope there). Prerequisites, one-time:
 
