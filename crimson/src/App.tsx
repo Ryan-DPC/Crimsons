@@ -13,6 +13,7 @@ import { useAuth } from './contexts/AuthContext';
 import LoginScreen from './components/auth/LoginScreen';
 import logoRed from './assets/logos/logo_red_transparent.png';
 import OnboardingModal from './components/common/OnboardingModal';
+import { usePluginPresence } from './hooks/usePluginPresence';
 
 // Icons
 import { 
@@ -27,12 +28,14 @@ function App() {
     tab, setTab, 
     rank, appData, updateSetting,
     updateStatus, updateProgress, availableVersion, installUpdate,
-    serverConnected, lolConnected,
+    serverConnected,
     sum, v,
     loginSpotify, spotifyConnected,
   } = useLCU();
 
   const { session, loading } = useAuth();
+  const { installed: pluginsInstalled } = usePluginPresence();
+  const hasLolPlugin = pluginsInstalled.leagueOfLegends;
 
   const [appVersion, setAppVersion] = useState<string>('1.1.0');
   const [showCloseDialog, setShowCloseDialog] = useState(false);
@@ -131,7 +134,8 @@ function App() {
     );
   }
 
-  if (!session) {
+  // Cloud / Vite-only preview: skip login when .env sets VITE_SKIP_AUTH=1 (never set in production builds).
+  if (!session && import.meta.env.VITE_SKIP_AUTH !== '1') {
     return <LoginScreen />;
   }
 
@@ -152,12 +156,9 @@ function App() {
               <div className="flex items-center gap-2 text-[9px] font-bold tracking-wider mt-0.5">
                 <div className="flex items-center gap-1">
                   <span className={`w-1.5 h-1.5 rounded-full ${serverConnected ? 'bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.5)]' : 'bg-red-500'}`} />
-                  <span className={serverConnected ? 'text-white/50' : 'text-red-500/60'}>SERVER</span>
-                </div>
-                <span className="text-white/10">·</span>
-                <div className="flex items-center gap-1">
-                  <span className={`w-1.5 h-1.5 rounded-full ${lolConnected ? 'bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.5)] animate-pulse' : 'bg-red-500'}`} />
-                  <span className={lolConnected ? 'text-white/50' : 'text-red-500/60'}>LEAGUE</span>
+                  <span className={serverConnected ? 'text-white/50' : 'text-red-500/60'}>
+                    {serverConnected ? 'SERVER CONNECTED' : 'SERVER OFFLINE'}
+                  </span>
                 </div>
               </div>
             </div>
@@ -183,14 +184,18 @@ function App() {
         {/* RIGHT: Profile & Window Controls */}
         <div className="flex items-center gap-3 shrink-0">
           <div className="flex items-center gap-3 pr-3 border-r border-white/10">
-            <div className="flex flex-col items-end">
-              <span className="text-[10px] font-black text-white uppercase tracking-widest leading-none">{sum ? (sum.displayName || sum.gameName) : 'Offline'}</span>
-              <span className="text-[9px] font-bold text-red-500 uppercase tracking-widest mt-1">{rank?.tier ? `${rank.tier} ${rank.division}` : (sum ? `Niveau ${sum.summonerLevel}` : '')}</span>
-            </div>
-            {sum ? (
-              <img src={`https://ddragon.leagueoflegends.com/cdn/${v}/img/profileicon/${sum.profileIconId}.png`} className="w-8 h-8 rounded-full border border-white/10 shadow-lg" alt="Profile" />
-            ) : (
-              <div className="w-8 h-8 bg-[#111115] rounded-full border border-white/10" />
+            {hasLolPlugin && (
+              <>
+                <div className="flex flex-col items-end">
+                  <span className="text-[10px] font-black text-white uppercase tracking-widest leading-none">{sum ? (sum.displayName || sum.gameName) : 'Offline'}</span>
+                  <span className="text-[9px] font-bold text-red-500 uppercase tracking-widest mt-1">{rank?.tier ? `${rank.tier} ${rank.division}` : (sum ? `Niveau ${sum.summonerLevel}` : '')}</span>
+                </div>
+                {sum ? (
+                  <img src={`https://ddragon.leagueoflegends.com/cdn/${v}/img/profileicon/${sum.profileIconId}.png`} className="w-8 h-8 rounded-full border border-white/10 shadow-lg" alt="Profile" />
+                ) : (
+                  <div className="w-8 h-8 bg-[#111115] rounded-full border border-white/10" />
+                )}
+              </>
             )}
             <button className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 text-white/50 hover:text-white transition-colors ml-1">
               <Menu className="w-4 h-4" />
@@ -296,7 +301,7 @@ function App() {
         </div>
 
         <div className="flex items-center gap-8">
-          {rank.tier && rank.tier !== 'UNRANKED' && rank.tier !== 'NA' && rank.tier !== 'NONE' && rank.division !== 'NA' && rank.division !== 'NONE' && (
+          {hasLolPlugin && rank.tier && rank.tier !== 'UNRANKED' && rank.tier !== 'NA' && rank.tier !== 'NONE' && rank.division !== 'NA' && rank.division !== 'NONE' && (
             <div className="flex items-center gap-3">
               <div className="flex flex-col items-end">
                 <div className="text-[10px] font-black text-white/20 tracking-tighter uppercase">Solo / Duo</div>
@@ -307,7 +312,7 @@ function App() {
               </div>
             </div>
           )}
-          {rank.tftTier && rank.tftTier !== 'UNRANKED' && rank.tftTier !== 'NA' && rank.tftTier !== 'NONE' && rank.tftDivision !== 'NA' && rank.tftDivision !== 'NONE' && (
+          {hasLolPlugin && rank.tftTier && rank.tftTier !== 'UNRANKED' && rank.tftTier !== 'NA' && rank.tftTier !== 'NONE' && rank.tftDivision !== 'NA' && rank.tftDivision !== 'NONE' && (
             <div className="flex items-center gap-3 border-l border-white/5 pl-6">
               <div className="flex flex-col items-end">
                 <div className="text-[10px] font-black text-white/20 tracking-tighter uppercase">TFT Rank</div>
@@ -318,13 +323,6 @@ function App() {
               </div>
             </div>
           )}
-          <div className="flex items-center gap-3 px-4 py-1.5 bg-white/5 rounded-xl border border-white/10 group hover:border-red-500/30 transition-colors duration-500 cursor-help">
-            <div className="flex flex-col items-end">
-              <div className="text-[10px] font-black text-white/20 tracking-tighter uppercase">Gemini AI</div>
-              <div className="text-[10px] font-bold text-green-500/80 uppercase">Operational</div>
-            </div>
-            <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]" />
-          </div>
         </div>
       </footer>
 

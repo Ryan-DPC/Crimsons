@@ -1,8 +1,15 @@
 import { useLCU } from '../../contexts/LCUContext';
 import { getChampIcon } from '../../utils/lolDisplay';
+import { usePluginPresence } from '../../hooks/usePluginPresence';
+import PluginEmptyState from '../common/PluginEmptyState';
 
 const HistoryTab = () => {
     const { hist, champs, v } = useLCU();
+    const { installed, ready } = usePluginPresence();
+
+    if (ready && !installed.leagueOfLegends) {
+        return <PluginEmptyState title="Aucune activité" hint="Installez le plugin League of Legends pour voir l’historique des parties." />;
+    }
     
     const Q_MAP: Record<string, string> = {
         'RANKED_SOLO_5x5': 'Solo Q',

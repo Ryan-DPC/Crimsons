@@ -3,6 +3,8 @@ import TeamCell from './TeamCell';
 import RuneBuildBox from './RuneBuildBox';
 import { useLCU } from '../../contexts/LCUContext';
 import { getChampName } from '../../utils/lolDisplay';
+import { usePluginPresence } from '../../hooks/usePluginPresence';
+import PluginEmptyState from '../common/PluginEmptyState';
 import { RefreshCw, BrainCircuit, ShieldAlert, Zap } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 
@@ -19,6 +21,7 @@ const LobbyTab = () => {
         lobbyMyTeam, lobbyTheirTeam, lobbyState, 
         isLoadingBuilds, appData
     } = useLCU();
+    const { installed, ready } = usePluginPresence();
 
     const [simMode] = useState(false);
     const [draftAnalysis, setDraftAnalysis] = useState<any>(null);
@@ -164,6 +167,14 @@ const LobbyTab = () => {
         if (name === "Pantheon") return "Pantheon";
         return "Unknown";
     };
+
+    if (ready && !installed.leagueOfLegends) {
+        return (
+            <div className="h-full flex flex-col">
+                <PluginEmptyState title="Aucune partie" hint="Installez le plugin League of Legends pour afficher le draft et le lobby." />
+            </div>
+        );
+    }
 
     return (
         <div className="h-full flex flex-col relative overflow-hidden">
