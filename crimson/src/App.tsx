@@ -323,13 +323,6 @@ function App() {
               </div>
             </div>
           )}
-          <div className="flex items-center gap-3 px-4 py-1.5 bg-white/5 rounded-xl border border-white/10 group hover:border-red-500/30 transition-colors duration-500 cursor-help">
-            <div className="flex flex-col items-end">
-              <div className="text-[10px] font-black text-white/20 tracking-tighter uppercase">Gemini AI</div>
-              <div className="text-[10px] font-bold text-green-500/80 uppercase">Operational</div>
-            </div>
-            <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]" />
-          </div>
         </div>
       </footer>
 
