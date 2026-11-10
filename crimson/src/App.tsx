@@ -131,7 +131,8 @@ function App() {
     );
   }
 
-  if (!session) {
+  // Cloud / Vite-only preview: skip login when .env sets VITE_SKIP_AUTH=1 (never set in production builds).
+  if (!session && import.meta.env.VITE_SKIP_AUTH !== '1') {
     return <LoginScreen />;
   }
 

@@ -209,7 +209,7 @@ export default function OnboardingModal({
                                             <span className="text-[10px] font-black uppercase tracking-tighter">Connecté — jetons enregistrés</span>
                                         </div>
                                         <p className="text-[8px] text-white/40 uppercase font-black tracking-widest leading-relaxed">
-                                            Activez Spotify dans Paramètres → Plugins (Hub) pour le contrôle StreamDock.
+                                            Associez Spotify ici, puis installez le plugin StreamDock pour le contrôle deck.
                                         </p>
                                     </div>
                                 ) : (
