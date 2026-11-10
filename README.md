@@ -21,7 +21,8 @@ Version actuelle : **3.1.4**.
 | Pièce | Rôle |
 | --- | --- |
 | `crimson/` | App Tauri 2 : UI React, commandes natives, lance le sidecar |
-| `server/` (crate `crimson-server`, binary `crimsons-server`) | Sidecar : WebSocket local, intégrations, bridge StreamDock |
+| `server/` (crate `crimson-server`, binary `crimsons-server`) | Sidecar Rust (encore shippé) : WS local, intégrations, StreamDock |
+| `server-go/` (binary `crimsons-server`) | Sidecar Go en cours de portage — même contrat WS `:40510` (voir `server-go/README.md`) |
 | `crimson/src-tauri/crates/lcu_commands` | Logique LCU / draft partagée |
 | `plugins/streamdeck/` | **Base :** Crimsons (LoL) + Spotify. Discord optionnel. |
 | `plugins/streamdeck/optional/` | Stubs / futurs plugins externes (Hue, Twitch, …) |
