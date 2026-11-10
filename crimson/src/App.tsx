@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useLCU } from './contexts/LCUContext';
 import { getVersion } from '@tauri-apps/api/app';
 
@@ -38,6 +38,26 @@ function App() {
   const [showCloseDialog, setShowCloseDialog] = useState(false);
   const [showUpdateNotif, setShowUpdateNotif] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onPointerDown = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMenuOpen(false);
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [menuOpen]);
 
   useEffect(() => {
     if (!appData) return;
@@ -175,9 +195,6 @@ function App() {
           <button onClick={() => setTab('history')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all duration-300 ${tab === 'history' ? 'bg-white/10 text-white shadow-lg shadow-black/50' : 'text-white/40 hover:text-white/70'}`}>
             <Activity className="w-3.5 h-3.5" /> ACTIVITY
           </button>
-          <button onClick={() => setTab('settings')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all duration-300 ${tab === 'settings' ? 'bg-white/10 text-white shadow-lg shadow-black/50' : 'text-white/40 hover:text-white/70'}`}>
-            <User className="w-3.5 h-3.5" /> ACCOUNT
-          </button>
         </nav>
 
         {/* RIGHT: Profile & Window Controls */}
@@ -192,9 +209,44 @@ function App() {
             ) : (
               <div className="w-8 h-8 bg-[#111115] rounded-full border border-white/10" />
             )}
-            <button className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 text-white/50 hover:text-white transition-colors ml-1">
-              <Menu className="w-4 h-4" />
-            </button>
+            <div className="relative ml-1" ref={menuRef}>
+              <button
+                type="button"
+                aria-haspopup="menu"
+                aria-expanded={menuOpen}
+                onClick={() => setMenuOpen((open) => !open)}
+                className={`w-8 h-8 flex items-center justify-center rounded-full transition-colors ${
+                  menuOpen || tab === 'settings'
+                    ? 'bg-white/10 text-white'
+                    : 'hover:bg-white/10 text-white/50 hover:text-white'
+                }`}
+              >
+                <Menu className="w-4 h-4" />
+              </button>
+              {menuOpen && (
+                <div
+                  role="menu"
+                  className="absolute right-0 top-[calc(100%+8px)] z-[60] min-w-[168px] rounded-xl border border-white/10 bg-[#111115]/95 p-1 shadow-[0_12px_40px_rgba(0,0,0,0.55)] backdrop-blur-md animate-in fade-in zoom-in-95 duration-150"
+                >
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setTab('settings');
+                      setMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-left text-[11px] font-bold uppercase tracking-widest transition-colors ${
+                      tab === 'settings'
+                        ? 'bg-white/10 text-white'
+                        : 'text-white/60 hover:bg-white/5 hover:text-white'
+                    }`}
+                  >
+                    <User className="w-3.5 h-3.5 shrink-0" />
+                    Account
+                  </button>
+                </div>
+              )}
+            </div>
             <div className="w-px h-4 bg-white/10 mx-1" />
             <button className="relative w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 text-white/50 hover:text-white transition-colors">
               <Bell className="w-4 h-4" />
