@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CRIMSONS — Logo system proposals</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --crimson: #b31b32;
+      --crimson-bright: #e8344a;
+      --ink: #141418;
+      --ink-soft: #747480;
+      --paper: #f4f4f6;
+      --dark: #0e0e11;
+      --dark-card: #151518;
+      --line: #222228;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "IBM Plex Sans", sans-serif;
+      background: var(--paper);
+      color: var(--ink);
+      line-height: 1.45;
+    }
+    .wrap { max-width: 1180px; margin: 0 auto; padding: 2.5rem 1.5rem 4rem; }
+    h1 {
+      font-family: Syne, sans-serif;
+      font-weight: 800;
+      font-size: clamp(1.8rem, 4vw, 2.6rem);
+      letter-spacing: -0.03em;
+      margin: 0 0 0.4rem;
+    }
+    .lede { color: var(--ink-soft); max-width: 42rem; margin: 0 0 2rem; }
+    .rec {
+      display: inline-block;
+      background: var(--crimson);
+      color: #fff;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 0.25rem 0.55rem;
+      margin-bottom: 1.5rem;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1.25rem;
+    }
+    @media (max-width: 860px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+    .card {
+      border: 1px solid #dddde3;
+      background: #fff;
+      overflow: hidden;
+    }
+    .card.favorite { border-color: var(--crimson); border-width: 2px; }
+    .card-head {
+      padding: 1rem 1.1rem 0.75rem;
+      border-bottom: 1px solid #eee;
+    }
+    .card-head h2 {
+      font-family: Syne, sans-serif;
+      font-size: 1.15rem;
+      font-weight: 800;
+      margin: 0 0 0.25rem;
+    }
+    .card-head p { margin: 0; font-size: 0.9rem; color: var(--ink-soft); }
+    .panels { display: grid; grid-template-columns: 1fr 1fr; }
+    .panel {
+      padding: 1.1rem;
+      min-height: 210px;
+    }
+    .panel.light { background: #fff; }
+    .panel.dark { background: var(--dark); color: #f0f0f4; }
+    .label {
+      font-size: 0.68rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+      margin-bottom: 0.75rem;
+    }
+    .panel.dark .label { color: #747480; }
+    .brandlogo {
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+      margin-bottom: 1rem;
+    }
+    .brandlogo img { width: 28px; height: 28px; display: block; }
+    .brandlogo span {
+      font-family: Syne, sans-serif;
+      font-weight: 800;
+      font-size: 1.05rem;
+      letter-spacing: 0.04em;
+    }
+    .panel.light .brandlogo span { color: var(--ink); }
+    .panel.dark .brandlogo span { color: #f0f0f4; }
+    .sizes {
+      display: flex;
+      align-items: flex-end;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+    .sizes figure { margin: 0; text-align: center; }
+    .sizes img { display: block; image-rendering: auto; }
+    .sizes figcaption {
+      font-size: 0.62rem;
+      color: var(--ink-soft);
+      margin-top: 0.25rem;
+    }
+    .panel.dark .sizes figcaption { color: #747480; }
+    .icons {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+      margin-bottom: 0.85rem;
+    }
+    .icons img.icon { width: 56px; height: 56px; }
+    .icons img.mono { width: 44px; height: 44px; }
+    .wm { width: min(100%, 240px); height: auto; display: block; }
+    .meta {
+      margin-top: 2.5rem;
+      padding-top: 1.25rem;
+      border-top: 1px solid #dddde3;
+      font-size: 0.9rem;
+      color: var(--ink-soft);
+    }
+    .meta code {
+      font-size: 0.82rem;
+      background: #ececf0;
+      padding: 0.1rem 0.35rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>CRIMSONS logo system</h1>
+    <p class="lede">
+      Quatre directions structurées comme HOOPS LIVE : favicon, logo-icon, monogramme,
+      wordmarks clair/sombre, cover social. Comparaison côte à côte sur fond clair et fond sombre,
+      avec mock header BrandLogo (icône + CRIMSONS).
+    </p>
+    <div class="rec">Favorite recommandée — A Geometric C</div>
+
+    <div class="grid">
+      <!-- A -->
+      <article class="card favorite" id="a">
+        <div class="card-head">
+          <h2>A — Geometric C</h2>
+          <p>Évolution vectorielle du monogramme desktop (C + hex-node). Meilleure continuité marque.</p>
+        </div>
+        <div class="panels">
+          <div class="panel light">
+            <div class="label">Light</div>
+            <div class="brandlogo">
+              <img src="proposals/a-geometric-c/favicon.svg" alt="" />
+              <span>CRIMSONS</span>
+            </div>
+            <div class="sizes">
+              <figure><img src="proposals/a-geometric-c/favicon.svg" width="16" height="16" alt="" /><figcaption>16</figcaption></figure>
+              <figure><img src="proposals/a-geometric-c/favicon.svg" width="24" height="24" alt="" /><figcaption>24</figcaption></figure>
+              <figure><img src="proposals/a-geometric-c/favicon.svg" width="32" height="32" alt="" /><figcaption>32</figcaption></figure>
+            </div>
+            <div class="icons">
+              <img class="icon" src="proposals/a-geometric-c/logo-icon.svg" alt="icon" />
+              <img class="mono" src="proposals/a-geometric-c/logo-monogram.svg" alt="mono" />
+            </div>
+            <img class="wm" src="proposals/a-geometric-c/wordmark-light.svg" alt="wordmark light" />
+          </div>
+          <div class="panel dark">
+            <div class="label">Dark</div>
+            <div class="brandlogo">
+              <img src="proposals/a-geometric-c/favicon.svg" alt="" />
+              <span>CRIMSONS</span>
+            </div>
+            <div class="sizes">
+              <figure><img src="proposals/a-geometric-c/favicon.svg" width="16" height="16" alt="" /><figcaption>16</figcaption></figure>
+              <figure><img src="proposals/a-geometric-c/favicon.svg" width="24" height="24" alt="" /><figcaption>24</figcaption></figure>
+              <figure><img src="proposals/a-geometric-c/favicon.svg" width="32" height="32" alt="" /><figcaption>32</figcaption></figure>
+            </div>
+            <div class="icons">
+              <img class="icon" src="proposals/a-geometric-c/logo-icon.svg" alt="icon" />
+              <img class="mono" src="proposals/a-geometric-c/logo-monogram.svg" alt="mono" />
+            </div>
+            <img class="wm" src="proposals/a-geometric-c/wordmark-dark.svg" alt="wordmark dark" />
+          </div>
+        </div>
+      </article>
+
+      <!-- B -->
+      <article class="card" id="b">
+        <div class="card-head">
+          <h2>B — Pulse signal</h2>
+          <p>Nœud + arcs expansifs (écho HOOPS Pulse). Identité signal / live, propre à Crimsons.</p>
+        </div>
+        <div class="panels">
+          <div class="panel light">
+            <div class="label">Light</div>
+            <div class="brandlogo">
+              <img src="proposals/b-pulse-signal/favicon.svg" alt="" />
+              <span>CRIMSONS</span>
+            </div>
+            <div class="sizes">
+              <figure><img src="proposals/b-pulse-signal/favicon.svg" width="16" height="16" alt="" /><figcaption>16</figcaption></figure>
+              <figure><img src="proposals/b-pulse-signal/favicon.svg" width="24" height="24" alt="" /><figcaption>24</figcaption></figure>
+              <figure><img src="proposals/b-pulse-signal/favicon.svg" width="32" height="32" alt="" /><figcaption>32</figcaption></figure>
+            </div>
+            <div class="icons">
+              <img class="icon" src="proposals/b-pulse-signal/logo-icon.svg" alt="icon" />
+              <img class="mono" src="proposals/b-pulse-signal/logo-monogram.svg" alt="mono" />
+            </div>
+            <img class="wm" src="proposals/b-pulse-signal/wordmark-light.svg" alt="wordmark light" />
+          </div>
+          <div class="panel dark">
+            <div class="label">Dark</div>
+            <div class="brandlogo">
+              <img src="proposals/b-pulse-signal/favicon.svg" alt="" />
+              <span>CRIMSONS</span>
+            </div>
+            <div class="sizes">
+              <figure><img src="proposals/b-pulse-signal/favicon.svg" width="16" height="16" alt="" /><figcaption>16</figcaption></figure>
+              <figure><img src="proposals/b-pulse-signal/favicon.svg" width="24" height="24" alt="" /><figcaption>24</figcaption></figure>
+              <figure><img src="proposals/b-pulse-signal/favicon.svg" width="32" height="32" alt="" /><figcaption>32</figcaption></figure>
+            </div>
+            <div class="icons">
+              <img class="icon" src="proposals/b-pulse-signal/logo-icon.svg" alt="icon" />
+              <img class="mono" src="proposals/b-pulse-signal/logo-monogram.svg" alt="mono" />
+            </div>
+            <img class="wm" src="proposals/b-pulse-signal/wordmark-dark.svg" alt="wordmark dark" />
+          </div>
+        </div>
+      </article>
+
+      <!-- C -->
+      <article class="card" id="c">
+        <div class="card-head">
+          <h2>C — Sharp CS</h2>
+          <p>Bouclier angulaire + barre S. Plus gaming / StreamDock, fort en icône app.</p>
+        </div>
+        <div class="panels">
+          <div class="panel light">
+            <div class="label">Light</div>
+            <div class="brandlogo">
+              <img src="proposals/c-sharp-cs/favicon.svg" alt="" />
+              <span>CRIMSONS</span>
+            </div>
+            <div class="sizes">
+              <figure><img src="proposals/c-sharp-cs/favicon.svg" width="16" height="16" alt="" /><figcaption>16</figcaption></figure>
+              <figure><img src="proposals/c-sharp-cs/favicon.svg" width="24" height="24" alt="" /><figcaption>24</figcaption></figure>
+              <figure><img src="proposals/c-sharp-cs/favicon.svg" width="32" height="32" alt="" /><figcaption>32</figcaption></figure>
+            </div>
+            <div class="icons">
+              <img class="icon" src="proposals/c-sharp-cs/logo-icon.svg" alt="icon" />
+              <img class="mono" src="proposals/c-sharp-cs/logo-monogram.svg" alt="mono" />
+            </div>
+            <img class="wm" src="proposals/c-sharp-cs/wordmark-light.svg" alt="wordmark light" />
+          </div>
+          <div class="panel dark">
+            <div class="label">Dark</div>
+            <div class="brandlogo">
+              <img src="proposals/c-sharp-cs/favicon.svg" alt="" />
+              <span>CRIMSONS</span>
+            </div>
+            <div class="sizes">
+              <figure><img src="proposals/c-sharp-cs/favicon.svg" width="16" height="16" alt="" /><figcaption>16</figcaption></figure>
+              <figure><img src="proposals/c-sharp-cs/favicon.svg" width="24" height="24" alt="" /><figcaption>24</figcaption></figure>
+              <figure><img src="proposals/c-sharp-cs/favicon.svg" width="32" height="32" alt="" /><figcaption>32</figcaption></figure>
+            </div>
+            <div class="icons">
+              <img class="icon" src="proposals/c-sharp-cs/logo-icon.svg" alt="icon" />
+              <img class="mono" src="proposals/c-sharp-cs/logo-monogram.svg" alt="mono" />
+            </div>
+            <img class="wm" src="proposals/c-sharp-cs/wordmark-dark.svg" alt="wordmark dark" />
+          </div>
+        </div>
+      </article>
+
+      <!-- D -->
+      <article class="card" id="d">
+        <div class="card-head">
+          <h2>D — Typographic</h2>
+          <p>Wordmark-first + slash crimson. Minimal, fort en header store / docs.</p>
+        </div>
+        <div class="panels">
+          <div class="panel light">
+            <div class="label">Light</div>
+            <div class="brandlogo">
+              <img src="proposals/d-wordmark/favicon.svg" alt="" />
+              <span>CRIMSONS</span>
+            </div>
+            <div class="sizes">
+              <figure><img src="proposals/d-wordmark/favicon.svg" width="16" height="16" alt="" /><figcaption>16</figcaption></figure>
+              <figure><img src="proposals/d-wordmark/favicon.svg" width="24" height="24" alt="" /><figcaption>24</figcaption></figure>
+              <figure><img src="proposals/d-wordmark/favicon.svg" width="32" height="32" alt="" /><figcaption>32</figcaption></figure>
+            </div>
+            <div class="icons">
+              <img class="icon" src="proposals/d-wordmark/logo-icon.svg" alt="icon" />
+              <img class="mono" src="proposals/d-wordmark/logo-monogram.svg" alt="mono" />
+            </div>
+            <img class="wm" src="proposals/d-wordmark/wordmark-light.svg" alt="wordmark light" />
+          </div>
+          <div class="panel dark">
+            <div class="label">Dark</div>
+            <div class="brandlogo">
+              <img src="proposals/d-wordmark/favicon.svg" alt="" />
+              <span>CRIMSONS</span>
+            </div>
+            <div class="sizes">
+              <figure><img src="proposals/d-wordmark/favicon.svg" width="16" height="16" alt="" /><figcaption>16</figcaption></figure>
+              <figure><img src="proposals/d-wordmark/favicon.svg" width="24" height="24" alt="" /><figcaption>24</figcaption></figure>
+              <figure><img src="proposals/d-wordmark/favicon.svg" width="32" height="32" alt="" /><figcaption>32</figcaption></figure>
+            </div>
+            <div class="icons">
+              <img class="icon" src="proposals/d-wordmark/logo-icon.svg" alt="icon" />
+              <img class="mono" src="proposals/d-wordmark/logo-monogram.svg" alt="mono" />
+            </div>
+            <img class="wm" src="proposals/d-wordmark/wordmark-dark.svg" alt="wordmark dark" />
+          </div>
+        </div>
+      </article>
+    </div>
+
+    <div class="meta">
+      Sources SVG : <code>brand/proposals/{a-geometric-c,b-pulse-signal,c-sharp-cs,d-wordmark}/</code>
+      · Favorite canonique : <code>brand/*.svg</code> (copie de A)
+      · Accent : <code>#B31B32</code> (aligné store)
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 460 72" role="img" aria-label="Crimsons">
+  <title>Crimsons pulse wordmark  -  dark</title>
+  <g transform="translate(0 14) scale(0.55)">
+    <circle cx="30" cy="48" r="9" fill="#B31B32"/>
+    <path fill="none" stroke="#B31B32" stroke-width="7" stroke-linecap="round"
+          d="M44 28c12 7 12 33 0 40"/>
+    <path fill="none" stroke="#B31B32" stroke-width="7" stroke-linecap="round"
+          d="M58 18c18 12 18 48 0 60"/>
+  </g>
+  <text x="56" y="52"
+        font-family="Syne, Inter, 'Segoe UI', Arial, sans-serif"
+        font-size="48" font-weight="800" letter-spacing="4"
+        fill="#F0F0F4">CRIMSONS</text>
+</svg>

@@ -47,7 +47,14 @@ export default function App() {
       <header className="hero">
         <div className="hero-topbar">
           <div className="brand-group">
-            <span className="brand-dot"></span>
+            <img
+              className="brand-mark"
+              src="/favicon.svg"
+              width={28}
+              height={28}
+              alt=""
+              aria-hidden="true"
+            />
             <span className="brand">CRIMSONS</span>
             <span className="brand-tag">STORE</span>
           </div>

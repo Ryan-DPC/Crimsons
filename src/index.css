@@ -73,6 +73,13 @@ body {
   background: var(--accent);
 }
 
+.brand-mark {
+  width: 28px;
+  height: 28px;
+  display: block;
+  flex-shrink: 0;
+}
+
 .brand {
   font-family: 'Syne', sans-serif;
   font-weight: 800;

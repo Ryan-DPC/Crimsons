@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Crimsons pulse">
+  <title>Crimsons logo icon  -  Pulse signal</title>
+  <defs>
+    <linearGradient id="pulseGrad" x1="10%" y1="50%" x2="95%" y2="50%">
+      <stop offset="0%" stop-color="#E8344A"/>
+      <stop offset="100%" stop-color="#8B1526"/>
+    </linearGradient>
+  </defs>
+  <!-- Soft plate -->
+  <rect x="8" y="8" width="112" height="112" rx="28" fill="#151518"/>
+  <!-- Core node -->
+  <circle cx="42" cy="64" r="12" fill="url(#pulseGrad)"/>
+  <circle cx="42" cy="64" r="4.5" fill="#0E0E11"/>
+  <!-- Expanding pulse arcs (right-facing, C-like silhouette) -->
+  <path fill="none" stroke="#B31B32" stroke-width="7" stroke-linecap="round"
+        d="M58 40c14 8 14 40 0 48"/>
+  <path fill="none" stroke="#E02040" stroke-width="7" stroke-linecap="round" opacity="0.85"
+        d="M72 28c22 14 22 58 0 72"/>
+  <path fill="none" stroke="#B31B32" stroke-width="7" stroke-linecap="round" opacity="0.55"
+        d="M86 16c30 20 30 76 0 96"/>
+</svg>

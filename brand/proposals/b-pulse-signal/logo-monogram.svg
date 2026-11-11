@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-label="Crimsons pulse monogram">
+  <title>Crimsons monogram  -  Pulse</title>
+  <circle cx="30" cy="48" r="9" fill="#B31B32"/>
+  <path fill="none" stroke="#B31B32" stroke-width="7" stroke-linecap="round"
+        d="M44 28c12 7 12 33 0 40"/>
+  <path fill="none" stroke="#B31B32" stroke-width="7" stroke-linecap="round"
+        d="M58 18c18 12 18 48 0 60"/>
+  <path fill="none" stroke="#B31B32" stroke-width="7" stroke-linecap="round" opacity="0.55"
+        d="M72 8c24 16 24 64 0 80"/>
+</svg>

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Crimsons sharp CS">
+  <title>Crimsons logo icon  -  Sharp CS</title>
+  <defs>
+    <linearGradient id="shieldGrad" x1="20%" y1="5%" x2="80%" y2="95%">
+      <stop offset="0%" stop-color="#E8344A"/>
+      <stop offset="55%" stop-color="#B31B32"/>
+      <stop offset="100%" stop-color="#6E101C"/>
+    </linearGradient>
+  </defs>
+  <!-- Hex-leaning shield -->
+  <path fill="url(#shieldGrad)" d="M64 8 108 28v36c0 26.5-18.5 48.5-44 56C38.5 112.5 20 90.5 20 64V28L64 8z"/>
+  <!-- Interlocking C + S negative cut -->
+  <path fill="#0E0E11" d="M64 34c-15.5 0-28 12-28 27.5 0 9.5 4.8 17.8 12.2 22.8l7.8-9.2c-4.2-2.8-7-7.5-7-13.6 0-8.6 6.6-15.5 15-15.5 4.6 0 8.7 2 11.5 5.2l8.2-8.4A27.4 27.4 0 0 0 64 34z"/>
+  <!-- S bar accents (gaming slash) -->
+  <path fill="#0E0E11" d="M70 58h22v10H82l10 18H70l10-18H70z"/>
+</svg>

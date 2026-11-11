@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 460 72" role="img" aria-label="Crimsons">
+  <title>Crimsons sharp wordmark  -  dark</title>
+  <g transform="translate(0 10) scale(0.55)">
+    <path fill="#B31B32" d="M52 14c-18.2 0-33 14.8-33 33s14.8 33 33 33c8.4 0 16-3.1 21.8-8.3l-9.6-9.2A20.5 20.5 0 0 1 52 67.5c-11.3 0-20.5-9.2-20.5-20.5S40.7 26.5 52 26.5c5.2 0 9.9 1.9 13.5 5.1l8.8-9.8A32.6 32.6 0 0 0 52 14z"/>
+    <path fill="#E8344A" d="M58 40h24v11H72l9 16H55l9-16H58z"/>
+  </g>
+  <text x="58" y="52"
+        font-family="Syne, Inter, 'Segoe UI', Arial, sans-serif"
+        font-size="48" font-weight="800" letter-spacing="3"
+        fill="#F0F0F4">CRIMSONS</text>
+</svg>
