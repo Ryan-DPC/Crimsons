@@ -135,6 +135,24 @@ body {
   border-radius: 12px;
 }
 
+.download-card--disabled {
+  opacity: 0.78;
+}
+
+.download-card--disabled .windows-icon {
+  color: var(--muted);
+}
+
+.download-card--disabled .download-title {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.download-note {
+  margin: 0.35rem 0 0;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
 .download-left {
   display: flex;
   align-items: center;
@@ -168,10 +186,12 @@ body {
 }
 
 .download-btn {
+  appearance: none;
   display: inline-flex;
   align-items: center;
   gap: 0.55rem;
   background: var(--accent);
+  border: 1px solid transparent;
   color: #ffffff;
   font-weight: 600;
   font-size: 0.9rem;
@@ -180,10 +200,25 @@ body {
   text-decoration: none;
   transition: background 0.15s ease;
   flex-shrink: 0;
+  cursor: pointer;
 }
 
 .download-btn:hover {
   background: var(--accent-hover);
+}
+
+.download-btn--disabled,
+.download-btn:disabled {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.download-btn--disabled:hover,
+.download-btn:disabled:hover {
+  background: rgba(255, 255, 255, 0.03);
 }
 
 /* =========================================================
@@ -434,6 +469,12 @@ body {
 
 .footer-link:hover {
   color: #ffffff;
+}
+
+.footer-link--disabled {
+  color: var(--muted);
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
 .footer-sep {

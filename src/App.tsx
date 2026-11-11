@@ -2,7 +2,10 @@ import { useEffect, useState, useTransition } from 'react'
 import { fetchCatalog } from './api/catalog'
 import type { CatalogPlugin, CatalogResponse } from './types'
 
-const DIRECT_DOWNLOAD_URL = 'https://github.com/Ryan-DPC/Crimsons/releases/download/v3.1.6/CRIMSONS_3.1.6_x64-setup.exe'
+/** Flip to true when the download landing page is ready. */
+const DOWNLOAD_AVAILABLE = false
+const DIRECT_DOWNLOAD_URL =
+  'https://github.com/Ryan-DPC/Crimsons/releases/download/v3.1.6/CRIMSONS_3.1.6_x64-setup.exe'
 
 export default function App() {
   const [catalog, setCatalog] = useState<CatalogResponse | null>(null)
@@ -60,8 +63,11 @@ export default function App() {
           fonctionnalités favorites directement pour l’application Crimsons.
         </p>
 
-        {/* DIRECT DOWNLOAD CARD */}
-        <div className="download-card">
+        {/* DIRECT DOWNLOAD CARD — temporarily disabled while the download page is finished */}
+        <div
+          className={`download-card${DOWNLOAD_AVAILABLE ? '' : ' download-card--disabled'}`}
+          aria-disabled={DOWNLOAD_AVAILABLE ? undefined : true}
+        >
           <div className="download-left">
             <div className="windows-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
@@ -73,18 +79,36 @@ export default function App() {
               <div className="download-specs">
                 Version 3.1.6 · Windows 10/11 (64-bit) · Installateur officiel
               </div>
+              {!DOWNLOAD_AVAILABLE && (
+                <p className="download-note">Page de téléchargement en cours</p>
+              )}
             </div>
           </div>
-          <a
-            href={DIRECT_DOWNLOAD_URL}
-            className="download-btn"
-            title="Télécharger directement l'installateur Crimsons (.exe)"
-          >
-            <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M10 3v10m0 0l-4-4m4 4l4-4M3 17h14"/>
-            </svg>
-            <span>Télécharger (.exe)</span>
-          </a>
+          {DOWNLOAD_AVAILABLE ? (
+            <a
+              href={DIRECT_DOWNLOAD_URL}
+              className="download-btn"
+              title="Télécharger directement l'installateur Crimsons (.exe)"
+            >
+              <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M10 3v10m0 0l-4-4m4 4l4-4M3 17h14"/>
+              </svg>
+              <span>Télécharger (.exe)</span>
+            </a>
+          ) : (
+            <button
+              type="button"
+              className="download-btn download-btn--disabled"
+              disabled
+              aria-disabled="true"
+              title="Téléchargement bientôt disponible"
+            >
+              <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M10 3v10m0 0l-4-4m4 4l4-4M3 17h14"/>
+              </svg>
+              <span>Téléchargement bientôt disponible</span>
+            </button>
+          )}
         </div>
       </header>
 
@@ -178,9 +202,15 @@ export default function App() {
             <strong>CRIMSONS STORE</strong> · Conçu par Chin0Studio
           </div>
           <div className="footer-links">
-            <a href={DIRECT_DOWNLOAD_URL} className="footer-link">
-              Télécharger Crimsons
-            </a>
+            {DOWNLOAD_AVAILABLE ? (
+              <a href={DIRECT_DOWNLOAD_URL} className="footer-link">
+                Télécharger Crimsons
+              </a>
+            ) : (
+              <span className="footer-link footer-link--disabled" aria-disabled="true">
+                Téléchargement bientôt disponible
+              </span>
+            )}
             <span className="footer-sep">·</span>
             <span className="footer-meta">v{catalog?.version ?? 2}</span>
           </div>
