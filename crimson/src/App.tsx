@@ -16,10 +16,9 @@ import OnboardingModal from './components/common/OnboardingModal';
 
 // Icons
 import { 
-  Home, Swords, 
   ShieldAlert, Cpu, 
   Activity, Download, X,
-  Bell, Menu, User
+  Bell, Menu
 } from 'lucide-react';
 
 function App() {
@@ -151,15 +150,18 @@ function App() {
     <div className={`flex flex-col h-screen bg-[#050505] text-white selection:bg-red-500/30 font-sans overflow-hidden ${appData?.darkGlassMode ? 'dark-glass' : ''} ${appData?.reducedAnimations ? 'reduced-animations' : ''}`}>
       {/* Top Navigation Bar / Window Draggable Region */}
       <header data-tauri-drag-region className="flex items-center justify-between px-4 py-2.5 bg-[#050505] border-b border-white/5 z-50 select-none gap-2">
-        {/* LEFT: Logo & Notifications */}
+        {/* LEFT: Logo & status — click brand to return Home (no center tab pill) */}
         <div data-tauri-drag-region className="flex items-center gap-4 shrink-0">
-          <div data-tauri-drag-region className="flex items-center gap-3">
-            <div data-tauri-drag-region className="relative group pointer-events-none">
-              <div className="relative w-8 h-8 flex items-center justify-center rounded-full border border-white/10 overflow-hidden bg-black/20">
-                <img src={logoRed} className="w-full h-full object-cover scale-[1.35]" alt="CRIMSONS" />
-              </div>
+          <button
+            type="button"
+            onClick={() => setTab('home')}
+            className="flex items-center gap-3 text-left hover:opacity-90 transition-opacity"
+            title="Accueil"
+          >
+            <div className="relative w-8 h-8 flex items-center justify-center rounded-full border border-white/10 overflow-hidden bg-black/20">
+              <img src={logoRed} className="w-full h-full object-cover scale-[1.35]" alt="CRIMSONS" />
             </div>
-            <div data-tauri-drag-region className="pointer-events-none">
+            <div>
               <h1 className="text-xs font-black tracking-[0.2em] text-white/90 uppercase leading-tight">CRIMSONS</h1>
               <div className="flex items-center gap-2 text-[9px] font-bold tracking-wider mt-0.5">
                 <div className="flex items-center gap-1">
@@ -177,52 +179,47 @@ function App() {
                 )}
               </div>
             </div>
-          </div>
+          </button>
         </div>
 
-        {/* CENTER: Navigation Tabs */}
-        <nav className="flex items-center bg-white/5 p-1 rounded-xl border border-white/5">
-          <button onClick={() => setTab('home')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all duration-300 ${tab === 'home' ? 'bg-white/10 text-white shadow-lg shadow-black/50' : 'text-white/40 hover:text-white/70'}`}>
-            <Home className="w-3.5 h-3.5" /> HOME
-          </button>
-          {isLolEnabled && (
-            <>
-              <button onClick={() => setTab('league')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all duration-300 ${tab === 'league' || tab === 'lobby' ? 'bg-white/10 text-white shadow-lg shadow-black/50' : 'text-white/40 hover:text-white/70'}`}>
-                <Swords className="w-3.5 h-3.5" /> GAME
-              </button>
-              <button onClick={() => setTab('history')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all duration-300 ${tab === 'history' ? 'bg-white/10 text-white shadow-lg shadow-black/50' : 'text-white/40 hover:text-white/70'}`}>
-                <Activity className="w-3.5 h-3.5" /> ACTIVITY
-              </button>
-            </>
-          )}
-          <button onClick={() => setTab('settings')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all duration-300 ${tab === 'settings' ? 'bg-white/10 text-white shadow-lg shadow-black/50' : 'text-white/40 hover:text-white/70'}`}>
-            <User className="w-3.5 h-3.5" /> ACCOUNT
-          </button>
-        </nav>
+        {/* Spacer — Home-only chrome (no HOME|ACCOUNT / GAME|ACTIVITY pill) */}
+        <div data-tauri-drag-region className="flex-1 min-w-4" />
 
-        {/* RIGHT: Profile & Window Controls */}
+        {/* RIGHT: Profile & Window Controls — avatar opens Account/Settings */}
         <div className="flex items-center gap-3 shrink-0">
           <div className="flex items-center gap-3 pr-3 border-r border-white/10">
             {isLolEnabled && sum ? (
               <>
-                <div className="flex flex-col items-end">
+                <button type="button" onClick={() => setTab('settings')} className="flex flex-col items-end text-right hover:opacity-90 transition-opacity" title="Compte">
                   <span className="text-[10px] font-black text-white uppercase tracking-widest leading-none">{sum.displayName || sum.gameName}</span>
                   <span className="text-[9px] font-bold text-red-500 uppercase tracking-widest mt-1">{rank?.tier ? `${rank.tier} ${rank.division}` : `Niveau ${sum.summonerLevel}`}</span>
-                </div>
-                <img src={`https://ddragon.leagueoflegends.com/cdn/${v}/img/profileicon/${sum.profileIconId}.png`} className="w-8 h-8 rounded-full border border-white/10 shadow-lg" alt="Profile" />
+                </button>
+                <button type="button" onClick={() => setTab('settings')} className="rounded-full focus:outline-none focus-visible:ring-1 focus-visible:ring-white/30" title="Compte">
+                  <img src={`https://ddragon.leagueoflegends.com/cdn/${v}/img/profileicon/${sum.profileIconId}.png`} className="w-8 h-8 rounded-full border border-white/10 shadow-lg" alt="Profile" />
+                </button>
               </>
             ) : (
               <>
-                <div className="flex flex-col items-end">
+                <button type="button" onClick={() => setTab('settings')} className="flex flex-col items-end text-right hover:opacity-90 transition-opacity" title="Compte">
                   <span className="text-[10px] font-black text-white uppercase tracking-widest leading-none">{user?.email?.split('@')[0] || 'CRIMSONS'}</span>
                   <span className="text-[9px] font-bold text-red-500 uppercase tracking-widest mt-1">{isPremium ? 'PREMIUM' : 'FREE'}</span>
-                </div>
-                <div className="w-8 h-8 bg-red-600/20 border border-red-500/30 rounded-full flex items-center justify-center text-red-500 font-black text-xs">
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTab('settings')}
+                  className="w-8 h-8 bg-red-600/20 border border-red-500/30 rounded-full flex items-center justify-center text-red-500 font-black text-xs hover:bg-red-600/30 transition-colors"
+                  title="Compte"
+                >
                   {(user?.email?.[0] || 'C').toUpperCase()}
-                </div>
+                </button>
               </>
             )}
-            <button className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 text-white/50 hover:text-white transition-colors ml-1">
+            <button
+              type="button"
+              onClick={() => setTab('settings')}
+              className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 text-white/50 hover:text-white transition-colors ml-1"
+              title="Compte"
+            >
               <Menu className="w-4 h-4" />
             </button>
             <div className="w-px h-4 bg-white/10 mx-1" />
