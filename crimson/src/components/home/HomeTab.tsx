@@ -3,8 +3,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { getChampIcon } from '../../utils/lolDisplay';
 import { 
     Disc3, MessageSquare, Laptop, Music, MicOff, Mic, Headphones, 
-    MonitorPlay, Play, Pause, SkipForward, SkipBack, Volume2, 
-    ShoppingBag, ExternalLink, Gamepad2, Radio, Sparkles, Check
+    MonitorPlay, Play, Pause, SkipForward, SkipBack, 
+    ShoppingBag, ExternalLink, Gamepad2
 } from 'lucide-react';
 import logoRed from '../../assets/logos/logo_red_transparent.png';
 
@@ -31,14 +31,15 @@ export default function HomeTab() {
     const { 
         appData, updateSetting, sum, v, hist, champs, seasonStats, 
         spotifyState, discordState, spotifyCommand, discordCommand, discordConnected,
-        appleMusicState, appleMusicConnected, appleMusicCommand, togglePlugin, setTab
+        appleMusicState, appleMusicCommand, togglePlugin, setTab
     } = useLCU();
     const { isPremium } = useAuth();
     
+    // Defaults: all plugins off until the user enables them (matches Settings + server).
     const isLolEnabled = appData?.plugins?.leagueOfLegends ?? false;
     const isSpotifyEnabled = isPremium && (appData?.plugins?.spotify ?? false);
     const isDiscordEnabled = isPremium && (appData?.plugins?.discord ?? false);
-    const isAppleMusicEnabled = appData?.plugins?.apple_music ?? appData?.plugins?.appleMusic ?? false;
+    const isAppleMusicEnabled = isPremium && (appData?.plugins?.apple_music ?? appData?.plugins?.appleMusic ?? false);
 
     const openLyricsWindow = async () => {
         try {
@@ -236,61 +237,6 @@ export default function HomeTab() {
                         </div>
                     </div>
 
-                    {/* Apple Music Live Card (if plugin active) */}
-                    {isAppleMusicEnabled && (
-                        <div className="bg-[#111115] border border-red-500/20 rounded-xl p-5 flex flex-col gap-4 relative overflow-hidden group">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                    <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                                    <span className="text-[10px] font-black text-red-500 uppercase tracking-widest">Apple Music (Cider)</span>
-                                </div>
-                                <span className="text-[9px] text-white/30 font-mono">127.0.0.1:10767</span>
-                            </div>
-
-                            <div className="flex items-center gap-4">
-                                {appleMusicState?.album_art ? (
-                                    <img src={appleMusicState.album_art} className="w-16 h-16 rounded-xl object-cover shadow-lg border border-white/10" alt="Cover" />
-                                ) : (
-                                    <div className="w-16 h-16 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-500">
-                                        <Music className="w-7 h-7" />
-                                    </div>
-                                )}
-                                <div className="flex flex-col flex-1 min-w-0">
-                                    <span className="text-white font-bold text-sm truncate">{appleMusicState?.track_name || 'Aucune musique en cours'}</span>
-                                    <span className="text-white/50 text-[11px] truncate mt-0.5">{appleMusicState?.artist_name || 'Cider prêt'}</span>
-                                    {appleMusicState?.album_name && (
-                                        <span className="text-white/30 text-[9px] truncate font-medium mt-0.5">{appleMusicState.album_name}</span>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Media Controls */}
-                            <div className="flex items-center justify-center gap-3 pt-2 border-t border-white/5">
-                                <button 
-                                    onClick={() => appleMusicCommand('previous')}
-                                    className="p-2.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/70 hover:text-white transition-all active:scale-95"
-                                    title="Précédent"
-                                >
-                                    <SkipBack className="w-4 h-4" />
-                                </button>
-                                <button 
-                                    onClick={() => appleMusicCommand('play_pause')}
-                                    className="p-3 rounded-xl bg-red-600 hover:bg-red-500 text-white transition-all shadow-[0_0_15px_rgba(220,38,38,0.4)] active:scale-95"
-                                    title="Lecture / Pause"
-                                >
-                                    {appleMusicState?.is_playing ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current ml-0.5" />}
-                                </button>
-                                <button 
-                                    onClick={() => appleMusicCommand('next')}
-                                    className="p-2.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/70 hover:text-white transition-all active:scale-95"
-                                    title="Suivant"
-                                >
-                                    <SkipForward className="w-4 h-4" />
-                                </button>
-                            </div>
-                        </div>
-                    )}
-
                     {/* Quick Action Tiles */}
                     <div className="grid grid-cols-2 gap-4 pt-2">
                         <a 
@@ -336,9 +282,63 @@ export default function HomeTab() {
                 </div>
             )}
 
-            {/* RIGHT COLUMN: Sidebar Controls */}
+            {/* RIGHT COLUMN: Sidebar Controls — modules remain visible even when LoL is ON */}
             <div className="w-[450px] flex flex-col gap-8 shrink-0 pt-2">
-                {isLolEnabled ? (
+                {/* Apple Music Live Card — independent of LoL */}
+                {isAppleMusicEnabled && (
+                    <div className="bg-[#111115] border border-red-500/20 rounded-xl p-5 flex flex-col gap-4 relative overflow-hidden group">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                                <span className="text-[10px] font-black text-red-500 uppercase tracking-widest">Apple Music (Cider)</span>
+                            </div>
+                            <span className="text-[9px] text-white/30 font-mono">127.0.0.1:10767</span>
+                        </div>
+
+                        <div className="flex items-center gap-4">
+                            {appleMusicState?.album_art ? (
+                                <img src={appleMusicState.album_art} className="w-16 h-16 rounded-xl object-cover shadow-lg border border-white/10" alt="Cover" />
+                            ) : (
+                                <div className="w-16 h-16 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-500">
+                                    <Music className="w-7 h-7" />
+                                </div>
+                            )}
+                            <div className="flex flex-col flex-1 min-w-0">
+                                <span className="text-white font-bold text-sm truncate">{appleMusicState?.track_name || 'Aucune musique en cours'}</span>
+                                <span className="text-white/50 text-[11px] truncate mt-0.5">{appleMusicState?.artist_name || 'Cider prêt'}</span>
+                                {appleMusicState?.album_name && (
+                                    <span className="text-white/30 text-[9px] truncate font-medium mt-0.5">{appleMusicState.album_name}</span>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="flex items-center justify-center gap-3 pt-2 border-t border-white/5">
+                            <button 
+                                onClick={() => appleMusicCommand('previous')}
+                                className="p-2.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/70 hover:text-white transition-all active:scale-95"
+                                title="Précédent"
+                            >
+                                <SkipBack className="w-4 h-4" />
+                            </button>
+                            <button 
+                                onClick={() => appleMusicCommand('play_pause')}
+                                className="p-3 rounded-xl bg-red-600 hover:bg-red-500 text-white transition-all shadow-[0_0_15px_rgba(220,38,38,0.4)] active:scale-95"
+                                title="Lecture / Pause"
+                            >
+                                {appleMusicState?.is_playing ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current ml-0.5" />}
+                            </button>
+                            <button 
+                                onClick={() => appleMusicCommand('next')}
+                                className="p-2.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/70 hover:text-white transition-all active:scale-95"
+                                title="Suivant"
+                            >
+                                <SkipForward className="w-4 h-4" />
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {isLolEnabled && (
                     <>
                         <div className="flex flex-col gap-3">
                             <span className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-1 border-b border-white/5 pb-2">Automation League</span>
@@ -366,35 +366,37 @@ export default function HomeTab() {
                             <span className="text-[9px] text-white/30 uppercase font-bold mt-2">Edit selections in your Settings</span>
                         </div>
                     </>
-                ) : (
-                    <div className="flex flex-col gap-4">
-                        <span className="text-[10px] font-black text-white/40 uppercase tracking-widest border-b border-white/5 pb-2">Modules Disponibles</span>
-                        <div className="space-y-3 bg-[#0a0a0c] border border-white/5 p-4 rounded-xl">
-                            <Toggle
-                                label="Apple Music"
-                                value={isAppleMusicEnabled}
-                                onChange={(v) => togglePlugin('appleMusic', v)}
-                            />
-                            <Toggle
-                                label="League of Legends"
-                                value={isLolEnabled}
-                                onChange={(v) => togglePlugin('leagueOfLegends', v)}
-                            />
-                            <Toggle
-                                label="Spotify"
-                                value={isSpotifyEnabled}
-                                onChange={(v) => togglePlugin('spotify', v)}
-                                disabled={!isPremium}
-                            />
-                            <Toggle
-                                label="Discord"
-                                value={isDiscordEnabled}
-                                onChange={(v) => togglePlugin('discord', v)}
-                                disabled={!isPremium}
-                            />
-                        </div>
-                    </div>
                 )}
+
+                {/* Module toggles always visible (Hub indépendant de LoL) */}
+                <div className="flex flex-col gap-4">
+                    <span className="text-[10px] font-black text-white/40 uppercase tracking-widest border-b border-white/5 pb-2">Modules Disponibles</span>
+                    <div className="space-y-3 bg-[#0a0a0c] border border-white/5 p-4 rounded-xl">
+                        <Toggle
+                            label="Apple Music"
+                            value={isAppleMusicEnabled}
+                            onChange={(v) => togglePlugin('apple_music', v)}
+                            disabled={!isPremium}
+                        />
+                        <Toggle
+                            label="League of Legends"
+                            value={isLolEnabled}
+                            onChange={(v) => togglePlugin('leagueOfLegends', v)}
+                        />
+                        <Toggle
+                            label="Spotify"
+                            value={isSpotifyEnabled}
+                            onChange={(v) => togglePlugin('spotify', v)}
+                            disabled={!isPremium}
+                        />
+                        <Toggle
+                            label="Discord"
+                            value={isDiscordEnabled}
+                            onChange={(v) => togglePlugin('discord', v)}
+                            disabled={!isPremium}
+                        />
+                    </div>
+                </div>
 
                 {/* SPOTIFY WIDGET (rendered only when enabled) */}
                 {isSpotifyEnabled && (

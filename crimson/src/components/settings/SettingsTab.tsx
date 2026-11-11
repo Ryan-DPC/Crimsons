@@ -218,7 +218,7 @@ const SettingsTab = () => {
             // Présence FS des packs catalogue (aucun pack embarqué dans Crimsons).
             const ids = {
                 leagueOfLegends: "com.laoy.streamdock.crimson",
-                appleMusic: "com.laoy.streamdock.applemusic",
+                apple_music: "com.laoy.streamdock.applemusic",
                 spotify: "com.laoy.streamdock.spotify",
                 discord: "com.laoy.streamdock.discord",
             };
@@ -237,11 +237,20 @@ const SettingsTab = () => {
 
     useEffect(() => {
         if (appData?.plugins) {
-            setPluginsState(appData.plugins as Record<string, boolean>);
+            const raw = appData.plugins as Record<string, boolean>;
+            // Canonicalize legacy appleMusic → apple_music; defaults off until user enables.
+            const next: Record<string, boolean> = {
+                leagueOfLegends: raw.leagueOfLegends ?? false,
+                apple_music: raw.apple_music ?? raw.appleMusic ?? false,
+                spotify: raw.spotify ?? false,
+                discord: raw.discord ?? false,
+            };
+            setPluginsState(next);
         } else {
-            // Default to true only for core features
+            // All plugins off-by-default (user enables explicitly in Hub/Settings).
             setPluginsState({
-                leagueOfLegends: true,
+                leagueOfLegends: false,
+                apple_music: false,
                 spotify: false,
                 discord: false,
             });
@@ -719,9 +728,9 @@ const SettingsTab = () => {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                 {[
                                     {
-                                        key: 'appleMusic',
+                                        key: 'apple_music',
                                         name: 'Apple Music',
-                                        desc: 'Contrôle Cider, molettes volume et touches dédiées',
+                                        desc: 'Contrôle Cider, molettes volume et touches dédiées (Premium)',
                                     },
                                     {
                                         key: 'leagueOfLegends',
@@ -739,11 +748,11 @@ const SettingsTab = () => {
                                         desc: 'Mute / deafen / caméra (catalogue · Premium)',
                                     },
                                 ].map((plugin) => {
-                                    const isPremiumPlugin = plugin.key === 'spotify' || plugin.key === 'discord';
+                                    const isPremiumPlugin = plugin.key === 'spotify' || plugin.key === 'discord' || plugin.key === 'apple_music';
                                     const isInstalled = !!pluginsInstalled[plugin.key];
                                     // Discord: intégration app IPC même sans plugin StreamDock installé
                                     const requiresDeckPlugin = plugin.key !== 'discord';
-                                    let isEnabled = (plugin.key === 'appleMusic' ? (pluginsState.appleMusic ?? pluginsState.apple_music ?? true) : pluginsState[plugin.key]) ?? false;
+                                    let isEnabled = pluginsState[plugin.key] ?? false;
                                     let isDisabled = requiresDeckPlugin && !isInstalled;
                                     
                                     if (isPremiumPlugin && !isPremium) {

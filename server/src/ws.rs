@@ -614,6 +614,14 @@ async fn handle_connection(
             )).await;
         }
 
+        // Same for Apple Music / Cider — UI needs a snapshot even when the Hub toggle is OFF.
+        if let Some(am) = &apple_music {
+            let snap = am.auth_snapshot_state().await;
+            let _ = ws_stream.send(tokio_tungstenite::tungstenite::Message::Text(
+                json!({ "type": "APPLE_MUSIC_STATE", "data": snap }).to_string().into()
+            )).await;
+        }
+
         // Push plugin prefs + live entitlement so Hub matches disk/server truth.
         {
             let plugins = data.other.get("plugins").cloned().unwrap_or(json!({}));
@@ -625,6 +633,7 @@ async fn handle_connection(
                     "premium": premium,
                     "spotify_enabled": spotify.as_ref().map(|s| s.is_enabled.load(std::sync::atomic::Ordering::Relaxed)).unwrap_or(false),
                     "discord_enabled": discord.as_ref().map(|d| d.is_enabled.load(std::sync::atomic::Ordering::Relaxed)).unwrap_or(false),
+                    "apple_music_enabled": apple_music.as_ref().map(|am| am.is_enabled.load(std::sync::atomic::Ordering::Relaxed)).unwrap_or(false),
                     "lol_enabled": is_lol_enabled.load(std::sync::atomic::Ordering::Relaxed),
                 }).to_string().into()
             )).await;
@@ -802,7 +811,9 @@ async fn handle_connection(
                                     );
 
                                     if value["type"] == "TOGGLE_PLUGIN" {
-                                        if let (Some(plugin), Some(enabled)) = (value["plugin"].as_str(), value["enabled"].as_bool()) {
+                                        if let (Some(plugin_raw), Some(enabled)) = (value["plugin"].as_str(), value["enabled"].as_bool()) {
+                                            // Canonicalize legacy camelCase Apple Music key from older clients.
+                                            let plugin = if plugin_raw == "appleMusic" { "apple_music" } else { plugin_raw };
                                             // Sans ce controle, n'importe quel client WebSocket
                                             // local activait un service premium d'un seul message.
                                             // Hue / Twitch APIs are not implemented — never enable them.
@@ -889,6 +900,9 @@ async fn handle_connection(
                                             let mut app_data = storage::load_data_from_path(data_path.clone());
                                             let mut plugins_obj = app_data.other.get("plugins").and_then(|v| v.as_object().cloned()).unwrap_or_default();
                                             plugins_obj.insert(plugin.to_string(), json!(enabled));
+                                            if plugin == "apple_music" {
+                                                plugins_obj.remove("appleMusic");
+                                            }
                                             app_data.other.insert("plugins".to_string(), json!(plugins_obj));
                                             storage::save_data_to_path(data_path, &app_data);
 
@@ -978,6 +992,10 @@ async fn handle_connection(
                                             let snap = s.auth_snapshot_state().await;
                                             let _ = sender.0.send(json!({ "type": "SPOTIFY_STATE", "data": snap }).to_string());
                                         }
+                                        if let Some(am) = &apple_music {
+                                            let snap = am.auth_snapshot_state().await;
+                                            let _ = sender.0.send(json!({ "type": "APPLE_MUSIC_STATE", "data": snap }).to_string());
+                                        }
                                         let data_path = storage::get_data_path_from_env();
                                         let data = storage::load_data_from_path(data_path);
                                         let plugins = data.other.get("plugins").cloned().unwrap_or(json!({}));
@@ -988,6 +1006,7 @@ async fn handle_connection(
                                             "premium": premium,
                                             "spotify_enabled": spotify.as_ref().map(|s| s.is_enabled.load(std::sync::atomic::Ordering::Relaxed)).unwrap_or(false),
                                             "discord_enabled": discord.as_ref().map(|d| d.is_enabled.load(std::sync::atomic::Ordering::Relaxed)).unwrap_or(false),
+                                            "apple_music_enabled": apple_music.as_ref().map(|am| am.is_enabled.load(std::sync::atomic::Ordering::Relaxed)).unwrap_or(false),
                                             "lol_enabled": is_lol_enabled.load(std::sync::atomic::Ordering::Relaxed),
                                         }).to_string());
                                         continue;

@@ -95,8 +95,8 @@
       "packageId": "com.laoy.streamdock.applemusic.sdPlugin",
       "packagePath": "com.laoy.streamdock.applemusic.sdPlugin",
       "version": "0.1.0",
-      "status": "coming_soon",
-      "pricing": "tbd",
+      "status": "published",
+      "pricing": "premium",
       "categories": [
         "streamdeck",
         "media",

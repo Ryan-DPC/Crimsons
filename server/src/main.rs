@@ -150,13 +150,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         if let Some(obj) = plugins.as_object() {
             for (k, v) in obj {
                 if let Some(b) = v.as_bool() {
-                    plugins_map.insert(k.clone(), b);
+                    // Legacy UI wrote appleMusic; canonical key is apple_music.
+                    let key = if k == "appleMusic" { "apple_music".to_string() } else { k.clone() };
+                    plugins_map.insert(key, b);
                 }
             }
         }
     }
     
-    let is_lol_enabled_val = *plugins_map.get("leagueOfLegends").unwrap_or(&true);
+    // Off-by-default: user must enable LoL in Hub/Settings (matches frontend defaults).
+    let is_lol_enabled_val = *plugins_map.get("leagueOfLegends").unwrap_or(&false);
 
     let is_lol_enabled = Arc::new(std::sync::atomic::AtomicBool::new(is_lol_enabled_val));
     let is_auto_accept_enabled = Arc::new(std::sync::atomic::AtomicBool::new(app_data.auto_accept));

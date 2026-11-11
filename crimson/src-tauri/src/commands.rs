@@ -8,6 +8,22 @@ pub async fn crimson_quit_app(app: tauri::AppHandle) {
   app.exit(0);
 }
 
+/// True when a StreamDeck/StreamDock plugin folder exists *and* contains a
+/// parseable `manifest.json` (empty dirs / stubs must not count as installed).
+fn plugin_dir_has_manifest(dir: &std::path::Path) -> bool {
+    if !(dir.exists() && dir.is_dir()) {
+        return false;
+    }
+    let manifest = dir.join("manifest.json");
+    if !manifest.is_file() {
+        return false;
+    }
+    match std::fs::read_to_string(&manifest) {
+        Ok(raw) => serde_json::from_str::<serde_json::Value>(&raw).is_ok(),
+        Err(_) => false,
+    }
+}
+
 #[tauri::command]
 pub fn check_plugin_presence(plugin_id: String) -> bool {
     if let Ok(appdata) = std::env::var("APPDATA") {
@@ -16,15 +32,14 @@ pub fn check_plugin_presence(plugin_id: String) -> bool {
             .join("StreamDeck")
             .join("Plugins")
             .join(format!("{}.sdPlugin", plugin_id));
-            
+
         let streamdock_path = std::path::Path::new(&appdata)
             .join("HotSpot")
             .join("StreamDock")
             .join("plugins")
             .join(format!("{}.sdPlugin", plugin_id));
 
-        return (elgato_path.exists() && elgato_path.is_dir()) || 
-               (streamdock_path.exists() && streamdock_path.is_dir());
+        return plugin_dir_has_manifest(&elgato_path) || plugin_dir_has_manifest(&streamdock_path);
     }
     false
 }

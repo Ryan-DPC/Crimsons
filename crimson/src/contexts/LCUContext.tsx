@@ -420,7 +420,7 @@ export const LCUProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             const data = await invoke<any>('get_app_data');
             setAppData(data);
 
-            const isLolEnabled = data?.plugins?.leagueOfLegends ?? true;
+            const isLolEnabled = data?.plugins?.leagueOfLegends ?? false;
             if (!isLolEnabled) {
                 setSum(null);
                 setGamePhase('None');
@@ -703,9 +703,21 @@ export const LCUProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             // Server truth for Hub toggles — merge into appData without wiping other keys.
             setAppData((prev: any) => {
                 const next = { ...(prev || {}) };
+                const plugins = { ...(next.plugins || {}) };
                 if (msg.plugins && typeof msg.plugins === 'object') {
-                    next.plugins = { ...(next.plugins || {}), ...msg.plugins };
+                    Object.assign(plugins, msg.plugins);
                 }
+                // Canonicalize legacy camelCase Apple Music key → snake_case storage key.
+                if (plugins.appleMusic !== undefined && plugins.apple_music === undefined) {
+                    plugins.apple_music = plugins.appleMusic;
+                }
+                delete plugins.appleMusic;
+                // Live enable flags from sidecar (mirror Spotify/Discord/LoL).
+                if (typeof msg.spotify_enabled === 'boolean') plugins.spotify = msg.spotify_enabled;
+                if (typeof msg.discord_enabled === 'boolean') plugins.discord = msg.discord_enabled;
+                if (typeof msg.lol_enabled === 'boolean') plugins.leagueOfLegends = msg.lol_enabled;
+                if (typeof msg.apple_music_enabled === 'boolean') plugins.apple_music = msg.apple_music_enabled;
+                next.plugins = plugins;
                 return next;
             });
         } else if (msg.type === 'DISCORD_STATE') {
@@ -1036,7 +1048,7 @@ export const LCUProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const doImport = async (build: RuneBuild, index: number) => {
         if (!build || build.primaryStyleId === 0) return;
-        const isLolEnabled = appData?.plugins?.leagueOfLegends ?? true;
+        const isLolEnabled = appData?.plugins?.leagueOfLegends ?? false;
         if (!isLolEnabled) return;
         setIsImporting(index);
         try {
@@ -1145,18 +1157,19 @@ export const LCUProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     const togglePlugin = async (plugin: string, enabled: boolean) => {
+        // Canonical storage/WS key for Apple Music is apple_music (legacy UI used appleMusic).
+        const canonical = plugin === 'appleMusic' ? 'apple_music' : plugin;
         const d = await invoke<any>('get_app_data');
         if (!d.plugins) d.plugins = {};
-        d.plugins[plugin] = enabled;
-        if (plugin === 'appleMusic') d.plugins.apple_music = enabled;
-        if (plugin === 'apple_music') d.plugins.appleMusic = enabled;
+        d.plugins[canonical] = enabled;
+        if (canonical === 'apple_music') delete d.plugins.appleMusic;
         await invoke('set_app_data', { data: d });
         setAppData(d);
 
         try {
             const ws = socketsRef.current[40510];
             if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({ type: 'TOGGLE_PLUGIN', plugin, enabled }));
+                ws.send(JSON.stringify({ type: 'TOGGLE_PLUGIN', plugin: canonical, enabled }));
             } else {
                 const token = await getLocalAuthToken();
                 const url = token
@@ -1164,7 +1177,7 @@ export const LCUProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     : 'ws://127.0.0.1:40510/';
                 const tempWs = new WebSocket(url);
                 tempWs.onopen = () => {
-                    tempWs.send(JSON.stringify({ type: 'TOGGLE_PLUGIN', plugin, enabled }));
+                    tempWs.send(JSON.stringify({ type: 'TOGGLE_PLUGIN', plugin: canonical, enabled }));
                     tempWs.close();
                 };
             }
@@ -1178,6 +1191,7 @@ export const LCUProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             sum, lobbyState, lobbyMyTeam, lobbyTheirTeam, radar, gamePhase, rank, hist, champs, runesData: runesDataJson, v, myChamp, enemyMid, isLoadingBuilds, builds, isImporting, appData,
             updateStatus, updateProgress, availableVersion, remoteUpdateAssetUrl, checkUpdates, installUpdate,
             serverConnected, lolConnected,
+            appleMusicState, appleMusicConnected, appleMusicCommand,
             spotifyConnected, spotifyState,
             discordConnected, discordState,
             setTab, toggleSimMode, simMode, tab, toggleAutoBan, toggleAutoPick, updateGeminiKey, updateSetting, doImport, handleSecondaryClick, handleShardClick,
