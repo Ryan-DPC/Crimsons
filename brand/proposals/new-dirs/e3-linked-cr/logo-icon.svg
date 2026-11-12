@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Crimsons Linked CR">
+  <title>Crimsons - E3 Linked CR</title>
+  <defs>
+    <linearGradient id="e3g" x1="15%" y1="10%" x2="90%" y2="90%">
+      <stop offset="0%" stop-color="#E8344A"/>
+      <stop offset="100%" stop-color="#8B1526"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="112" height="112" rx="20" fill="#151518"/>
+  <!-- Stencil interlocking C + R sharing stem - square industrial, NOT shield -->
+  <path fill="none" stroke="url(#e3g)" stroke-width="12" stroke-linecap="square" stroke-linejoin="miter"
+        d="M78 40c-6-8-16-12-28-12-20 0-34 14-34 36s14 36 34 36c12 0 22-4 28-12"/>
+  <path fill="#E8344A" d="M70 40h14v20h10l12 28H90l-8-20H70z"/>
+  <rect x="70" y="40" width="14" height="48" fill="#E8344A"/>
+</svg>

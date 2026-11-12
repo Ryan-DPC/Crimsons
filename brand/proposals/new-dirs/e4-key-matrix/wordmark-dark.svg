@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 96" role="img" aria-label="Crimsons">
+  <title>Crimsons wordmark dark - Key Matrix</title>
+  <rect x="4" y="20" width="52" height="52" rx="12" fill="#121216"/>
+  <g fill="#2A2A32">
+    <rect x="12" y="28" width="10" height="10" rx="2"/>
+    <rect x="25" y="28" width="10" height="10" rx="2"/>
+    <rect x="38" y="28" width="10" height="10" rx="2"/>
+    <rect x="12" y="42" width="10" height="10" rx="2"/>
+    <rect x="38" y="42" width="10" height="10" rx="2"/>
+  </g>
+  <rect x="25" y="42" width="10" height="10" rx="2" fill="#E8344A"/>
+  <text x="72" y="60"
+        font-family="Inter, 'Segoe UI', Arial, sans-serif"
+        font-size="44" font-weight="800" letter-spacing="4"
+        fill="#F0F0F4">CRIMSONS</text>
+</svg>

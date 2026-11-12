@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Crimsons">
+  <title>Crimsons favicon - Key Matrix</title>
+  <rect width="32" height="32" rx="7" fill="#121216"/>
+  <g fill="#2A2A32">
+    <rect x="5" y="6" width="6.5" height="6.5" rx="1.4"/>
+    <rect x="13" y="6" width="6.5" height="6.5" rx="1.4"/>
+    <rect x="21" y="6" width="6.5" height="6.5" rx="1.4"/>
+    <rect x="5" y="14.5" width="6.5" height="6.5" rx="1.4"/>
+    <rect x="21" y="14.5" width="6.5" height="6.5" rx="1.4"/>
+  </g>
+  <rect x="13" y="14.5" width="6.5" height="6.5" rx="1.4" fill="#E8344A"/>
+  <rect x="9" y="24" width="14" height="1.6" rx="0.8" fill="#2A2A32"/>
+</svg>

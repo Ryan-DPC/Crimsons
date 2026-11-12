@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Crimsons Signal Orb">
+  <title>Crimsons - E6 Signal Orb</title>
+  <defs>
+    <radialGradient id="e6core" cx="42%" cy="38%" r="58%">
+      <stop offset="0%" stop-color="#FF6B7C"/>
+      <stop offset="55%" stop-color="#C81E36"/>
+      <stop offset="100%" stop-color="#4A0C14"/>
+    </radialGradient>
+    <linearGradient id="e6ring" x1="0%" y1="50%" x2="100%" y2="50%">
+      <stop offset="0%" stop-color="#E8344A"/>
+      <stop offset="100%" stop-color="#7A1222"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="112" height="112" rx="28" fill="#101014"/>
+  <!-- Orb core (not WiFi arcs) -->
+  <circle cx="64" cy="64" r="28" fill="url(#e6core)"/>
+  <circle cx="54" cy="52" r="8" fill="#FFD0D6" opacity="0.35"/>
+  <!-- Equatorial ring + forward beam notch - radar/core signal -->
+  <ellipse cx="64" cy="64" rx="46" ry="14" fill="none" stroke="url(#e6ring)" stroke-width="4" opacity="0.9"
+           transform="rotate(-18 64 64)"/>
+  <path fill="#E8344A" d="M96 50 118 64 96 78 100 64z"/>
+  <circle cx="64" cy="64" r="6" fill="#0E0E11"/>
+  <circle cx="64" cy="64" r="2.8" fill="#FF8A98"/>
+</svg>

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Crimsons Blade">
+  <title>Crimsons - E2 Blade (wordmark-derived mark)</title>
+  <rect x="10" y="10" width="108" height="108" rx="22" fill="#141418"/>
+  <!-- Typographic blade: tall cut bar + negative notch - derived from wordmark accent -->
+  <path fill="#E8344A" d="M52 28h18l10 36-10 36H52l10-36z"/>
+  <path fill="#0E0E11" d="M66 54h22v12H66z"/>
+  <path fill="#B31B32" d="M78 28h8l6 36-6 36h-8l6-36z" opacity="0.55"/>
+</svg>

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 96" role="img" aria-label="Crimsons">
+  <title>Crimsons wordmark dark - Ember Prism</title>
+  <defs>
+    <linearGradient id="e1w" x1="20%" y1="5%" x2="85%" y2="95%">
+      <stop offset="0%" stop-color="#FF4D62"/>
+      <stop offset="100%" stop-color="#6E101C"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#e1w)" d="M18 12 38 22 34 52 14 58 8 34z"/>
+  <path fill="#FF8A98" opacity="0.8" d="M18 12 38 22 28 30z"/>
+  <text x="52" y="60"
+        font-family="Inter, 'Segoe UI', Arial, sans-serif"
+        font-size="44" font-weight="800" letter-spacing="5"
+        fill="#F0F0F4">CRIMSONS</text>
+</svg>

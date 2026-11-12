@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Crimsons Ember Prism">
+  <title>Crimsons - E1 Ember Prism</title>
+  <defs>
+    <linearGradient id="e1a" x1="18%" y1="6%" x2="88%" y2="96%">
+      <stop offset="0%" stop-color="#FF4D62"/>
+      <stop offset="42%" stop-color="#C81E36"/>
+      <stop offset="100%" stop-color="#5C0E18"/>
+    </linearGradient>
+    <linearGradient id="e1b" x1="40%" y1="0%" x2="70%" y2="100%">
+      <stop offset="0%" stop-color="#FF7A8A"/>
+      <stop offset="100%" stop-color="#B31B32"/>
+    </linearGradient>
+  </defs>
+  <!-- Abstract crystalline ember - no letterform -->
+  <path fill="url(#e1a)" d="M64 10 98 38 88 92 40 108 22 58z"/>
+  <path fill="url(#e1b)" d="M64 10 98 38 72 54 64 10z"/>
+  <path fill="#7A1222" d="M98 38 88 92 72 54z"/>
+  <path fill="#2A0A10" opacity="0.45" d="M64 10 72 54 40 108 22 58z"/>
+  <path fill="none" stroke="#FF8A98" stroke-width="1.6" stroke-linejoin="round" opacity="0.7"
+        d="M64 18 90 40 82 84 46 96 30 58z"/>
+  <circle cx="58" cy="48" r="3.2" fill="#FFD0D6"/>
+</svg>

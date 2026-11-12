@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Crimsons Key Matrix">
+  <title>Crimsons - E4 Key Matrix</title>
+  <rect x="8" y="8" width="112" height="112" rx="22" fill="#121216"/>
+  <!-- 2x3 dock keys - StreamDeck vibe, not Elgato copy -->
+  <g fill="#2A2A32">
+    <rect x="24" y="28" width="24" height="24" rx="5"/>
+    <rect x="52" y="28" width="24" height="24" rx="5"/>
+    <rect x="80" y="28" width="24" height="24" rx="5"/>
+    <rect x="24" y="60" width="24" height="24" rx="5"/>
+    <rect x="80" y="60" width="24" height="24" rx="5"/>
+  </g>
+  <!-- Active key -->
+  <defs>
+    <linearGradient id="e4k" x1="20%" y1="10%" x2="80%" y2="90%">
+      <stop offset="0%" stop-color="#FF4D62"/>
+      <stop offset="100%" stop-color="#9E1628"/>
+    </linearGradient>
+  </defs>
+  <rect x="52" y="60" width="24" height="24" rx="5" fill="url(#e4k)"/>
+  <circle cx="64" cy="72" r="3.5" fill="#FFD0D6" opacity="0.9"/>
+  <!-- subtle bottom rail -->
+  <rect x="36" y="94" width="56" height="4" rx="2" fill="#2A2A32"/>
+</svg>

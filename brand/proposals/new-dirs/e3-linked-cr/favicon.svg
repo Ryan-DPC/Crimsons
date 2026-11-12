@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Crimsons">
+  <title>Crimsons favicon - Linked CR</title>
+  <rect width="32" height="32" rx="6" fill="#151518"/>
+  <path fill="none" stroke="#E8344A" stroke-width="3.2" stroke-linecap="square"
+        d="M20 10c-1.6-2-4.2-3.2-7.2-3.2C7.6 6.8 4 10.4 4 15.2S7.6 23.6 12.8 23.6c3 0 5.6-1.2 7.2-3.2"/>
+  <path fill="#E8344A" d="M18 10h4v5h2.5L27 22h-3.5l-2-4.5H18z"/>
+  <rect x="18" y="10" width="4" height="12" fill="#E8344A"/>
+</svg>

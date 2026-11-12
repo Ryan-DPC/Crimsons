@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 96" role="img" aria-label="Crimsons">
+  <title>Crimsons wordmark dark - Ribbon Flame</title>
+  <defs>
+    <linearGradient id="e5w" x1="40%" y1="100%" x2="60%" y2="0%">
+      <stop offset="0%" stop-color="#6E101C"/>
+      <stop offset="100%" stop-color="#FF6B7C"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#e5w)" d="M28 76c-10-3-15-16-13-28 2-10 9-18 17-22-4 8-4 16 1 22 4 6 4 12-1 18-2 2-3 6-4 10z"/>
+  <path fill="#E8344A" d="M22 78c-8-6-10-18-4-30 4-9 2-16-3-22 10 3 16 12 15 22-1 9-7 15-8 30z"/>
+  <path fill="#FFA0AA" d="M25 76c-3-8 1-15 8-20 4-3 5-10 2-15 8 4 10 14 6 22-3 7-9 9-11 13-1 2-2 0-5 0z"/>
+  <text x="56" y="60"
+        font-family="Inter, 'Segoe UI', Arial, sans-serif"
+        font-size="44" font-weight="800" letter-spacing="4"
+        fill="#F0F0F4">CRIMSONS</text>
+</svg>

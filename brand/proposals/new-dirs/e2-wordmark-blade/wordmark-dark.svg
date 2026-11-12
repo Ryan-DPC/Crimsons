@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 96" role="img" aria-label="Crimsons">
+  <title>Crimsons wordmark dark - Blade (wordmark-first)</title>
+  <!-- Custom display treatment: heavy tracking + blade cut through R zone -->
+  <text x="8" y="62"
+        font-family="Inter, 'Segoe UI', Arial, sans-serif"
+        font-size="52" font-weight="900" letter-spacing="8"
+        fill="#F0F0F4">CRIMSONS</text>
+  <!-- Blade slash accent under / through the word -->
+  <path fill="#E8344A" d="M118 22h9l7 26-7 26h-9l7-26z"/>
+  <rect x="8" y="76" width="420" height="3" fill="#B31B32" opacity="0.55"/>
+  <rect x="8" y="76" width="72" height="3" fill="#E8344A"/>
+</svg>

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Crimsons">
+  <title>Crimsons favicon - Ribbon Flame</title>
+  <defs>
+    <linearGradient id="e5f" x1="40%" y1="100%" x2="60%" y2="0%">
+      <stop offset="0%" stop-color="#6E101C"/>
+      <stop offset="100%" stop-color="#FF6B7C"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#e5f)" d="M17.5 28c-4.5-1.5-7-7-6-13 0.8-4.5 4-8 7.5-10-2 3.5-2 7.5 0.5 10.5 2 2.5 2 5.5-0.5 8-1 1-1.5 2.5-1.5 4.5z"/>
+  <path fill="#E8344A" d="M14.5 28.5c-3.5-2.5-4.5-8.5-2-13.5 2-4 1-7-1.5-10 4.5 1.5 7.5 5.5 7 10.5-0.5 4-3 7-3.5 13z"/>
+  <path fill="#FFA0AA" d="M16 28c-1.5-3.5 0.5-7 3.5-9.5 2-1.5 2.5-4.5 1-7 3.5 2 4.5 6.5 2.5 10.5-1.5 3-4 4-5 6-0.5 1-1 0-2 0z"/>
+</svg>
