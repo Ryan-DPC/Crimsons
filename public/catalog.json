@@ -1,11 +1,11 @@
 {
   "version": 2,
-  "updatedAt": "2026-11-09",
+  "updatedAt": "2026-11-12",
   "categories": [
     {
       "id": "streamdeck",
-      "label": "Stream Deck",
-      "description": "Extensions et profils pour Stream Deck et claviers macro."
+      "label": "StreamDock",
+      "description": "Extensions et profils pour StreamDock (Ajazz, etc.)."
     },
     {
       "id": "game",
@@ -24,7 +24,7 @@
       "slug": "league-of-legends",
       "name": "League of Legends",
       "summary": "Automatisation et contrôles en direct pour vos parties de League of Legends.",
-      "description": "Acceptez automatiquement vos parties, gérez vos picks & bans, appliquez vos runes et suivez vos statistiques directement sur votre Stream Deck.",
+      "description": "Acceptez automatiquement vos parties, gérez vos picks & bans, appliquez vos runes et suivez vos statistiques directement sur votre StreamDock.",
       "packageId": "com.laoy.streamdock.crimson.sdPlugin",
       "packagePath": "com.laoy.streamdock.crimson.sdPlugin",
       "version": "3.1.4",
@@ -41,14 +41,18 @@
       "requiresPremium": false,
       "requiresCrimsons": true,
       "icon": "/icons/league-of-legends.svg",
-      "targetApp": "Crimsons & Stream Deck"
+      "targetApp": "Crimsons & StreamDock",
+      "hardware": {
+        "streamdock": true,
+        "elgato": false
+      }
     },
     {
       "id": "spotify",
       "slug": "spotify",
       "name": "Spotify",
       "summary": "Contrôle de lecture, volume et navigation de vos playlists Spotify.",
-      "description": "Pilotez votre musique en toute fluidité depuis votre Stream Deck : lecture, pause, changement de piste, réglage du volume et affichage des pochettes.",
+      "description": "Pilotez votre musique en toute fluidité depuis votre StreamDock : lecture, pause, changement de piste, réglage du volume et affichage des pochettes.",
       "packageId": "com.laoy.streamdock.spotify.sdPlugin",
       "packagePath": "com.laoy.streamdock.spotify.sdPlugin",
       "version": "3.1.4",
@@ -65,14 +69,18 @@
       "requiresPremium": true,
       "requiresCrimsons": true,
       "icon": "/icons/spotify.svg",
-      "targetApp": "Crimsons & Stream Deck"
+      "targetApp": "Crimsons & StreamDock",
+      "hardware": {
+        "streamdock": true,
+        "elgato": false
+      }
     },
     {
       "id": "apple-music",
       "slug": "apple-music",
       "name": "Apple Music",
       "summary": "Contrôles multimédias et gestion de bibliothèque pour Apple Music via Cider.",
-      "description": "Prenez le contrôle d'Apple Music depuis votre Stream Deck : lecture, molettes de volume, avance rapide (+15s) et ajout en favoris en 1 clic.",
+      "description": "Prenez le contrôle d'Apple Music depuis votre StreamDock : lecture, molettes de volume, avance rapide (+15s) et ajout en favoris en 1 clic.",
       "packageId": "com.laoy.streamdock.applemusic.sdPlugin",
       "packagePath": "com.laoy.streamdock.applemusic.sdPlugin",
       "version": "0.3.0",
@@ -89,7 +97,11 @@
       "requiresPremium": true,
       "requiresCrimsons": true,
       "icon": "/icons/apple-music.svg",
-      "targetApp": "Crimsons & Stream Deck"
+      "targetApp": "Crimsons & StreamDock",
+      "hardware": {
+        "streamdock": true,
+        "elgato": false
+      }
     },
     {
       "id": "discord",
@@ -113,7 +125,11 @@
       "requiresPremium": true,
       "requiresCrimsons": true,
       "icon": "/icons/discord.svg",
-      "targetApp": "Crimsons & Stream Deck"
+      "targetApp": "Crimsons & StreamDock",
+      "hardware": {
+        "streamdock": true,
+        "elgato": false
+      }
     },
     {
       "id": "philips-hue",
@@ -136,7 +152,11 @@
       "requiresPremium": true,
       "requiresCrimsons": true,
       "icon": "/icons/philips-hue.svg",
-      "targetApp": "Crimsons & Stream Deck"
+      "targetApp": "Crimsons & StreamDock",
+      "hardware": {
+        "streamdock": true,
+        "elgato": false
+      }
     },
     {
       "id": "twitch",
@@ -159,7 +179,11 @@
       "requiresPremium": true,
       "requiresCrimsons": true,
       "icon": "/icons/twitch.svg",
-      "targetApp": "Crimsons & Stream Deck"
+      "targetApp": "Crimsons & StreamDock",
+      "hardware": {
+        "streamdock": true,
+        "elgato": false
+      }
     }
   ]
 }

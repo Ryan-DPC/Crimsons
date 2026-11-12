@@ -396,6 +396,48 @@ body {
   line-height: 1.5;
 }
 
+.hw-pills {
+  list-style: none;
+  margin: 0.85rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.hw-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  padding: 0.22rem 0.55rem;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--muted);
+}
+
+.hw-pill-ok {
+  color: #9ad4a8;
+  border-color: rgba(80, 160, 100, 0.28);
+  background: rgba(80, 160, 100, 0.08);
+}
+
+.hw-pill-no {
+  color: var(--muted);
+  opacity: 0.85;
+}
+
+.hw-pill-state {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  opacity: 0.9;
+}
+
 .card-footer {
   display: flex;
   align-items: center;
@@ -636,6 +678,36 @@ body {
   line-height: 1.65;
   color: var(--ink-soft);
   max-width: 42rem;
+}
+
+.detail-compat {
+  padding: 1.25rem 1.35rem;
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  max-width: 42rem;
+}
+
+.detail-compat-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0 0 0.45rem;
+  color: #ffffff;
+}
+
+.detail-compat-blurb {
+  margin: 0 0 0.9rem;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: var(--ink-soft);
+}
+
+.hw-pills-detail .hw-pill {
+  font-size: 0.8rem;
+  padding: 0.35rem 0.7rem;
+  gap: 0.45rem;
 }
 
 .detail-meta {

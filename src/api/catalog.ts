@@ -1,10 +1,41 @@
 import { createClient } from '@supabase/supabase-js'
-import type { CatalogPlugin, CatalogResponse, PluginCategory, PluginPricing, PluginStatus } from '../types'
+import { DEFAULT_HARDWARE } from '../lib/labels'
+import type {
+  CatalogPlugin,
+  CatalogResponse,
+  PluginCategory,
+  PluginHardware,
+  PluginPricing,
+  PluginStatus,
+} from '../types'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
 
+function normalizeHardware(raw: unknown, surfaces?: string[]): PluginHardware {
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    const obj = raw as Record<string, unknown>
+    return {
+      streamdock: Boolean(obj.streamdock ?? obj.ajazz ?? DEFAULT_HARDWARE.streamdock),
+      elgato: Boolean(obj.elgato ?? false),
+    }
+  }
+  if (Array.isArray(raw)) {
+    const ids = raw.map((v) => String(v).toLowerCase())
+    return {
+      streamdock: ids.some((id) => id === 'streamdock' || id === 'ajazz'),
+      elgato: ids.includes('elgato'),
+    }
+  }
+  // Legacy rows: surfaces often list "streamdock".
+  if (surfaces?.some((s) => s.toLowerCase() === 'streamdock')) {
+    return { ...DEFAULT_HARDWARE }
+  }
+  return { ...DEFAULT_HARDWARE }
+}
+
 function mapRow(row: Record<string, unknown>): CatalogPlugin {
+  const surfaces = (row.surfaces as string[]) ?? []
   return {
     id: String(row.id),
     slug: String(row.slug),
@@ -16,7 +47,8 @@ function mapRow(row: Record<string, unknown>): CatalogPlugin {
     status: (row.status as PluginStatus) ?? 'coming_soon',
     pricing: (row.pricing as PluginPricing) ?? 'tbd',
     categories: (row.categories as string[]) ?? [],
-    surfaces: (row.surfaces as string[]) ?? [],
+    surfaces,
+    hardware: normalizeHardware(row.hardware ?? row.compatibility, surfaces),
     requiresPremium: Boolean(row.requires_premium ?? row.requiresPremium),
     requiresCrimsons: Boolean(row.requires_crimsons ?? row.requiresCrimsons ?? true),
     icon: (row.icon_url as string | null | undefined) ?? (row.icon as string | null | undefined) ?? null,
@@ -29,27 +61,29 @@ function normalizeCatalog(data: Record<string, unknown>, source: CatalogResponse
     version: Number(data.version ?? 1),
     updatedAt: String(data.updatedAt ?? data.updated_at ?? ''),
     categories: (data.categories as PluginCategory[]) ?? [],
-    plugins: pluginsRaw.map((row) =>
-      'package_id' in row || 'requires_premium' in row
-        ? mapRow(row)
-        : {
-            id: String(row.id),
-            slug: String(row.slug),
-            name: String(row.name),
-            summary: String(row.summary ?? ''),
-            description: String(row.description ?? ''),
-            packageId: String(row.packageId ?? ''),
-            packagePath: row.packagePath ? String(row.packagePath) : undefined,
-            version: String(row.version ?? '0.0.0'),
-            status: (row.status as PluginStatus) ?? 'coming_soon',
-            pricing: (row.pricing as PluginPricing) ?? 'tbd',
-            categories: (row.categories as string[]) ?? [],
-            surfaces: (row.surfaces as string[]) ?? [],
-            requiresPremium: Boolean(row.requiresPremium),
-            requiresCrimsons: Boolean(row.requiresCrimsons ?? true),
-            icon: (row.icon as string | null | undefined) ?? null,
-          },
-    ),
+    plugins: pluginsRaw.map((row) => {
+      if ('package_id' in row || 'requires_premium' in row) return mapRow(row)
+      const surfaces = (row.surfaces as string[]) ?? []
+      return {
+        id: String(row.id),
+        slug: String(row.slug),
+        name: String(row.name),
+        summary: String(row.summary ?? ''),
+        description: String(row.description ?? ''),
+        packageId: String(row.packageId ?? ''),
+        packagePath: row.packagePath ? String(row.packagePath) : undefined,
+        version: String(row.version ?? '0.0.0'),
+        status: (row.status as PluginStatus) ?? 'coming_soon',
+        pricing: (row.pricing as PluginPricing) ?? 'tbd',
+        categories: (row.categories as string[]) ?? [],
+        surfaces,
+        hardware: normalizeHardware(row.hardware ?? row.compatibility, surfaces),
+        requiresPremium: Boolean(row.requiresPremium),
+        requiresCrimsons: Boolean(row.requiresCrimsons ?? true),
+        icon: (row.icon as string | null | undefined) ?? null,
+        targetApp: row.targetApp ? String(row.targetApp) : undefined,
+      }
+    }),
     source,
   }
 }

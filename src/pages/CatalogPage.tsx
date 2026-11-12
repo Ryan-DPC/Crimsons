@@ -1,7 +1,13 @@
 import { useEffect, useState, useTransition } from 'react'
 import { fetchCatalog } from '../api/catalog'
 import { StoreFooter, StoreHeader, PageShell } from '../components/StoreChrome'
-import { DIRECT_DOWNLOAD_URL, PRICING_LABEL, STATUS_LABEL } from '../lib/labels'
+import {
+  DIRECT_DOWNLOAD_URL,
+  HARDWARE_LABEL,
+  HARDWARE_ORDER,
+  PRICING_LABEL,
+  STATUS_LABEL,
+} from '../lib/labels'
 import { navigate, pluginPath } from '../lib/routing'
 import type { CatalogPlugin, CatalogResponse } from '../types'
 
@@ -49,8 +55,8 @@ export default function CatalogPage() {
 
         <h1 className="hero-title">Extensions & Intégrations</h1>
         <p className="hero-subtitle">
-          Le catalogue officiel des modules et packs Stream Deck. Découvrez, personnalisez et ajoutez vos
-          fonctionnalités favorites directement pour l’application Crimsons.
+          Le catalogue officiel des modules Crimsons. Aujourd’hui compatibles StreamDock (Ajazz, etc.) —
+          Elgato Stream Deck arrive plus tard.
         </p>
 
         <div className="download-card">
@@ -148,7 +154,7 @@ export default function CatalogPage() {
                     <div className="plugin-titles">
                       <h2>{plugin.name}</h2>
                       <span className="plugin-compat-badge">
-                        {categoryLabel(plugin.categories[1] || plugin.categories[0])} · Stream Deck
+                        {categoryLabel(plugin.categories[1] || plugin.categories[0])}
                       </span>
                     </div>
                   </div>
@@ -161,6 +167,25 @@ export default function CatalogPage() {
 
                 <div className="card-body">
                   <p className="plugin-description">{plugin.description}</p>
+                  <ul className="hw-pills" aria-label="Compatibilité hardware">
+                    {HARDWARE_ORDER.map((id) => {
+                      const ok = plugin.hardware[id]
+                      return (
+                        <li
+                          key={id}
+                          className={ok ? 'hw-pill hw-pill-ok' : 'hw-pill hw-pill-no'}
+                          title={
+                            ok
+                              ? `${HARDWARE_LABEL[id]} : compatible`
+                              : `${HARDWARE_LABEL[id]} : pas encore`
+                          }
+                        >
+                          <span>{HARDWARE_LABEL[id]}</span>
+                          <span aria-hidden="true">{ok ? '✓' : '—'}</span>
+                        </li>
+                      )
+                    })}
+                  </ul>
                 </div>
 
                 <div className="card-footer">

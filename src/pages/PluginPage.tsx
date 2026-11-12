@@ -1,7 +1,14 @@
 import { useEffect, useState } from 'react'
 import { fetchPluginBySlug } from '../api/catalog'
 import { StoreFooter, StoreHeader, PageShell } from '../components/StoreChrome'
-import { DIRECT_DOWNLOAD_URL, PRICING_LABEL, STATUS_LABEL } from '../lib/labels'
+import {
+  DIRECT_DOWNLOAD_URL,
+  HARDWARE_LABEL,
+  HARDWARE_ORDER,
+  PRICING_LABEL,
+  STATUS_LABEL,
+  hardwareCompatBlurb,
+} from '../lib/labels'
 import { navigate } from '../lib/routing'
 import type { CatalogPlugin, CatalogResponse } from '../types'
 
@@ -127,6 +134,31 @@ export default function PluginPage({ slug }: { slug: string }) {
           </div>
 
           <p className="detail-description">{plugin.description}</p>
+
+          <section className="detail-compat" aria-labelledby="compat-heading">
+            <h2 id="compat-heading" className="detail-compat-title">
+              Compatibilité
+            </h2>
+            <p className="detail-compat-blurb">{hardwareCompatBlurb(plugin.hardware)}</p>
+            <ul className="hw-pills hw-pills-detail" aria-label="Hardware supporté">
+              {HARDWARE_ORDER.map((id) => {
+                const ok = plugin.hardware[id]
+                return (
+                  <li
+                    key={id}
+                    className={ok ? 'hw-pill hw-pill-ok' : 'hw-pill hw-pill-no'}
+                  >
+                    <span>
+                      {HARDWARE_LABEL[id]}
+                      {id === 'streamdock' ? ' / Ajazz' : ''}
+                    </span>
+                    <span aria-hidden="true">{ok ? '✓' : '—'}</span>
+                    <span className="hw-pill-state">{ok ? 'Supporté' : 'Pas encore'}</span>
+                  </li>
+                )
+              })}
+            </ul>
+          </section>
 
           <dl className="detail-meta">
             <div>

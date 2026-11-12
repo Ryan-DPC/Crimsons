@@ -1,6 +1,14 @@
 export type PluginStatus = 'published' | 'coming_soon' | 'deprecated'
 export type PluginPricing = 'free' | 'premium' | 'paid' | 'tbd'
 
+/** Known hardware families. Ajazz decks are aliased under streamdock. */
+export type HardwareId = 'streamdock' | 'elgato'
+
+export interface PluginHardware {
+  streamdock: boolean
+  elgato: boolean
+}
+
 export interface PluginCategory {
   id: string
   label: string
@@ -20,6 +28,8 @@ export interface CatalogPlugin {
   pricing: PluginPricing
   categories: string[]
   surfaces: string[]
+  /** Deck compatibility. Defaults to StreamDock-only when omitted. */
+  hardware: PluginHardware
   requiresPremium: boolean
   requiresCrimsons: boolean
   icon?: string | null
