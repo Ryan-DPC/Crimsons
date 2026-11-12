@@ -4,9 +4,10 @@ import { getChampIcon } from '../../utils/lolDisplay';
 import { 
     Disc3, MessageSquare, Laptop, Music, MicOff, Mic, Headphones, 
     MonitorPlay, Play, Pause, SkipForward, SkipBack, 
-    ShoppingBag, ExternalLink, Gamepad2
+    ShoppingBag, ExternalLink
 } from 'lucide-react';
 import logoRed from '../../assets/logos/logo_red_transparent.png';
+import { PLUGIN_STORE_BASE_URL, pluginStoreUrl } from '../../lib/pluginStore';
 
 // Reusable animated toggle component
 const Toggle = ({ value, onChange, label, disabled }: {
@@ -26,6 +27,56 @@ const Toggle = ({ value, onChange, label, disabled }: {
         </button>
     </div>
 );
+
+/** Module row: Store deep-link (name / external) + activation toggle. */
+const ModuleStoreRow = ({
+    label,
+    slug,
+    value,
+    onChange,
+    disabled,
+}: {
+    label: string;
+    slug: string;
+    value: boolean;
+    onChange: (v: boolean) => void;
+    disabled?: boolean;
+}) => {
+    const storeHref = pluginStoreUrl(slug);
+    return (
+        <div className={`flex items-center justify-between gap-3 group ${disabled ? 'opacity-40' : ''}`}>
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+                <a
+                    href={storeHref}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-[10px] font-black text-white/70 uppercase tracking-widest truncate hover:text-white transition-colors"
+                    title={`Ouvrir ${label} sur le Store`}
+                >
+                    {label}
+                </a>
+                <a
+                    href={storeHref}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="shrink-0 p-1 rounded-md text-white/25 hover:text-white/80 hover:bg-white/5 transition-colors"
+                    title="Page Store"
+                    aria-label={`Ouvrir la page Store ${label}`}
+                >
+                    <ExternalLink className="w-3 h-3" />
+                </a>
+            </div>
+            <button
+                onClick={() => !disabled && onChange(!value)}
+                disabled={disabled}
+                aria-label={`${value ? 'Désactiver' : 'Activer'} ${label}`}
+                className={`relative w-9 h-5 rounded-full transition-all duration-500 focus:outline-none shrink-0 ${disabled ? 'bg-white/5 cursor-not-allowed' : value ? 'bg-red-600 shadow-[0_0_10px_rgba(220,38,38,0.4)]' : 'bg-white/10'}`}
+            >
+                <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow-md transition-all duration-500 cubic-bezier(0.34, 1.56, 0.64, 1) ${(value && !disabled) ? 'left-4 scale-110' : 'left-0.5'}`} />
+            </button>
+        </div>
+    );
+};
 
 export default function HomeTab() {
     const { 
@@ -237,13 +288,13 @@ export default function HomeTab() {
                         </div>
                     </div>
 
-                    {/* Quick Action Tiles */}
-                    <div className="grid grid-cols-2 gap-4 pt-2">
+                    {/* Quick Action — Store only (LoL toggled via Modules Disponibles) */}
+                    <div className="pt-2">
                         <a 
-                            href="https://store.hoopslive.ch" 
+                            href={PLUGIN_STORE_BASE_URL} 
                             target="_blank" 
                             rel="noreferrer"
-                            className="bg-[#111115] hover:bg-white/[0.04] border border-white/5 hover:border-white/15 p-4 rounded-xl flex flex-col justify-between transition-all group cursor-pointer"
+                            className="bg-[#111115] hover:bg-white/[0.04] border border-white/5 hover:border-white/15 p-4 rounded-xl flex flex-col justify-between transition-all group cursor-pointer w-full"
                         >
                             <div className="flex items-center justify-between text-white/40 group-hover:text-white">
                                 <ShoppingBag className="w-5 h-5" />
@@ -254,20 +305,6 @@ export default function HomeTab() {
                                 <span className="text-[9px] text-white/40 uppercase font-bold tracking-widest mt-0.5 block">Catalogue StreamDock</span>
                             </div>
                         </a>
-
-                        <button 
-                            onClick={() => togglePlugin('leagueOfLegends', true)}
-                            className="bg-[#111115] hover:bg-white/[0.04] border border-white/5 hover:border-blue-500/30 p-4 rounded-xl flex flex-col justify-between transition-all group text-left"
-                        >
-                            <div className="flex items-center justify-between text-white/40 group-hover:text-blue-400">
-                                <Gamepad2 className="w-5 h-5" />
-                                <span className="text-[9px] font-mono font-bold text-white/30">OFF</span>
-                            </div>
-                            <div className="mt-4">
-                                <span className="text-[11px] font-black text-white uppercase tracking-wider block">Activer LoL</span>
-                                <span className="text-[9px] text-white/40 uppercase font-bold tracking-widest mt-0.5 block">Auto-accept & Draft</span>
-                            </div>
-                        </button>
                     </div>
 
                     <div className="p-4 bg-white/[0.02] border border-white/5 rounded-xl flex items-center justify-between">
@@ -372,25 +409,29 @@ export default function HomeTab() {
                 <div className="flex flex-col gap-4">
                     <span className="text-[10px] font-black text-white/40 uppercase tracking-widest border-b border-white/5 pb-2">Modules Disponibles</span>
                     <div className="space-y-3 bg-[#0a0a0c] border border-white/5 p-4 rounded-xl">
-                        <Toggle
+                        <ModuleStoreRow
                             label="Apple Music"
+                            slug="apple-music"
                             value={isAppleMusicEnabled}
                             onChange={(v) => togglePlugin('apple_music', v)}
                             disabled={!isPremium}
                         />
-                        <Toggle
+                        <ModuleStoreRow
                             label="League of Legends"
+                            slug="league-of-legends"
                             value={isLolEnabled}
                             onChange={(v) => togglePlugin('leagueOfLegends', v)}
                         />
-                        <Toggle
+                        <ModuleStoreRow
                             label="Spotify"
+                            slug="spotify"
                             value={isSpotifyEnabled}
                             onChange={(v) => togglePlugin('spotify', v)}
                             disabled={!isPremium}
                         />
-                        <Toggle
+                        <ModuleStoreRow
                             label="Discord"
+                            slug="discord"
                             value={isDiscordEnabled}
                             onChange={(v) => togglePlugin('discord', v)}
                             disabled={!isPremium}
