@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-label="Crimsons monogram">
+  <title>Crimsons monogram — A4 Badge App</title>
+  <defs>
+    <linearGradient id="a4m" x1="12%" y1="0%" x2="88%" y2="100%">
+      <stop offset="0%" stop-color="#E8344A"/>
+      <stop offset="100%" stop-color="#8B1526"/>
+    </linearGradient>
+  </defs>
+  <rect width="96" height="96" rx="22" fill="url(#a4m)"/>
+  <path fill="#F0F0F4" d="M48 18c-16.6 0-30 13.4-30 30s13.4 30 30 30c8.1 0 15.5-3.2 21-8.4l-7.2-7.2A19.8 19.8 0 0 1 48 68.4c-11.3 0-20.4-9.1-20.4-20.4S36.7 27.6 48 27.6c5.1 0 9.75 1.85 13.35 4.9l6.5-8A29.7 29.7 0 0 0 48 18z"/>
+  <rect x="62" y="40" width="12" height="16" rx="1.2" fill="#F0F0F4"/>
+</svg>

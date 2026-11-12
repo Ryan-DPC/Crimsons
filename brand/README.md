@@ -43,3 +43,18 @@ Canonical copies live at the `brand/` root:
 - `cover-social.svg`
 
 Open `preview.html` for a side-by-side comparison (light + dark, favicon sizes, BrandLogo header mock).
+
+## A variants (refinements)
+
+Same DNA as A0 (geometric C + crimson technical node). Folders under `proposals/a-variants/`:
+
+| ID | Folder | Idea |
+| --- | --- | --- |
+| A1 | `a1-soft-gap/` | Soft rounded gap terminals |
+| A2 | `a2-sharp-diamond/` | Flat C + losange node only |
+| A3 | `a3-outline-pin/` | Outline C + square pin |
+| A4 | `a4-badge-app/` | Rounded-square app badge |
+| A5 | `a5-minimal/` | Ultra-simple C + single node |
+| A6 | `a6-hex-fill/` | Solid filled hex node (recommended refinement) |
+
+Preview: `preview-a-variants.html`.

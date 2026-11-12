@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Crimsons icon">
+  <title>Crimsons logo icon — A4 Badge App</title>
+  <defs>
+    <linearGradient id="a4bg" x1="12%" y1="0%" x2="88%" y2="100%">
+      <stop offset="0%" stop-color="#E8344A"/>
+      <stop offset="50%" stop-color="#B31B32"/>
+      <stop offset="100%" stop-color="#7A1222"/>
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="28" fill="url(#a4bg)"/>
+  <path fill="#F0F0F4" d="M64 22c-23.2 0-42 18.8-42 42s18.8 42 42 42c11.4 0 21.8-4.5 29.5-11.8l-9.2-9.2A29.8 29.8 0 0 1 64 93.2c-16.1 0-29.2-13.1-29.2-29.2S47.9 34.8 64 34.8c7.2 0 13.8 2.55 19 6.85l8.3-10.2A41.7 41.7 0 0 0 64 22z"/>
+  <path fill="none" stroke="#F0F0F4" stroke-width="2.8" stroke-linejoin="round"
+        d="M64 48 74 53.8v11.4L64 77 54 65.2V53.8z"/>
+  <rect x="59.4" y="59.4" width="9.2" height="9.2" rx="1" fill="#F0F0F4" transform="rotate(45 64 64)"/>
+</svg>

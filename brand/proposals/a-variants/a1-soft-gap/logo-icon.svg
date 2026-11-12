@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Crimsons icon">
+  <title>Crimsons logo icon — A1 Soft Gap</title>
+  <defs>
+    <linearGradient id="a1c" x1="18%" y1="8%" x2="86%" y2="94%">
+      <stop offset="0%" stop-color="#E8344A"/>
+      <stop offset="55%" stop-color="#B31B32"/>
+      <stop offset="100%" stop-color="#7A1222"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#a1c)" d="M64 10c-29.82 0-54 24.18-54 54s24.18 54 54 54c14.7 0 28.05-5.77 37.95-15.15l-10.4-10.4A38.6 38.6 0 0 1 64 102.6c-21.32 0-38.6-17.28-38.6-38.6S42.68 25.4 64 25.4c9.3 0 17.85 3.3 24.55 8.8l9.4-11.7A53.7 53.7 0 0 0 64 10z"/>
+  <path fill="none" stroke="#B31B32" stroke-width="3.6" stroke-linejoin="round" stroke-linecap="round"
+        d="M64 45.2 75.8 52v13.6L64 82.8 52.2 65.6V52z"/>
+  <rect x="58.5" y="58.5" width="11" height="11" rx="2.4" fill="#E8344A" transform="rotate(45 64 64)"/>
+  <circle cx="64" cy="45.2" r="2.8" fill="#E8344A"/>
+  <circle cx="75.8" cy="52" r="2.8" fill="#E8344A"/>
+  <circle cx="75.8" cy="65.6" r="2.8" fill="#E8344A"/>
+  <circle cx="64" cy="82.8" r="2.8" fill="#E8344A"/>
+  <circle cx="52.2" cy="65.6" r="2.8" fill="#E8344A"/>
+  <circle cx="52.2" cy="52" r="2.8" fill="#E8344A"/>
+</svg>
