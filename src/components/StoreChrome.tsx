@@ -21,6 +21,9 @@ export function StoreHeader({ compact = false }: { compact?: boolean }) {
   )
 }
 
+/** HoopsLive support inbox — domain matches store.hoopslive.ch (not hoppslive). */
+export const SUPPORT_EMAIL = 'noreply@hoopslive.ch'
+
 export function StoreFooter({ version }: { version?: number }) {
   return (
     <footer className="footer">
@@ -31,6 +34,14 @@ export function StoreFooter({ version }: { version?: number }) {
         <div className="footer-links">
           <a href="https://github.com/Ryan-DPC/Crimsons/releases/download/v3.1.6/CRIMSONS_3.1.6_x64-setup.exe" className="footer-link">
             Télécharger Crimsons
+          </a>
+          <span className="footer-sep">·</span>
+          <a
+            href={`mailto:${SUPPORT_EMAIL}`}
+            className="footer-link"
+            aria-label={`Contact support — ${SUPPORT_EMAIL}`}
+          >
+            Contact support
           </a>
           <span className="footer-sep">·</span>
           <span className="footer-meta">v{version ?? 2}</span>
