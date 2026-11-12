@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Crimsons Apex Crest">
+  <title>Crimsons - F4 Apex Crest</title>
+  <defs>
+    <linearGradient id="f4g" x1="20%" y1="5%" x2="80%" y2="95%">
+      <stop offset="0%" stop-color="#FF4D62"/>
+      <stop offset="45%" stop-color="#C81E36"/>
+      <stop offset="100%" stop-color="#5C0E18"/>
+    </linearGradient>
+  </defs>
+  <rect x="10" y="10" width="108" height="108" rx="26" fill="#121216"/>
+  <!-- Minimal gaming crest: three peaks + base - no jewels, no clipart -->
+  <path fill="url(#f4g)"
+        d="M28 78 40 42 52 66 64 28 76 66 88 42 100 78 92 88 36 88z"/>
+  <!-- Thin under-bar / plinth -->
+  <rect x="34" y="94" width="60" height="6" rx="2" fill="#E8344A"/>
+  <rect x="44" y="102" width="40" height="3" rx="1.5" fill="#7A1222"/>
+  <!-- Peak highlights -->
+  <path fill="#FFD0D6" opacity="0.35" d="M64 28 70 52 64 48 58 52z"/>
+</svg>

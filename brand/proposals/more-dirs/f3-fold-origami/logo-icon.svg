@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Crimsons Fold Origami">
+  <title>Crimsons - F3 Fold Origami</title>
+  <defs>
+    <linearGradient id="f3a" x1="10%" y1="20%" x2="90%" y2="80%">
+      <stop offset="0%" stop-color="#FF5A6E"/>
+      <stop offset="100%" stop-color="#B31B32"/>
+    </linearGradient>
+    <linearGradient id="f3b" x1="30%" y1="0%" x2="70%" y2="100%">
+      <stop offset="0%" stop-color="#C81E36"/>
+      <stop offset="100%" stop-color="#4A0C14"/>
+    </linearGradient>
+    <linearGradient id="f3c" x1="0%" y1="40%" x2="100%" y2="60%">
+      <stop offset="0%" stop-color="#E8344A"/>
+      <stop offset="100%" stop-color="#7A1222"/>
+    </linearGradient>
+  </defs>
+  <!-- Abstract origami fold stack - planes / creases, not flame ribbons -->
+  <path fill="url(#f3a)" d="M24 78 64 18 104 78 64 98z"/>
+  <path fill="url(#f3b)" d="M64 18 104 78 78 70 64 42z"/>
+  <path fill="url(#f3c)" d="M24 78 64 98 50 70z"/>
+  <path fill="#2A0A10" opacity="0.35" d="M64 42 78 70 64 98 50 70z"/>
+  <!-- Hard crease highlights -->
+  <path fill="none" stroke="#FFD0D6" stroke-width="1.4" opacity="0.55"
+        d="M64 24 94 72 M40 74 64 88 88 74"/>
+</svg>

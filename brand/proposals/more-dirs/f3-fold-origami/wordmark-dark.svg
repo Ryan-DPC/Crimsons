@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 96" role="img" aria-label="Crimsons">
+  <title>Crimsons wordmark dark - Fold Origami</title>
+  <defs>
+    <linearGradient id="f3w" x1="15%" y1="10%" x2="85%" y2="90%">
+      <stop offset="0%" stop-color="#FF5A6E"/>
+      <stop offset="100%" stop-color="#7A1222"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#f3w)" d="M10 58 36 18 62 58 36 70z"/>
+  <path fill="#4A0C14" d="M36 18 62 58 50 54 36 32z"/>
+  <path fill="#2A0A10" opacity="0.4" d="M36 32 50 54 36 70 22 54z"/>
+  <text x="78" y="60"
+        font-family="Inter, 'Segoe UI', Arial, sans-serif"
+        font-size="44" font-weight="800" letter-spacing="5"
+        fill="#F0F0F4">CRIMSONS</text>
+</svg>

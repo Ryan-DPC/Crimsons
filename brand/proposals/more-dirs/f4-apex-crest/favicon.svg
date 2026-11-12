@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Crimsons">
+  <title>Crimsons favicon - Apex Crest</title>
+  <defs>
+    <linearGradient id="f4f" x1="20%" y1="5%" x2="80%" y2="95%">
+      <stop offset="0%" stop-color="#FF4D62"/>
+      <stop offset="100%" stop-color="#5C0E18"/>
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="28" height="28" rx="7" fill="#121216"/>
+  <path fill="url(#f4f)" d="M7 20 10 11 13 17 16 7 19 17 22 11 25 20 23 23 9 23z"/>
+  <rect x="9" y="24.5" width="14" height="2" rx="0.8" fill="#E8344A"/>
+</svg>

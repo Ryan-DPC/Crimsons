@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 96" role="img" aria-label="Crimsons">
+  <title>Crimsons wordmark dark - Press Seal</title>
+  <defs>
+    <linearGradient id="f6w" x1="20%" y1="15%" x2="85%" y2="90%">
+      <stop offset="0%" stop-color="#E8344A"/>
+      <stop offset="100%" stop-color="#6E101C"/>
+    </linearGradient>
+  </defs>
+  <circle cx="36" cy="48" r="28" fill="#121216"/>
+  <circle cx="36" cy="48" r="25" fill="none" stroke="url(#f6w)" stroke-width="3.5"/>
+  <circle cx="36" cy="48" r="14" fill="url(#f6w)"/>
+  <text x="36" y="53" text-anchor="middle"
+        font-family="Inter, 'Segoe UI', Arial, sans-serif"
+        font-size="13" font-weight="800" fill="#0E0E11">CR</text>
+  <text x="78" y="60"
+        font-family="Inter, 'Segoe UI', Arial, sans-serif"
+        font-size="44" font-weight="800" letter-spacing="5"
+        fill="#F0F0F4">CRIMSONS</text>
+</svg>

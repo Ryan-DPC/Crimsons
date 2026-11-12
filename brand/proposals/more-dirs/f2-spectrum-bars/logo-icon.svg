@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Crimsons Spectrum Bars">
+  <title>Crimsons - F2 Spectrum Bars</title>
+  <defs>
+    <linearGradient id="f2a" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" stop-color="#FF6B7C"/>
+      <stop offset="100%" stop-color="#B31B32"/>
+    </linearGradient>
+    <linearGradient id="f2b" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" stop-color="#E8344A"/>
+      <stop offset="100%" stop-color="#7A1222"/>
+    </linearGradient>
+    <linearGradient id="f2c" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" stop-color="#FF4D62"/>
+      <stop offset="100%" stop-color="#5C0E18"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="112" height="112" rx="24" fill="#121216"/>
+  <!-- Creator equalizer / waveform - five bars, peak on 4th -->
+  <g>
+    <rect x="22" y="64" width="12" height="36" rx="3" fill="#3A3A44"/>
+    <rect x="40" y="48" width="12" height="52" rx="3" fill="url(#f2b)"/>
+    <rect x="58" y="28" width="12" height="72" rx="3" fill="url(#f2c)"/>
+    <rect x="76" y="40" width="12" height="60" rx="3" fill="url(#f2a)"/>
+    <rect x="94" y="56" width="12" height="44" rx="3" fill="#2A2A32"/>
+  </g>
+  <!-- Soft baseline -->
+  <rect x="22" y="102" width="84" height="3" rx="1.5" fill="#2A2A32"/>
+</svg>

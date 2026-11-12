@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 96" role="img" aria-label="Crimsons">
+  <title>Crimsons wordmark dark - Apex Crest</title>
+  <defs>
+    <linearGradient id="f4w" x1="20%" y1="5%" x2="80%" y2="95%">
+      <stop offset="0%" stop-color="#FF4D62"/>
+      <stop offset="100%" stop-color="#5C0E18"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="20" width="56" height="56" rx="14" fill="#121216"/>
+  <path fill="url(#f4w)" d="M16 54 22 36 28 48 36 28 44 48 50 36 56 54 52 60 20 60z"/>
+  <rect x="20" y="63" width="32" height="3.5" rx="1" fill="#E8344A"/>
+  <text x="78" y="60"
+        font-family="Inter, 'Segoe UI', Arial, sans-serif"
+        font-size="44" font-weight="800" letter-spacing="5"
+        fill="#F0F0F4">CRIMSONS</text>
+</svg>

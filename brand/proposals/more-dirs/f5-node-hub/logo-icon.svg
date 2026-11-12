@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Crimsons Node Hub">
+  <title>Crimsons - F5 Node Hub</title>
+  <defs>
+    <linearGradient id="f5c" x1="25%" y1="20%" x2="80%" y2="85%">
+      <stop offset="0%" stop-color="#FF4D62"/>
+      <stop offset="100%" stop-color="#8B1526"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="112" height="112" rx="24" fill="#121216"/>
+  <!-- Hub connectors: 1 core + 3 satellites (plugins / dock ports) -->
+  <g stroke="#E8344A" stroke-width="4" stroke-linecap="round" fill="none" opacity="0.9">
+    <line x1="64" y1="64" x2="34" y2="36"/>
+    <line x1="64" y1="64" x2="98" y2="42"/>
+    <line x1="64" y1="64" x2="78" y2="98"/>
+  </g>
+  <!-- Satellite nodes -->
+  <circle cx="34" cy="36" r="9" fill="#2A2A32" stroke="#E8344A" stroke-width="3"/>
+  <circle cx="98" cy="42" r="9" fill="#2A2A32" stroke="#E8344A" stroke-width="3"/>
+  <circle cx="78" cy="98" r="9" fill="#2A2A32" stroke="#E8344A" stroke-width="3"/>
+  <!-- Core hub -->
+  <circle cx="64" cy="64" r="16" fill="url(#f5c)"/>
+  <circle cx="64" cy="64" r="5" fill="#0E0E11"/>
+  <circle cx="64" cy="64" r="2.4" fill="#FFD0D6"/>
+</svg>

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Crimsons">
+  <title>Crimsons favicon - Fold Origami</title>
+  <defs>
+    <linearGradient id="f3f" x1="15%" y1="10%" x2="85%" y2="90%">
+      <stop offset="0%" stop-color="#FF5A6E"/>
+      <stop offset="100%" stop-color="#7A1222"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#f3f)" d="M6 20 16 4.5 26 20 16 25.5z"/>
+  <path fill="#4A0C14" d="M16 4.5 26 20 20 18 16 10z"/>
+  <path fill="#2A0A10" opacity="0.4" d="M16 10 20 18 16 25.5 12 18z"/>
+</svg>
