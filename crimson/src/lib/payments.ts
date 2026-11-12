@@ -6,8 +6,9 @@
  * Ne pas brancher le frontend paiement ici tant que la grille / CGV ne sont pas live.
  *
  * Grille produit figée (docs/PAYMENTS.md §0) :
- *   plugin solo 5.99 CHF/mois · annuel suggéré 39 CHF/an · app free
- *   (pas de double charge app+plugin ; Premium global optionnel plus tard).
+ *   plugin 5.99 CHF/mois · 59.90 CHF/an (−2 mois ; ×12 = 71.88)
+ *   Premium suggéré 9.90/mois · 99/an · lifetime early 69.99 (quota limité)
+ *   app free — pas de double charge app+plugin.
  *
  * Activation plus tard :
  * 1. Secrets Edge : PAYMENTS_ENABLED=true + clés Stripe test (Price 5.99 CHF/mois créé au Dashboard)

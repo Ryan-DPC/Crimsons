@@ -5,8 +5,8 @@
 //! vivent dans `supabase/functions/`. Ce module documente le mapping
 //! price → Premium et permet de vérifier une signature webhook en tests / outils.
 //!
-//! Grille produit (docs/PAYMENTS.md) : plugin solo **5.99 CHF/mois** · annuel
-//! suggéré **39 CHF/an** — les `price_` réels restent dans les secrets, pas ici.
+//! Grille produit (docs/PAYMENTS.md) : plugin **5.99 CHF/mois** · **59.90 CHF/an**
+//! (−2 mois) ; Premium suggéré 9.90/mois · 99/an — `price_` réels dans les secrets.
 //!
 //! Feature flag : `PAYMENTS_ENABLED` (défaut false). Live : `STRIPE_LIVE_ENABLED`.
 

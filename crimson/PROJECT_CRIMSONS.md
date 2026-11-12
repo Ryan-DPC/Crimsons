@@ -11,7 +11,7 @@ Offrir un écosystème connecté qui permet au joueur de ne jamais avoir à quit
 
 ## Modèle Économique & Plugins
 
-Crimsons fonctionne sur un modèle **Freemium** : **app free** ; monétisation **par plugin** (base **5.99 CHF / mois**, annuel suggéré **39 CHF / an**). Pas de double charge app + plugin. Premium global optionnel plus tard ; early bird lifetime **69.99 CHF** (limité) comme option user. Détail figé : [`docs/PAYMENTS.md`](../docs/PAYMENTS.md) §0.
+Crimsons fonctionne sur un modèle **Freemium** : **app free** ; monétisation **par plugin** (**5.99 CHF / mois**, annuel **59.90 CHF / an** = 5.99×10). Premium suggéré **9.90 / mois** · **99 / an** ; early bird lifetime **69.99 CHF** (quota limité — attention cannibalisation vs 59.90). Pas de double charge app + plugin. Détail figé : [`docs/PAYMENTS.md`](../docs/PAYMENTS.md) §0.
 
 L'assistance de base pour League of Legends reste accessible à tous ; les intégrations tierces (Spotify, Discord, …) seront derrière l’abonnement plugin / entitlement Premium existant.
 

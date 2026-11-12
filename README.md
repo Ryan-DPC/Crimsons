@@ -28,7 +28,7 @@ Version actuelle : **3.1.4**.
 
 Auth / droits premium : Supabase (client + vérif côté serveur).
 
-Paiements (Stripe, backend only, flag off) — grille figée **5.99 CHF/mois** / plugin : [`docs/PAYMENTS.md`](docs/PAYMENTS.md).
+Paiements (Stripe, backend only, flag off) — grille figée plugin **5.99 CHF/mois** · **59.90 CHF/an** : [`docs/PAYMENTS.md`](docs/PAYMENTS.md).
 
 ## Canonical names
 
