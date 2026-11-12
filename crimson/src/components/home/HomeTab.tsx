@@ -294,16 +294,16 @@ export default function HomeTab() {
                             href={PLUGIN_STORE_BASE_URL} 
                             target="_blank" 
                             rel="noreferrer"
-                            className="bg-[#111115] hover:bg-white/[0.04] border border-white/5 hover:border-white/15 p-4 rounded-xl flex flex-col justify-between transition-all group cursor-pointer w-full"
+                            className="bg-[#111115] hover:bg-white/[0.04] border border-white/5 hover:border-white/15 px-5 py-4 rounded-xl flex items-center gap-4 transition-all group cursor-pointer w-full"
                         >
-                            <div className="flex items-center justify-between text-white/40 group-hover:text-white">
+                            <div className="w-10 h-10 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-white/50 group-hover:text-white shrink-0">
                                 <ShoppingBag className="w-5 h-5" />
-                                <ExternalLink className="w-3.5 h-3.5" />
                             </div>
-                            <div className="mt-4">
+                            <div className="flex-1 min-w-0">
                                 <span className="text-[11px] font-black text-white uppercase tracking-wider block">Store de Plugins</span>
                                 <span className="text-[9px] text-white/40 uppercase font-bold tracking-widest mt-0.5 block">Catalogue StreamDock</span>
                             </div>
+                            <ExternalLink className="w-4 h-4 text-white/30 group-hover:text-white shrink-0" />
                         </a>
                     </div>
 
