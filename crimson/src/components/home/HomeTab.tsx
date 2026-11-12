@@ -6,7 +6,6 @@ import {
     MonitorPlay, Play, Pause, SkipForward, SkipBack, 
     ShoppingBag, ExternalLink
 } from 'lucide-react';
-import logoRed from '../../assets/logos/logo_red_transparent.png';
 import { PLUGIN_STORE_BASE_URL, pluginStoreUrl } from '../../lib/pluginStore';
 
 // Reusable animated toggle component
@@ -273,14 +272,9 @@ export default function HomeTab() {
                 /* CLEAN MODULAR HUB CARD */
                 <div className="w-[600px] bg-[#0a0a0c] border border-white/5 rounded-2xl flex flex-col shrink-0 p-8 space-y-6">
                     <div className="flex items-center border-b border-white/5 pb-6">
-                        <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-xl bg-red-600/10 border border-red-500/20 flex items-center justify-center overflow-hidden">
-                                <img src={logoRed} className="w-8 h-8 object-contain" alt="CRIMSONS" />
-                            </div>
-                            <div>
-                                <h2 className="text-lg font-black text-white uppercase tracking-wider">CRIMSONS HUB</h2>
-                                <p className="text-[10px] text-white/40 uppercase font-bold tracking-widest mt-0.5">Tableau de bord modulaire & Intégrations</p>
-                            </div>
+                        <div>
+                            <h2 className="text-lg font-black text-white uppercase tracking-wider">HUB</h2>
+                            <p className="text-[10px] text-white/40 uppercase font-bold tracking-widest mt-0.5">Tableau de bord modulaire & Intégrations</p>
                         </div>
                     </div>
 
