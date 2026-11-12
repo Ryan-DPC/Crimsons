@@ -272,7 +272,7 @@ export default function HomeTab() {
             ) : (
                 /* CLEAN MODULAR HUB CARD */
                 <div className="w-[600px] bg-[#0a0a0c] border border-white/5 rounded-2xl flex flex-col shrink-0 p-8 space-y-6">
-                    <div className="flex items-center justify-between border-b border-white/5 pb-6">
+                    <div className="flex items-center border-b border-white/5 pb-6">
                         <div className="flex items-center gap-4">
                             <div className="w-12 h-12 rounded-xl bg-red-600/10 border border-red-500/20 flex items-center justify-center overflow-hidden">
                                 <img src={logoRed} className="w-8 h-8 object-contain" alt="CRIMSONS" />
@@ -281,10 +281,6 @@ export default function HomeTab() {
                                 <h2 className="text-lg font-black text-white uppercase tracking-wider">CRIMSONS HUB</h2>
                                 <p className="text-[10px] text-white/40 uppercase font-bold tracking-widest mt-0.5">Tableau de bord modulaire & Intégrations</p>
                             </div>
-                        </div>
-                        <div className="px-3 py-1 bg-white/5 border border-white/10 rounded-full flex items-center gap-2">
-                            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                            <span className="text-[9px] font-black text-white/70 uppercase tracking-widest">Sidecar Actif</span>
                         </div>
                     </div>
 

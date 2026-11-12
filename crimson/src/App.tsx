@@ -26,7 +26,7 @@ function App() {
     tab, setTab, 
     rank, appData, updateSetting,
     updateStatus, updateProgress, availableVersion, installUpdate,
-    serverConnected, lolConnected,
+    lolConnected,
     sum, v,
     loginSpotify, spotifyConnected,
   } = useLCU();
@@ -163,21 +163,12 @@ function App() {
             </div>
             <div>
               <h1 className="text-xs font-black tracking-[0.2em] text-white/90 uppercase leading-tight">CRIMSONS</h1>
-              <div className="flex items-center gap-2 text-[9px] font-bold tracking-wider mt-0.5">
-                <div className="flex items-center gap-1">
-                  <span className={`w-1.5 h-1.5 rounded-full ${serverConnected ? 'bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.5)]' : 'bg-red-500'}`} />
-                  <span className={serverConnected ? 'text-white/50' : 'text-red-500/60'}>SERVER</span>
+              {isLolEnabled && (
+                <div className="flex items-center gap-1 text-[9px] font-bold tracking-wider mt-0.5">
+                  <span className={`w-1.5 h-1.5 rounded-full ${lolConnected ? 'bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.5)] animate-pulse' : 'bg-red-500'}`} />
+                  <span className={lolConnected ? 'text-white/50' : 'text-red-500/60'}>LEAGUE</span>
                 </div>
-                {isLolEnabled && (
-                  <>
-                    <span className="text-white/10">·</span>
-                    <div className="flex items-center gap-1">
-                      <span className={`w-1.5 h-1.5 rounded-full ${lolConnected ? 'bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.5)] animate-pulse' : 'bg-red-500'}`} />
-                      <span className={lolConnected ? 'text-white/50' : 'text-red-500/60'}>LEAGUE</span>
-                    </div>
-                  </>
-                )}
-              </div>
+              )}
             </div>
           </button>
         </div>
