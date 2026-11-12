@@ -20,3 +20,4 @@ pub mod twitch;
 pub mod process_scanner;
 pub mod auth;
 pub mod entitlement;
+pub mod payments;

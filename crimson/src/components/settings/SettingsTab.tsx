@@ -9,6 +9,9 @@ import {
     AlertCircle, Activity, Layout, Terminal,
     Key, Compass, Music
 } from 'lucide-react';
+// Paiements backend prêts (Edge Functions) — CTA volontairement non branché.
+// import { paymentsUiEnabled, createCheckoutSession, createPortalSession } from '../../lib/payments';
+import { paymentsUiEnabled } from '../../lib/payments';
 
 // Reusable animated toggle component
 const Toggle = ({ value, onChange, label, description, disabled }: {
@@ -427,6 +430,16 @@ const SettingsTab = () => {
                                         </button>
                                     </div>
                                 </div>
+
+                                {/* CTA Stripe volontairement inactif (PAYMENTS_ENABLED / VITE_PAYMENTS_ENABLED).
+                                    Quand on activera : boutons → createCheckoutSession('premium_monthly'|…)
+                                    puis createPortalSession() ; après retour Checkout → refreshPremium().
+                                    Voir docs/PAYMENTS.md. */}
+                                {paymentsUiEnabled() ? (
+                                    <p className="text-[9px] text-white/40 uppercase tracking-widest pl-2">
+                                        Paiements activés — brancher les boutons Checkout / Portail (stub UI).
+                                    </p>
+                                ) : null}
                             </div>
 
                             {/* VISUAL EXPERIENCE */}

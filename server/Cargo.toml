@@ -38,6 +38,9 @@ rdev = "0.5.3"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 tracing-appender = "0.2"
+hmac = "0.13.0"
+sha2 = "0.11.1"
+hex = "0.4.3"
 
 # Win32 APIs (audio-session control, COM) are only used on Windows.
 [target.'cfg(windows)'.dependencies]

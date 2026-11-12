@@ -28,6 +28,8 @@ Version actuelle : **3.1.4**.
 
 Auth / droits premium : Supabase (client + vérif côté serveur).
 
+Paiements Premium (Stripe, backend only, flag off) : voir [`docs/PAYMENTS.md`](docs/PAYMENTS.md).
+
 ## Canonical names
 
 These are the names that must stay aligned. Do **not** “fix” frozen IDs.

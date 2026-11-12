@@ -1,0 +1,12 @@
+# Config minimale pour les Edge Functions billing.
+# Le reste du projet Supabase est géré dans le dashboard (Gaming / fkzywcoymqyfoufvtedl).
+
+[functions.create-checkout-session]
+verify_jwt = true
+
+[functions.create-portal-session]
+verify_jwt = true
+
+# Signature Stripe à la place du JWT Supabase.
+[functions.stripe-webhook]
+verify_jwt = false
