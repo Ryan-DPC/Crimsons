@@ -1,0 +1,181 @@
+import { useEffect, useState, useTransition } from 'react'
+import { fetchCatalog } from '../api/catalog'
+import { StoreFooter, StoreHeader, PageShell } from '../components/StoreChrome'
+import { DIRECT_DOWNLOAD_URL, PRICING_LABEL, STATUS_LABEL } from '../lib/labels'
+import { navigate, pluginPath } from '../lib/routing'
+import type { CatalogPlugin, CatalogResponse } from '../types'
+
+export default function CatalogPage() {
+  const [catalog, setCatalog] = useState<CatalogResponse | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [category, setCategory] = useState('all')
+  const [pending, startTransition] = useTransition()
+
+  useEffect(() => {
+    let cancelled = false
+    fetchCatalog()
+      .then((data) => {
+        if (!cancelled) setCatalog(data)
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : String(err))
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const plugins: CatalogPlugin[] =
+    !catalog
+      ? []
+      : category === 'all'
+        ? catalog.plugins
+        : catalog.plugins.filter((p) => p.categories.includes(category))
+
+  const countForCategory = (catId: string) => {
+    if (!catalog) return 0
+    if (catId === 'all') return catalog.plugins.length
+    return catalog.plugins.filter((p) => p.categories.includes(catId)).length
+  }
+
+  const categoryLabel = (catId: string) => {
+    return catalog?.categories.find((c) => c.id === catId)?.label ?? catId
+  }
+
+  return (
+    <PageShell>
+      <header className="hero">
+        <StoreHeader />
+
+        <h1 className="hero-title">Extensions & Intégrations</h1>
+        <p className="hero-subtitle">
+          Le catalogue officiel des modules et packs Stream Deck. Découvrez, personnalisez et ajoutez vos
+          fonctionnalités favorites directement pour l’application Crimsons.
+        </p>
+
+        <div className="download-card">
+          <div className="download-left">
+            <div className="windows-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+                <path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.949-1.801" />
+              </svg>
+            </div>
+            <div className="download-info">
+              <div className="download-title">Télécharger Crimsons pour Windows</div>
+              <div className="download-specs">
+                Version 3.1.6 · Windows 10/11 (64-bit) · Installateur officiel
+              </div>
+            </div>
+          </div>
+          <a
+            href={DIRECT_DOWNLOAD_URL}
+            className="download-btn"
+            title="Télécharger directement l'installateur Crimsons (.exe)"
+          >
+            <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M10 3v10m0 0l-4-4m4 4l4-4M3 17h14" />
+            </svg>
+            <span>Télécharger (.exe)</span>
+          </a>
+        </div>
+      </header>
+
+      {error && <p className="error">{error}</p>}
+      {!catalog && !error && <p className="loading-state">Chargement du catalogue…</p>}
+
+      {catalog && (
+        <>
+          <div className="filters-container">
+            <nav className="filters" aria-label="Catégories">
+              <button
+                type="button"
+                className={category === 'all' ? 'active' : ''}
+                onClick={() => startTransition(() => setCategory('all'))}
+              >
+                <span>Tous</span>
+                <span className="count-pill">{countForCategory('all')}</span>
+              </button>
+              {catalog.categories.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  title={c.description}
+                  className={category === c.id ? 'active' : ''}
+                  onClick={() => startTransition(() => setCategory(c.id))}
+                >
+                  <span>{c.label}</span>
+                  <span className="count-pill">{countForCategory(c.id)}</span>
+                </button>
+              ))}
+            </nav>
+            {pending && <span className="pending-indicator">Mise à jour…</span>}
+          </div>
+
+          <section className="plugin-grid" aria-live="polite">
+            {plugins.length === 0 && (
+              <p className="empty-state">Aucun plugin trouvé dans cette catégorie.</p>
+            )}
+            {plugins.map((plugin) => (
+              <article
+                key={plugin.id}
+                className="plugin-card plugin-card-link"
+                role="link"
+                tabIndex={0}
+                onClick={() => navigate(pluginPath(plugin.slug))}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    navigate(pluginPath(plugin.slug))
+                  }
+                }}
+              >
+                <div className="card-header">
+                  <div className="card-identity">
+                    {plugin.icon ? (
+                      <img
+                        src={plugin.icon}
+                        alt={`${plugin.name} logo`}
+                        className="plugin-icon"
+                        width="44"
+                        height="44"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="plugin-icon-placeholder">
+                        {plugin.name.slice(0, 2).toUpperCase()}
+                      </div>
+                    )}
+                    <div className="plugin-titles">
+                      <h2>{plugin.name}</h2>
+                      <span className="plugin-compat-badge">
+                        {categoryLabel(plugin.categories[1] || plugin.categories[0])} · Stream Deck
+                      </span>
+                    </div>
+                  </div>
+                  <div className="card-badges">
+                    <span className={`badge-status badge-${plugin.status}`}>
+                      {STATUS_LABEL[plugin.status]}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="card-body">
+                  <p className="plugin-description">{plugin.description}</p>
+                </div>
+
+                <div className="card-footer">
+                  <span className="pricing-tag">
+                    {PRICING_LABEL[plugin.pricing] ?? plugin.pricing}
+                  </span>
+                  <span className="btn-card-action btn-card-ghost">Voir la fiche →</span>
+                </div>
+              </article>
+            ))}
+          </section>
+        </>
+      )}
+
+      <StoreFooter version={catalog?.version} />
+    </PageShell>
+  )
+}

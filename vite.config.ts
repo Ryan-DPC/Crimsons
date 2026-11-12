@@ -33,7 +33,14 @@ function catalogApiPlugin(): Plugin {
     configureServer(server) {
       server.middlewares.use((req: IncomingMessage, res: ServerResponse, next: () => void) => {
         const url = req.url?.split('?')[0]
-        if (url === '/api/plugins' || url === '/api/categories' || url === '/api/catalog' || url === '/api/health') {
+        const pluginApiMatch = url?.match(/^\/api\/plugins\/([^/]+)\/?$/)
+        if (
+          url === '/api/plugins' ||
+          url === '/api/categories' ||
+          url === '/api/catalog' ||
+          url === '/api/health' ||
+          pluginApiMatch
+        ) {
           try {
             if (url === '/api/health') {
               res.setHeader('Content-Type', 'application/json; charset=utf-8')
@@ -42,12 +49,25 @@ function catalogApiPlugin(): Plugin {
             }
             const catalog = JSON.parse(readCatalogJson()) as {
               categories: unknown[]
-              plugins: unknown[]
+              plugins: Array<{ id: string; slug: string }>
             }
             res.setHeader('Content-Type', 'application/json; charset=utf-8')
             res.setHeader('Cache-Control', 'no-store')
             if (url === '/api/categories') {
               res.end(JSON.stringify({ categories: catalog.categories }))
+              return
+            }
+            if (pluginApiMatch) {
+              const key = decodeURIComponent(pluginApiMatch[1]).toLowerCase()
+              const plugin = catalog.plugins.find(
+                (p) => p.slug.toLowerCase() === key || p.id.toLowerCase() === key,
+              )
+              if (!plugin) {
+                res.statusCode = 404
+                res.end(JSON.stringify({ error: 'Plugin not found', slug: key }))
+                return
+              }
+              res.end(JSON.stringify({ plugin }))
               return
             }
             if (url === '/api/plugins') {

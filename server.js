@@ -80,6 +80,31 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  const pluginSlugMatch = pathname.match(/^\/api\/plugins\/([^/]+)\/?$/);
+  if (pluginSlugMatch) {
+    try {
+      const data = getCatalog();
+      const key = decodeURIComponent(pluginSlugMatch[1]).toLowerCase();
+      const plugin = (data.plugins || []).find(
+        (p) => String(p.slug).toLowerCase() === key || String(p.id).toLowerCase() === key,
+      );
+      if (!plugin) {
+        res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ error: 'Plugin not found', slug: key }));
+        return;
+      }
+      res.writeHead(200, {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Cache-Control': 'no-store',
+      });
+      res.end(JSON.stringify({ plugin }));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: String(err) }));
+    }
+    return;
+  }
+
   if (pathname === '/api/categories') {
     try {
       const data = getCatalog();

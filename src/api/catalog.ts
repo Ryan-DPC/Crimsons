@@ -137,3 +137,17 @@ export async function listPlugins(categoryId?: string): Promise<CatalogPlugin[]>
   if (!categoryId || categoryId === 'all') return catalog.plugins
   return catalog.plugins.filter((p) => p.categories.includes(categoryId))
 }
+
+/** Resolve a plugin by URL slug (or id fallback). Returns null if missing. */
+export async function fetchPluginBySlug(
+  slug: string,
+): Promise<{ plugin: CatalogPlugin; catalog: CatalogResponse } | null> {
+  const catalog = await fetchCatalog()
+  const key = slug.trim().toLowerCase()
+  const plugin =
+    catalog.plugins.find((p) => p.slug.toLowerCase() === key) ??
+    catalog.plugins.find((p) => p.id.toLowerCase() === key) ??
+    null
+  if (!plugin) return null
+  return { plugin, catalog }
+}
