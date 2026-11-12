@@ -12,6 +12,7 @@ import DebugTab from './components/debug/DebugTab';
 import { useAuth } from './contexts/AuthContext';
 import LoginScreen from './components/auth/LoginScreen';
 import logoRed from './assets/logos/logo_red_transparent.png';
+import logoMark from './assets/logos/logo_mark_only.png';
 import OnboardingModal from './components/common/OnboardingModal';
 
 // Icons
@@ -159,17 +160,14 @@ function App() {
             title="Accueil"
           >
             <div className="relative w-8 h-8 flex items-center justify-center rounded-full border border-white/10 overflow-hidden bg-black/20">
-              <img src={logoRed} className="w-full h-full object-cover scale-[1.35]" alt="CRIMSONS" />
+              <img src={logoMark} className="w-full h-full object-contain p-0.5" alt="CRIMSONS" />
             </div>
-            <div>
-              <h1 className="text-xs font-black tracking-[0.2em] text-white/90 uppercase leading-tight">CRIMSONS</h1>
-              {isLolEnabled && (
-                <div className="flex items-center gap-1 text-[9px] font-bold tracking-wider mt-0.5">
-                  <span className={`w-1.5 h-1.5 rounded-full ${lolConnected ? 'bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.5)] animate-pulse' : 'bg-red-500'}`} />
-                  <span className={lolConnected ? 'text-white/50' : 'text-red-500/60'}>LEAGUE</span>
-                </div>
-              )}
-            </div>
+            {isLolEnabled && (
+              <div className="flex items-center gap-1 text-[9px] font-bold tracking-wider">
+                <span className={`w-1.5 h-1.5 rounded-full ${lolConnected ? 'bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.5)] animate-pulse' : 'bg-red-500'}`} />
+                <span className={lolConnected ? 'text-white/50' : 'text-red-500/60'}>LEAGUE</span>
+              </div>
+            )}
           </button>
         </div>
 
