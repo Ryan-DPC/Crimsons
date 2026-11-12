@@ -3,9 +3,14 @@
  *
  * DÉSACTIVÉ par défaut : VITE_PAYMENTS_ENABLED !== 'true'.
  * Aucun CTA actif ne doit appeler ces helpers tant que le flag est false.
+ * Ne pas brancher le frontend paiement ici tant que la grille / CGV ne sont pas live.
+ *
+ * Grille produit figée (docs/PAYMENTS.md §0) :
+ *   plugin solo 5.99 CHF/mois · annuel suggéré 39 CHF/an · app free
+ *   (pas de double charge app+plugin ; Premium global optionnel plus tard).
  *
  * Activation plus tard :
- * 1. Secrets Edge : PAYMENTS_ENABLED=true + clés Stripe test
+ * 1. Secrets Edge : PAYMENTS_ENABLED=true + clés Stripe test (Price 5.99 CHF/mois créé au Dashboard)
  * 2. crimson/.env : VITE_PAYMENTS_ENABLED=true
  * 3. Brancher createCheckoutSession / createPortalSession dans SettingsTab
  *    (section Compte) — le refresh Premium existant suffit après webhook.

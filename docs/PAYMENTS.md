@@ -6,6 +6,36 @@ Squelette **backend-only** : les Edge Functions et tables existent ; **aucun CTA
 
 ---
 
+## 0. Grille tarifaire figée (produit)
+
+Décision produit validée — **CHF**, hors conseils TVA. À afficher / facturer ainsi ; **ne pas inventer** de Price IDs Stripe dans le repo (créés au Dashboard quand un plugin est prêt).
+
+| Offre | Prix | Statut produit |
+| --- | --- | --- |
+| **App CRIMSONS** | **Free** | Toujours gratuite |
+| **Plugin solo** (abonnement) | **5.99 CHF / mois** | Prix de base figé |
+| **Plugin solo** (annuel suggéré) | **39 CHF / an** | ~5,5 mois off vs 12×5.99 (cohérent ; **pas** 50 CHF) |
+| **Full lifetime early bird** | **69.99 CHF** (limité) | Option user / marketing — **pas forcément** un produit Stripe encore |
+| **Premium global** (tous plugins) | *optionnel, plus tard* | Pas de lancement obligatoire avec le 1er plugin payant |
+
+### Règles anti-double-charge
+
+- **Pas de double facturation app + plugin** : l’app reste free ; on monétise le **plugin** (ou, plus tard, un Premium global optionnel).
+- Un abonnement **plugin** ne doit pas aussi facturer un « accès app ».
+- Si un **Premium global** arrive plus tard : il remplace / couvre les plugins inclus — pas d’empilement app + pack + chaque plugin sans règle claire (à figer avant activation live).
+
+### Stripe Dashboard (quand un plugin est prêt)
+
+1. Produit Stripe **par plugin** (ex. « CRIMSONS — Spotify »), devise **CHF**.
+2. Price récurrent **5.99 CHF / mois** → copier l’ID `price_…` dans les secrets (pas dans git).
+3. Price annuel optionnel **39 CHF / an** (même produit) quand l’offre annuelle est activée.
+4. Lifetime early bird **69.99 CHF** : one-shot / payment link seulement si vous décidez de le vendre ; sinon rester hors Stripe.
+5. Ne **pas** créer de Price « app Premium » en parallèle du plugin si cela double-charge — le squelette actuel `STRIPE_PRICE_PREMIUM_*` est un **placeholder technique** (mensuel/annuel) à mapper vers le 1er produit réel (plugin ou Premium global), pas une 2ᵉ grille.
+
+Labels catalogue / UI (placeholders produit) : `5.99 CHF/mois` (et annuel `39 CHF/an` si affiché). Pas de `price_` hardcodé.
+
+---
+
 ## 1. Pourquoi Stripe (compte CH)
 
 | Critère | Stripe Suisse |
@@ -62,8 +92,8 @@ POST https://<project>.supabase.co/functions/v1/stripe-webhook
 2. Compléter le **KYC** (pièce d’identité ; extrait du registre du commerce si société).
 3. Ajouter un **compte bancaire IBAN CH** dans *Settings → Payouts* (ou *Balances → Payouts*).
 4. Choisir le calendrier de payouts (quotidien / hebdo). Les fonds des paiements réussis arrivent sur le solde Stripe puis sont **versés automatiquement** sur l’IBAN (délais selon méthode / risque).
-5. Créer un **Produit** « CRIMSONS Premium » + 2 **Prices** (mensuel / annuel), devises CHF (ou EUR si vous facturez ainsi).
-6. Copier les Price IDs → `STRIPE_PRICE_PREMIUM_MONTHLY` / `STRIPE_PRICE_PREMIUM_YEARLY`.
+5. Quand un **plugin** est prêt à l’encaissement : créer un **Produit** Stripe pour ce plugin + Price **5.99 CHF / mois** (et optionnel **39 CHF / an**). Voir §0. Ne pas créer de produits « fantômes » avant.
+6. Copier les Price IDs → secrets `STRIPE_PRICE_PREMIUM_MONTHLY` / `STRIPE_PRICE_PREMIUM_YEARLY` (noms historiques du squelette = 1er price mensuel/annuel branché ; **pas** de IDs dans le repo).
 7. Clés API **test** (`sk_test_…`) d’abord. Live (`sk_live_…`) seulement avec `STRIPE_LIVE_ENABLED=true`.
 8. Appliquer la migration SQL sur le projet Supabase, déployer les Edge Functions, puis :
    ```bash
