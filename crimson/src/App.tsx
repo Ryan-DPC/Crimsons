@@ -14,12 +14,13 @@ import LoginScreen from './components/auth/LoginScreen';
 import logoRed from './assets/logos/logo_red_transparent.png';
 import logoMark from './assets/logos/logo_mark_only.png';
 import OnboardingModal from './components/common/OnboardingModal';
+import TitlebarMenus from './components/common/TitlebarMenus';
 
 // Icons
 import { 
   ShieldAlert, Cpu, 
   Activity, Download, X,
-  Bell, Menu
+  Bell
 } from 'lucide-react';
 
 function App() {
@@ -32,7 +33,7 @@ function App() {
     loginSpotify, spotifyConnected,
   } = useLCU();
 
-  const { session, user, isPremium, loading } = useAuth();
+  const { session, user, loading } = useAuth();
   const isLolEnabled = appData?.plugins?.leagueOfLegends ?? false;
 
   useEffect(() => {
@@ -149,84 +150,81 @@ function App() {
 
   return (
     <div className={`flex flex-col h-screen bg-[#050505] text-white selection:bg-red-500/30 font-sans overflow-hidden ${appData?.darkGlassMode ? 'dark-glass' : ''} ${appData?.reducedAnimations ? 'reduced-animations' : ''}`}>
-      {/* Top Navigation Bar / Window Draggable Region */}
-      <header data-tauri-drag-region className="flex items-center justify-between px-4 py-2.5 bg-[#050505] border-b border-white/5 z-50 select-none gap-2">
-        {/* LEFT: Logo & status — click brand to return Home (no center tab pill) */}
-        <div data-tauri-drag-region className="flex items-center gap-4 shrink-0">
+      {/* Desktop titlebar: Logo | File View Help  ……  avatar · bell · window controls */}
+      <header data-tauri-drag-region className="flex items-center justify-between px-3 py-1.5 bg-[#050505] border-b border-white/5 z-50 select-none gap-2">
+        {/* LEFT: brand mark + classic desktop menus */}
+        <div className="flex items-center gap-2 shrink-0">
           <button
             type="button"
             onClick={() => setTab('home')}
-            className="flex items-center gap-3 text-left hover:opacity-90 transition-opacity"
-            title="Accueil"
+            className="flex items-center hover:opacity-90 transition-opacity"
+            title="Hub"
           >
-            <div className="relative w-8 h-8 flex items-center justify-center rounded-full border border-white/10 overflow-hidden bg-black/20">
+            <div className="relative w-7 h-7 flex items-center justify-center rounded-full border border-white/10 overflow-hidden bg-black/20">
               <img src={logoMark} className="w-full h-full object-contain p-0.5" alt="CRIMSONS" />
             </div>
-            {isLolEnabled && (
-              <div className="flex items-center gap-1 text-[9px] font-bold tracking-wider">
-                <span className={`w-1.5 h-1.5 rounded-full ${lolConnected ? 'bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.5)] animate-pulse' : 'bg-red-500'}`} />
-                <span className={lolConnected ? 'text-white/50' : 'text-red-500/60'}>LEAGUE</span>
-              </div>
-            )}
           </button>
+          <div className="w-px h-4 bg-white/10 mx-0.5" />
+          <TitlebarMenus
+            appVersion={appVersion}
+            onOpenSettings={() => setTab('settings')}
+            onFocusHub={() => setTab('home')}
+            onQuit={() => handleWindowCommand('close')}
+          />
+          {isLolEnabled && (
+            <div className="hidden sm:flex items-center gap-1 text-[9px] font-bold tracking-wider ml-2 pl-2 border-l border-white/10">
+              <span className={`w-1.5 h-1.5 rounded-full ${lolConnected ? 'bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.5)] animate-pulse' : 'bg-red-500'}`} />
+              <span className={lolConnected ? 'text-white/40' : 'text-red-500/60'}>LEAGUE</span>
+            </div>
+          )}
         </div>
 
-        {/* Spacer — Home-only chrome (no HOME|ACCOUNT / GAME|ACTIVITY pill) */}
-        <div data-tauri-drag-region className="flex-1 min-w-4" />
+        <div data-tauri-drag-region className="flex-1 min-w-4 self-stretch" />
 
-        {/* RIGHT: Profile & Window Controls — avatar opens Account/Settings */}
-        <div className="flex items-center gap-3 shrink-0">
-          <div className="flex items-center gap-3 pr-3 border-r border-white/10">
-            {isLolEnabled && sum ? (
-              <>
-                <button type="button" onClick={() => setTab('settings')} className="flex flex-col items-end text-right hover:opacity-90 transition-opacity" title="Compte">
-                  <span className="text-[10px] font-black text-white uppercase tracking-widest leading-none">{sum.displayName || sum.gameName}</span>
-                  <span className="text-[9px] font-bold text-red-500 uppercase tracking-widest mt-1">{rank?.tier ? `${rank.tier} ${rank.division}` : `Niveau ${sum.summonerLevel}`}</span>
-                </button>
-                <button type="button" onClick={() => setTab('settings')} className="rounded-full focus:outline-none focus-visible:ring-1 focus-visible:ring-white/30" title="Compte">
-                  <img src={`https://ddragon.leagueoflegends.com/cdn/${v}/img/profileicon/${sum.profileIconId}.png`} className="w-8 h-8 rounded-full border border-white/10 shadow-lg" alt="Profile" />
-                </button>
-              </>
-            ) : (
-              <>
-                <button type="button" onClick={() => setTab('settings')} className="flex flex-col items-end text-right hover:opacity-90 transition-opacity" title="Compte">
-                  <span className="text-[10px] font-black text-white uppercase tracking-widest leading-none">{user?.email?.split('@')[0] || 'CRIMSONS'}</span>
-                  <span className="text-[9px] font-bold text-red-500 uppercase tracking-widest mt-1">{isPremium ? 'PREMIUM' : 'FREE'}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTab('settings')}
-                  className="w-8 h-8 bg-red-600/20 border border-red-500/30 rounded-full flex items-center justify-center text-red-500 font-black text-xs hover:bg-red-600/30 transition-colors"
-                  title="Compte"
-                >
-                  {(user?.email?.[0] || 'C').toUpperCase()}
-                </button>
-              </>
-            )}
+        {/* RIGHT: avatar → notifications → window controls */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          {isLolEnabled && sum ? (
             <button
               type="button"
               onClick={() => setTab('settings')}
-              className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 text-white/50 hover:text-white transition-colors ml-1"
-              title="Compte"
+              className="rounded-full focus:outline-none focus-visible:ring-1 focus-visible:ring-white/30"
+              title="Account"
             >
-              <Menu className="w-4 h-4" />
+              <img
+                src={`https://ddragon.leagueoflegends.com/cdn/${v}/img/profileicon/${sum.profileIconId}.png`}
+                className="w-7 h-7 rounded-full border border-white/10 shadow-lg"
+                alt="Profile"
+              />
             </button>
-            <div className="w-px h-4 bg-white/10 mx-1" />
-            <button className="relative w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 text-white/50 hover:text-white transition-colors">
-              <Bell className="w-4 h-4" />
-              <div className="absolute top-2.5 right-2.5 w-1.5 h-1.5 bg-red-500 rounded-full border border-black" />
+          ) : (
+            <button
+              type="button"
+              onClick={() => setTab('settings')}
+              className="w-7 h-7 bg-red-600/20 border border-red-500/30 rounded-full flex items-center justify-center text-red-500 font-black text-[10px] hover:bg-red-600/30 transition-colors"
+              title="Account"
+            >
+              {(user?.email?.[0] || 'C').toUpperCase()}
             </button>
-          </div>
+          )}
+          <button
+            type="button"
+            className="relative w-7 h-7 flex items-center justify-center rounded hover:bg-white/10 text-white/50 hover:text-white transition-colors"
+            title="Notifications"
+          >
+            <Bell className="w-3.5 h-3.5" />
+            <div className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-red-500 rounded-full border border-black" />
+          </button>
 
-          {/* Window Controls */}
+          <div className="w-px h-4 bg-white/10 mx-1" />
+
           <div className="flex items-center gap-0.5">
-            <button onClick={() => handleWindowCommand('minimize')} className="w-7 h-7 flex items-center justify-center rounded hover:bg-white/10 text-white/50 hover:text-white transition-colors">
+            <button onClick={() => handleWindowCommand('minimize')} className="w-7 h-7 flex items-center justify-center rounded hover:bg-white/10 text-white/50 hover:text-white transition-colors" title="Minimize">
               <div className="w-2.5 h-[1.5px] bg-current" />
             </button>
-            <button onClick={() => handleWindowCommand('maximize')} className="w-7 h-7 flex items-center justify-center rounded hover:bg-white/10 text-white/50 hover:text-white transition-colors">
+            <button onClick={() => handleWindowCommand('maximize')} className="w-7 h-7 flex items-center justify-center rounded hover:bg-white/10 text-white/50 hover:text-white transition-colors" title="Maximize">
               <div className="w-2.5 h-2.5 border-[1.5px] border-current" />
             </button>
-            <button onClick={() => handleWindowCommand('close')} title="Fermer l'application" className="group w-7 h-7 flex items-center justify-center rounded hover:bg-red-500 text-white/50 hover:text-white transition-colors">
+            <button onClick={() => handleWindowCommand('close')} title="Close" className="group w-7 h-7 flex items-center justify-center rounded hover:bg-red-500 text-white/50 hover:text-white transition-colors">
               <svg width="9" height="9" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M1 1L9 9M9 1L1 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="group-hover:stroke-white"/>
               </svg>
@@ -334,13 +332,6 @@ function App() {
               </div>
             </div>
           )}
-          <div className="flex items-center gap-3 px-4 py-1.5 bg-white/5 rounded-xl border border-white/10 group hover:border-red-500/30 transition-colors duration-500 cursor-help">
-            <div className="flex flex-col items-end">
-              <div className="text-[10px] font-black text-white/20 tracking-tighter uppercase">Gemini AI</div>
-              <div className="text-[10px] font-bold text-green-500/80 uppercase">Operational</div>
-            </div>
-            <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]" />
-          </div>
         </div>
       </footer>
 
