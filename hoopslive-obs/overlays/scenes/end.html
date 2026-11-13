@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="fr" data-scene="end">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>HoopsLive OBS — End</title>
+  <style>
+    html, body { margin:0; height:100%; background:transparent; color:#f8fafc;
+      font-family:"Segoe UI",system-ui,sans-serif; }
+    .stage { min-height:100vh; display:grid; place-items:center;
+      background: linear-gradient(180deg, rgba(2,6,23,.2), rgba(2,6,23,.75)); }
+    #time { font-variant-numeric:tabular-nums; font-size:clamp(3.5rem,12vw,8rem); font-weight:700; opacity:.85; }
+    #state { margin-top:.5rem; letter-spacing:.25em; color:#64748b; text-align:center; }
+    .label { text-align:center; letter-spacing:.28em; color:#94a3b8; margin-bottom:.5rem; text-transform:uppercase; }
+    #panel { position:fixed; left:12px; bottom:12px; display:flex; flex-wrap:wrap; gap:6px;
+      background:rgba(0,0,0,.55); padding:8px; border-radius:8px; }
+    #panel[hidden]{display:none!important}
+    #panel button{background:#1e293b;color:#fff;border:0;padding:6px 10px;border-radius:6px;cursor:pointer;font-size:12px}
+  </style>
+</head>
+<body>
+  <main class="stage">
+    <div>
+      <p class="label">Fin</p>
+      <div id="time">00:00</div>
+      <div id="state">END</div>
+    </div>
+  </main>
+  <div id="panel" hidden></div>
+  <script src="../assets/countdown-client.js"></script>
+</body>
+</html>

@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="fr" data-scene="start">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>HoopsLive OBS — Start</title>
+  <style>
+    :root {
+      --bg: #0b1220;
+      --fg: #f4f7fb;
+      --accent: #e11d48;
+      --muted: #94a3b8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100%; height: 100%;
+      background: transparent;
+      color: var(--fg);
+      font-family: "Segoe UI", system-ui, sans-serif;
+      overflow: hidden;
+    }
+    .stage {
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background:
+        radial-gradient(1200px 600px at 50% -10%, rgba(225, 29, 72, 0.22), transparent 60%),
+        linear-gradient(180deg, rgba(11, 18, 32, 0.0), rgba(11, 18, 32, 0.55));
+    }
+    .chrono {
+      text-align: center;
+      text-shadow: 0 2px 24px rgba(0,0,0,0.45);
+    }
+    .label {
+      letter-spacing: 0.28em;
+      font-size: clamp(0.7rem, 1.6vw, 1rem);
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 0.6rem;
+    }
+    #time {
+      font-variant-numeric: tabular-nums;
+      font-weight: 700;
+      font-size: clamp(4rem, 14vw, 9rem);
+      line-height: 1;
+      letter-spacing: 0.04em;
+    }
+    #state {
+      margin-top: 0.75rem;
+      font-size: clamp(0.85rem, 2vw, 1.25rem);
+      letter-spacing: 0.2em;
+      color: var(--accent);
+    }
+    #panel {
+      position: fixed;
+      left: 12px; bottom: 12px;
+      display: flex; flex-wrap: wrap; gap: 6px;
+      max-width: 90vw;
+      background: rgba(0,0,0,0.55);
+      padding: 8px;
+      border-radius: 8px;
+    }
+    #panel[hidden] { display: none !important; }
+    #panel button {
+      background: #1e293b; color: #fff; border: 0;
+      padding: 6px 10px; border-radius: 6px; cursor: pointer;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <main class="stage">
+    <div class="chrono">
+      <p class="label">HoopsLive</p>
+      <div id="time">05:00</div>
+      <div id="state">PAUSE</div>
+    </div>
+  </main>
+  <div id="panel" hidden></div>
+  <script src="../assets/countdown-client.js"></script>
+</body>
+</html>

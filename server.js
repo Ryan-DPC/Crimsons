@@ -1,6 +1,7 @@
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
+import { createHoopsLiveObsHandler } from './lib/hoopslive-obs/routes.js';
 
 const PORT = parseInt(process.env.PORT || '3000', 10);
 const DIST_DIR = path.resolve(process.cwd(), 'dist');
@@ -29,9 +30,22 @@ function getCatalog() {
   return JSON.parse(fs.readFileSync(CATALOG_PATH, 'utf8'));
 }
 
-const server = http.createServer((req, res) => {
-  const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+const hoopsliveObs = createHoopsLiveObsHandler();
+
+const server = http.createServer(async (req, res) => {
+  const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
   const pathname = decodeURIComponent(url.pathname);
+
+  // HoopsLive OBS Chrono (API + secret overlays) — before SPA fallback
+  try {
+    if (await hoopsliveObs.handle(req, res, url)) return;
+  } catch (err) {
+    if (!res.headersSent) {
+      res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ error: String(err) }));
+    }
+    return;
+  }
 
   // Direct download route for Crimsons App installer
   if (pathname === '/download' || pathname === '/api/download' || pathname === '/api/download/crimsons' || pathname === '/download/crimsons') {

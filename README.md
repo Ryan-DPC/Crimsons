@@ -15,6 +15,10 @@ Catalogue autonome des plugins Crimsons (StreamDock, League of Legends, Spotify,
 | `GET` | `/api/plugins` | Liste des plugins |
 | `GET` | `/api/categories` | Catégories d'usage |
 | `GET` | `/api/health` | Vérification de santé du service |
+| `GET/POST` | `/api/hoopslive/obs/countdown` | Chrono OBS HoopsLive (auth) |
+| `GET` | `/api/hoopslive/obs/countdown/stream` | SSE chrono |
+
+Voir **[README-HOOPSLIVE-OBS.md](./README-HOOPSLIVE-OBS.md)** pour env, overlays Browser Source et reverse-proxy.
 
 ## Développement local
 ```bash

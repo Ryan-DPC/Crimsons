@@ -22,6 +22,8 @@ RUN npm ci --omit=dev
 
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/data ./data
+COPY --from=builder /app/lib ./lib
+COPY --from=builder /app/hoopslive-obs ./hoopslive-obs
 COPY server.js ./
 
 EXPOSE 3000
