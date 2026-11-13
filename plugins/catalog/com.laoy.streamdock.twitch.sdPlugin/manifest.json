@@ -10,7 +10,9 @@
           "FontSize": "10"
         }
       ],
-      "DisableAutomaticStates": false,
+      "DisableAutomaticStates": true,
+      "UserTitleEnabled": true,
+      "SupportedInMultiActions": true,
       "UUID": "com.laoy.streamdock.twitch.chat",
       "Tooltip": "Envoyer un message prédéfini dans votre chat Twitch",
       "Context": "GLOBAL"
@@ -25,7 +27,9 @@
           "FontSize": "10"
         }
       ],
-      "DisableAutomaticStates": false,
+      "DisableAutomaticStates": true,
+      "UserTitleEnabled": true,
+      "SupportedInMultiActions": true,
       "UUID": "com.laoy.streamdock.twitch.ad",
       "Tooltip": "Lancer une pause publicitaire de 30 secondes",
       "Context": "GLOBAL"
@@ -41,7 +45,9 @@
           "FontSize": "11"
         }
       ],
-      "DisableAutomaticStates": false,
+      "DisableAutomaticStates": true,
+      "UserTitleEnabled": true,
+      "SupportedInMultiActions": true,
       "UUID": "com.laoy.streamdock.twitch.viewers",
       "Tooltip": "Afficher le nombre de spectateurs en direct sur votre chaîne",
       "Context": "GLOBAL"
@@ -53,7 +59,7 @@
   "Name": "Twitch",
   "Category": "Twitch",
   "CategoryIcon": "static/icon/twitch_chat.png",
-  "Version": "3.1.1",
+  "Version": "3.1.2",
   "SDKVersion": 2,
   "OS": [
     {

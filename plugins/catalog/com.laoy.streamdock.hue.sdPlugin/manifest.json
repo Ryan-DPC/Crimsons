@@ -17,7 +17,9 @@
           "FontSize": "10"
         }
       ],
-      "DisableAutomaticStates": false,
+      "DisableAutomaticStates": true,
+      "UserTitleEnabled": true,
+      "SupportedInMultiActions": true,
       "UUID": "com.laoy.streamdock.hue.toggle",
       "Tooltip": "Allumer ou éteindre vos lumières Philips Hue",
       "Context": "GLOBAL"
@@ -32,7 +34,9 @@
           "FontSize": "10"
         }
       ],
-      "DisableAutomaticStates": false,
+      "DisableAutomaticStates": true,
+      "UserTitleEnabled": true,
+      "SupportedInMultiActions": true,
       "UUID": "com.laoy.streamdock.hue.scene",
       "Tooltip": "Activer une scène d'éclairage Philips Hue",
       "Context": "GLOBAL"
@@ -44,7 +48,7 @@
   "Name": "Philips Hue",
   "Category": "Philips Hue",
   "CategoryIcon": "static/icon/hue_toggle.png",
-  "Version": "3.1.1",
+  "Version": "3.1.2",
   "SDKVersion": 2,
   "OS": [
     {
