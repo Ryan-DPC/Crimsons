@@ -38,7 +38,7 @@ const SettingsTab = () => {
         appData, updateSetting, loginSpotify,
         updateStatus, updateProgress, availableVersion, 
         checkUpdates, installUpdate, serverConnected, 
-        togglePlugin, spotifyConnected, spotifyState,
+        togglePlugin, spotifyConnected, spotifyState, volumeState, volumeCommand,
         resyncAuthSession
     } = useLCU();
     
@@ -235,6 +235,14 @@ const SettingsTab = () => {
             name: 'Discord',
             desc: 'Mute / deafen / caméra',
             premium: true,
+        },
+        {
+            key: 'volume',
+            id: 'com.laoy.streamdock.volume',
+            name: 'Volume / Wave Link',
+            desc: 'Master Windows + pistes (WASAPI / WL)',
+            premium: true,
+            storePath: '/plugins/volume',
         },
     ];
 
@@ -738,7 +746,7 @@ const SettingsTab = () => {
                                 <div className="bg-black/20 border border-white/5 rounded-3xl px-8 py-12 text-center">
                                     <p className="text-sm font-black text-white uppercase tracking-widest">Aucun plugin installé</p>
                                     <p className="mt-3 text-[10px] text-white/30 uppercase font-bold tracking-widest leading-relaxed">
-                                        LoL, Spotify et Discord sont des plugins externes. Ils apparaissent ici une fois installés sur StreamDock.
+                                        LoL, Spotify, Discord et Volume sont des plugins externes. Ils apparaissent ici une fois installés sur StreamDock.
                                     </p>
                                 </div>
                             ) : (
@@ -820,6 +828,43 @@ const SettingsTab = () => {
                                                     <p className="text-[9px] text-white/25 uppercase font-bold tracking-widest leading-relaxed">
                                                         Requis pour le statut vocal. Discord Developer Portal → New Application → copier l’Application ID.
                                                     </p>
+                                                </div>
+                                            )}
+
+                                            {plugin.key === 'volume' && isEnabled && (
+                                                <div className="mt-4 space-y-3 border-t border-white/5 pt-4">
+                                                    <div className="flex items-center justify-between gap-3">
+                                                        <div className="min-w-0">
+                                                            <p className="text-[10px] font-black text-white uppercase tracking-widest truncate">
+                                                                Master · {volumeState?.master_muted ? 'MUTE' : `${Math.round((volumeState?.master_level ?? 0) * 100)}%`}
+                                                            </p>
+                                                            <p className="text-[9px] text-white/40 uppercase font-bold tracking-widest mt-1 truncate">
+                                                                {(() => {
+                                                                    const tracks = volumeState?.tracks || [];
+                                                                    const idx = volumeState?.selected_track_index || 0;
+                                                                    const t = tracks[idx];
+                                                                    if (!t) return volumeState?.mock ? 'Mock · en attente' : 'Aucune piste';
+                                                                    const wl = volumeState?.wavelink?.status || (volumeState?.wavelink?.available ? 'WL detected' : 'WL offline');
+                                                                    return `${t.name} · ${t.muted ? 'MUTE' : `${Math.round((t.level || 0) * 100)}%`} · ${wl}`;
+                                                                })()}
+                                                            </p>
+                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => volumeCommand('refresh')}
+                                                            className="shrink-0 px-3 py-2 bg-sky-600/20 hover:bg-sky-600/30 text-sky-400 text-[9px] font-black uppercase tracking-widest rounded-xl border border-sky-500/20 transition-all"
+                                                        >
+                                                            Refresh
+                                                        </button>
+                                                    </div>
+                                                    <a
+                                                        href="https://store.crimsons.app/plugins/volume"
+                                                        target="_blank"
+                                                        rel="noreferrer"
+                                                        className="inline-flex items-center gap-1 text-sky-400/80 hover:text-sky-300 text-[8px] font-black uppercase tracking-widest transition-colors"
+                                                    >
+                                                        <Compass size={10} /> Store /plugins/volume
+                                                    </a>
                                                 </div>
                                             )}
                                         </div>

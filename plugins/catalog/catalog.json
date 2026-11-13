@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "updatedAt": "2026-11-13",
+  "categories": [
+    {
+      "id": "streamdeck",
+      "label": "StreamDock",
+      "description": "Pack installable dans Stream Dock / StreamDeck (boutons physiques)."
+    },
+    {
+      "id": "utility",
+      "label": "Utilitaire",
+      "description": "Outils transverses hors jeu."
+    },
+    {
+      "id": "media",
+      "label": "Médias",
+      "description": "Lecture audio / vidéo et contrôles associés."
+    },
+    {
+      "id": "communication",
+      "label": "Communication",
+      "description": "Voix, chat, présence (Discord, etc.)."
+    }
+  ],
+  "plugins": [
+    {
+      "id": "volume",
+      "slug": "volume",
+      "name": "Volume / Wave Link",
+      "summary": "Volume master Windows, sessions par appli, et multi-pistes Wave Link (prêt).",
+      "description": "Plugin StreamDock : master volume ±/mute, volume par application (sessions WASAPI), affichage niveau sur touche, scroll de piste puis ±/mute. Découverte Wave Link 3.x (JSON-RPC local non officiel) stubbée — sessions Windows mappent souvent les mêmes apps que les pistes WL. Premium.",
+      "packageId": "com.laoy.streamdock.volume.sdPlugin",
+      "packagePath": "com.laoy.streamdock.volume.sdPlugin",
+      "version": "0.1.0",
+      "status": "coming_soon",
+      "pricing": "5.99 CHF/mois",
+      "categories": [
+        "streamdeck",
+        "utility",
+        "media"
+      ],
+      "surfaces": [
+        "streamdock",
+        "crimsons-hub"
+      ],
+      "requiresPremium": true,
+      "requiresCrimsons": true,
+      "icon": null,
+      "targetApp": "Crimsons & StreamDock",
+      "hardware": {
+        "streamdock": true,
+        "elgato": false
+      }
+    }
+  ]
+}

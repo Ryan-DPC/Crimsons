@@ -1,0 +1,48 @@
+{
+  "Description": "Volume master / par appli Windows + multi-pistes Wave Link via Crimsons.",
+  "Name": "Volume / Wave Link",
+  "com.laoy.streamdock.volume.master_up": {
+    "Name": "Master +",
+    "Tooltip": "Augmenter le volume master Windows"
+  },
+  "com.laoy.streamdock.volume.master_down": {
+    "Name": "Master −",
+    "Tooltip": "Baisser le volume master Windows"
+  },
+  "com.laoy.streamdock.volume.master_mute": {
+    "Name": "Master Mute",
+    "Tooltip": "Couper / rétablir le master Windows"
+  },
+  "com.laoy.streamdock.volume.level": {
+    "Name": "Niveau",
+    "Tooltip": "Master + piste sélectionnée"
+  },
+  "com.laoy.streamdock.volume.track_prev": {
+    "Name": "Piste préc.",
+    "Tooltip": "Piste précédente"
+  },
+  "com.laoy.streamdock.volume.track_next": {
+    "Name": "Piste suiv.",
+    "Tooltip": "Piste suivante"
+  },
+  "com.laoy.streamdock.volume.track_up": {
+    "Name": "Piste +",
+    "Tooltip": "Augmenter la piste sélectionnée"
+  },
+  "com.laoy.streamdock.volume.track_down": {
+    "Name": "Piste −",
+    "Tooltip": "Baisser la piste sélectionnée"
+  },
+  "com.laoy.streamdock.volume.track_mute": {
+    "Name": "Mute piste",
+    "Tooltip": "Mute de la piste sélectionnée"
+  },
+  "com.laoy.streamdock.volume.refresh": {
+    "Name": "Actualiser",
+    "Tooltip": "Rafraîchir sessions / découverte Wave Link"
+  },
+  "com.laoy.streamdock.volume.openhub": {
+    "Name": "Ouvrir Hub / Store",
+    "Tooltip": "Ouvrir la page store /plugins/volume"
+  }
+}

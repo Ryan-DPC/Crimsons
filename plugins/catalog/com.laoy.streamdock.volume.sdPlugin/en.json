@@ -1,0 +1,48 @@
+{
+  "Description": "Windows master / per-app volume + Wave Link multi-track ready via Crimsons.",
+  "Name": "Volume / Wave Link",
+  "com.laoy.streamdock.volume.master_up": {
+    "Name": "Master Up",
+    "Tooltip": "Raise Windows master volume"
+  },
+  "com.laoy.streamdock.volume.master_down": {
+    "Name": "Master Down",
+    "Tooltip": "Lower Windows master volume"
+  },
+  "com.laoy.streamdock.volume.master_mute": {
+    "Name": "Master Mute",
+    "Tooltip": "Toggle Windows master mute"
+  },
+  "com.laoy.streamdock.volume.level": {
+    "Name": "Level Display",
+    "Tooltip": "Master + selected track level"
+  },
+  "com.laoy.streamdock.volume.track_prev": {
+    "Name": "Track Prev",
+    "Tooltip": "Previous mix track"
+  },
+  "com.laoy.streamdock.volume.track_next": {
+    "Name": "Track Next",
+    "Tooltip": "Next mix track"
+  },
+  "com.laoy.streamdock.volume.track_up": {
+    "Name": "Track Up",
+    "Tooltip": "Raise selected track"
+  },
+  "com.laoy.streamdock.volume.track_down": {
+    "Name": "Track Down",
+    "Tooltip": "Lower selected track"
+  },
+  "com.laoy.streamdock.volume.track_mute": {
+    "Name": "Track Mute",
+    "Tooltip": "Mute selected track"
+  },
+  "com.laoy.streamdock.volume.refresh": {
+    "Name": "Refresh",
+    "Tooltip": "Refresh sessions / Wave Link discovery"
+  },
+  "com.laoy.streamdock.volume.openhub": {
+    "Name": "Open Hub / Store",
+    "Tooltip": "Open store page /plugins/volume"
+  }
+}

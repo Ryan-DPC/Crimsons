@@ -1,0 +1,176 @@
+{
+  "Author": "Laoy",
+  "Category": "Volume",
+  "CategoryIcon": "static/icon/volume.png",
+  "CodePath": "plugin/index.html",
+  "Description": "Windows master / per-app volume + Wave Link multi-track ready (via Crimsons sidecar).",
+  "Icon": "static/icon/volume.png",
+  "Name": "Volume / Wave Link",
+  "Version": "0.1.0",
+  "SDKVersion": 2,
+  "Software": {
+    "MinimumVersion": "2.0.0"
+  },
+  "OS": [
+    {
+      "Platform": "windows",
+      "MinimumVersion": "10"
+    }
+  ],
+  "Actions": [
+    {
+      "Name": "Master Up",
+      "UUID": "com.laoy.streamdock.volume.master_up",
+      "Icon": "static/icon/master_up.png",
+      "States": [
+        {
+          "Image": "static/icon/master_up.png",
+          "TitleAlignment": "bottom",
+          "FontSize": "9"
+        }
+      ],
+      "Tooltip": "Raise Windows master volume",
+      "Context": "GLOBAL"
+    },
+    {
+      "Name": "Master Down",
+      "UUID": "com.laoy.streamdock.volume.master_down",
+      "Icon": "static/icon/master_down.png",
+      "States": [
+        {
+          "Image": "static/icon/master_down.png",
+          "TitleAlignment": "bottom",
+          "FontSize": "9"
+        }
+      ],
+      "Tooltip": "Lower Windows master volume",
+      "Context": "GLOBAL"
+    },
+    {
+      "Name": "Master Mute",
+      "UUID": "com.laoy.streamdock.volume.master_mute",
+      "Icon": "static/icon/master_mute.png",
+      "States": [
+        {
+          "Image": "static/icon/master_mute.png",
+          "TitleAlignment": "bottom",
+          "FontSize": "9"
+        }
+      ],
+      "Tooltip": "Toggle Windows master mute",
+      "Context": "GLOBAL"
+    },
+    {
+      "Name": "Level Display",
+      "UUID": "com.laoy.streamdock.volume.level",
+      "Icon": "static/icon/level.png",
+      "States": [
+        {
+          "Image": "static/icon/level.png",
+          "TitleAlignment": "bottom",
+          "FontSize": "8"
+        }
+      ],
+      "Tooltip": "Show master + selected track level (scroll to change track)",
+      "Context": "GLOBAL"
+    },
+    {
+      "Name": "Track Prev",
+      "UUID": "com.laoy.streamdock.volume.track_prev",
+      "Icon": "static/icon/track_prev.png",
+      "States": [
+        {
+          "Image": "static/icon/track_prev.png",
+          "TitleAlignment": "middle",
+          "FontSize": "10"
+        }
+      ],
+      "Tooltip": "Select previous mix track",
+      "Context": "GLOBAL"
+    },
+    {
+      "Name": "Track Next",
+      "UUID": "com.laoy.streamdock.volume.track_next",
+      "Icon": "static/icon/track_next.png",
+      "States": [
+        {
+          "Image": "static/icon/track_next.png",
+          "TitleAlignment": "middle",
+          "FontSize": "10"
+        }
+      ],
+      "Tooltip": "Select next mix track",
+      "Context": "GLOBAL"
+    },
+    {
+      "Name": "Track Up",
+      "UUID": "com.laoy.streamdock.volume.track_up",
+      "Icon": "static/icon/track_up.png",
+      "States": [
+        {
+          "Image": "static/icon/track_up.png",
+          "TitleAlignment": "bottom",
+          "FontSize": "9"
+        }
+      ],
+      "Tooltip": "Raise selected track volume",
+      "Context": "GLOBAL"
+    },
+    {
+      "Name": "Track Down",
+      "UUID": "com.laoy.streamdock.volume.track_down",
+      "Icon": "static/icon/track_down.png",
+      "States": [
+        {
+          "Image": "static/icon/track_down.png",
+          "TitleAlignment": "bottom",
+          "FontSize": "9"
+        }
+      ],
+      "Tooltip": "Lower selected track volume",
+      "Context": "GLOBAL"
+    },
+    {
+      "Name": "Track Mute",
+      "UUID": "com.laoy.streamdock.volume.track_mute",
+      "Icon": "static/icon/track_mute.png",
+      "States": [
+        {
+          "Image": "static/icon/track_mute.png",
+          "TitleAlignment": "bottom",
+          "FontSize": "9"
+        }
+      ],
+      "Tooltip": "Mute / unmute selected track",
+      "Context": "GLOBAL"
+    },
+    {
+      "Name": "Refresh",
+      "UUID": "com.laoy.streamdock.volume.refresh",
+      "Icon": "static/icon/refresh.png",
+      "States": [
+        {
+          "Image": "static/icon/refresh.png",
+          "TitleAlignment": "middle",
+          "FontSize": "10"
+        }
+      ],
+      "Tooltip": "Refresh Windows sessions + Wave Link discovery",
+      "Context": "GLOBAL"
+    },
+    {
+      "Name": "Open Hub / Store",
+      "UUID": "com.laoy.streamdock.volume.openhub",
+      "Icon": "static/icon/openhub.png",
+      "States": [
+        {
+          "Image": "static/icon/openhub.png",
+          "TitleAlignment": "middle",
+          "FontSize": "10"
+        }
+      ],
+      "Tooltip": "Open Crimsons Hub / Store plugin page",
+      "Context": "GLOBAL"
+    }
+  ]
+}
