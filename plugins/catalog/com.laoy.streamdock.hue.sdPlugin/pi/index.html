@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Configuration Philips Hue</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            user-select: none;
+        }
+        body {
+            background-color: #1a1a1e;
+            color: #d4d4d8;
+            padding: 14px;
+            font-size: 12px;
+        }
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #27272a;
+        }
+        .title {
+            font-weight: 700;
+            font-size: 13px;
+            color: #f4f4f5;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .badge {
+            font-size: 10px;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 999px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .badge-disconnected {
+            background: rgba(239, 68, 68, 0.15);
+            color: #f87171;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+        .badge-connected {
+            background: rgba(34, 197, 94, 0.15);
+            color: #4ade80;
+            border: 1px solid rgba(34, 197, 94, 0.3);
+        }
+        .badge-pairing {
+            background: rgba(234, 179, 8, 0.15);
+            color: #facc15;
+            border: 1px solid rgba(234, 179, 8, 0.3);
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .row {
+            margin-bottom: 10px;
+        }
+        .label {
+            font-size: 11px;
+            color: #a1a1aa;
+            margin-bottom: 4px;
+            display: block;
+            font-weight: 500;
+        }
+        .input-text {
+            width: 100%;
+            background: #27272a;
+            border: 1px solid #3f3f46;
+            color: #f4f4f5;
+            padding: 6px 8px;
+            border-radius: 6px;
+            font-size: 12px;
+            outline: none;
+        }
+        .input-text:focus {
+            border-color: #38bdf8;
+        }
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            text-align: center;
+        }
+        .btn-primary {
+            background: #0284c7;
+            color: #ffffff;
+        }
+        .btn-primary:hover {
+            background: #0369a1;
+        }
+        .btn-success {
+            background: #16a34a;
+            color: #ffffff;
+            margin-top: 6px;
+        }
+        .btn-success:hover {
+            background: #15803d;
+        }
+        .btn-danger {
+            background: rgba(239, 68, 68, 0.15);
+            color: #f87171;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            margin-top: 6px;
+        }
+        .btn-danger:hover {
+            background: rgba(239, 68, 68, 0.3);
+        }
+        .btn-popup {
+            background: #3f3f46;
+            color: #f4f4f5;
+            margin-top: 6px;
+        }
+        .btn-popup:hover {
+            background: #52525b;
+        }
+        .notice {
+            background: rgba(2, 132, 199, 0.1);
+            border: 1px solid rgba(2, 132, 199, 0.25);
+            color: #bae6fd;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            line-height: 1.4;
+            margin-bottom: 12px;
+        }
+        .status-box {
+            background: #27272a;
+            padding: 8px 10px;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            font-size: 11px;
+        }
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 4px;
+        }
+        .status-item:last-child {
+            margin-bottom: 0;
+        }
+        .status-val {
+            font-weight: 600;
+            color: #f4f4f5;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="title">
+            <span>💡</span> Philips Hue
+        </div>
+        <span id="badgeStatus" class="badge badge-disconnected">Non connecté</span>
+    </div>
+
+    <div class="row">
+        <label class="label">Adresse IP du Pont Hue</label>
+        <input id="ipInput" class="input-text" type="text" value="192.168.1.3" />
+    </div>
+
+    <!-- NOT PAIRED VIEW -->
+    <div id="unpairedView">
+        <div class="notice">
+            <strong>Appairage requis :</strong> Cliquez sur le bouton ci-dessous, puis appuyez sur le <strong>gros bouton rond</strong> au centre de votre pont physique Hue.
+        </div>
+        <button id="btnStartPairing" class="btn btn-primary" onclick="startPairing()">🔘 Lancer l'Appairage (45s)</button>
+        <button class="btn btn-popup" onclick="openPairPopup()">🪟 Ouvrir la Fenêtre d'Appairage</button>
+    </div>
+
+    <!-- PAIRED VIEW -->
+    <div id="pairedView" style="display: none;">
+        <div class="status-box">
+            <div class="status-item">
+                <span>Statut :</span>
+                <span class="status-val" style="color: #4ade80;">Connecté & Persistant</span>
+            </div>
+            <div class="status-item">
+                <span>Ampoules détectées :</span>
+                <span id="lightCount" class="status-val">...</span>
+            </div>
+        </div>
+
+        <button class="btn btn-success" onclick="toggleTestLight()">⚡ Tester Allumer / Éteindre</button>
+        <button class="btn btn-danger" onclick="disconnectHue()">Dissocier le Pont</button>
+    </div>
+
+    <script>
+        let bridgeIp = localStorage.getItem("hue_bridge_ip") || "192.168.1.3";
+        let hueUser = localStorage.getItem("hue_username") || "";
+        let pairingInterval = null;
+
+        document.getElementById("ipInput").value = bridgeIp;
+        document.getElementById("ipInput").addEventListener("change", (e) => {
+            bridgeIp = e.target.value.trim();
+            localStorage.setItem("hue_bridge_ip", bridgeIp);
+            checkConnection();
+        });
+
+        function updateUI() {
+            const badge = document.getElementById("badgeStatus");
+            const unpaired = document.getElementById("unpairedView");
+            const paired = document.getElementById("pairedView");
+
+            if (hueUser) {
+                badge.className = "badge badge-connected";
+                badge.textContent = "Connecté";
+                unpaired.style.display = "none";
+                paired.style.display = "block";
+                loadHueInfo();
+            } else {
+                badge.className = "badge badge-disconnected";
+                badge.textContent = "Non connecté";
+                unpaired.style.display = "block";
+                paired.style.display = "none";
+            }
+        }
+
+        async function loadHueInfo() {
+            if (!hueUser) return;
+            try {
+                const resp = await fetch(`http://${bridgeIp}/api/${hueUser}/lights`);
+                if (resp.ok) {
+                    const data = await resp.json();
+                    const count = Object.keys(data).length;
+                    document.getElementById("lightCount").textContent = count + " ampoule(s)";
+                }
+            } catch (e) {
+                document.getElementById("lightCount").textContent = "Erreur réseau";
+            }
+        }
+
+        async function checkConnection() {
+            try {
+                const f = await fetch("../hue_token.json");
+                if (f.ok) {
+                    const d = await f.json();
+                    if (d && d.username) {
+                        hueUser = d.username;
+                        localStorage.setItem("hue_username", hueUser);
+                    }
+                }
+            } catch (e) {}
+            updateUI();
+        }
+
+        function openPairPopup() {
+            window.open("../plugin/pair.html", "HuePairingWindow", "width=440,height=520,resizable=no");
+        }
+
+        function startPairing() {
+            if (pairingInterval) return;
+            const btn = document.getElementById("btnStartPairing");
+            const badge = document.getElementById("badgeStatus");
+            badge.className = "badge badge-pairing";
+            badge.textContent = "Appui requis";
+
+            let countdown = 45;
+            btn.textContent = `⏳ Appuyez sur le pont ! (${countdown}s)`;
+            btn.disabled = true;
+
+            pairingInterval = setInterval(async () => {
+                countdown--;
+                btn.textContent = `⏳ Appuyez sur le pont ! (${countdown}s)`;
+
+                try {
+                    const resp = await fetch(`http://${bridgeIp}/api`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ devicetype: "crimsons#streamdock" })
+                    });
+                    const res = await resp.json();
+                    if (res && res[0] && res[0].success && res[0].success.username) {
+                        clearInterval(pairingInterval);
+                        pairingInterval = null;
+                        hueUser = res[0].success.username;
+                        localStorage.setItem("hue_username", hueUser);
+                        btn.disabled = false;
+                        btn.textContent = "🔘 Lancer l'Appairage";
+                        updateUI();
+                        return;
+                    }
+                } catch (e) {}
+
+                if (countdown <= 0) {
+                    clearInterval(pairingInterval);
+                    pairingInterval = null;
+                    btn.disabled = false;
+                    btn.textContent = "🔘 Lancer l'Appairage (45s)";
+                    badge.className = "badge badge-disconnected";
+                    badge.textContent = "Délai expiré";
+                }
+            }, 1200);
+        }
+
+        async function toggleTestLight() {
+            if (!hueUser) return;
+            try {
+                // Get current state
+                const gResp = await fetch(`http://${bridgeIp}/api/${hueUser}/groups/0`);
+                const gData = await gResp.json();
+                const anyOn = gData?.state?.any_on;
+                await fetch(`http://${bridgeIp}/api/${hueUser}/groups/0/action`, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ on: !anyOn })
+                });
+            } catch (e) {
+                alert("Erreur commande Hue: " + e.message);
+            }
+        }
+
+        function disconnectHue() {
+            if (confirm("Voulez-vous vraiment déconnecter le pont Philips Hue ?")) {
+                hueUser = "";
+                localStorage.removeItem("hue_username");
+                updateUI();
+            }
+        }
+
+        // StreamDock Property Inspector entry point
+        function connectElgatoStreamDeckSocket(inPort, inPluginUUID, inRegisterEvent, inInfo, inActionInfo) {
+            checkConnection();
+        }
+        window.connectElgatoStreamDeckSocket = connectElgatoStreamDeckSocket;
+
+        window.addEventListener("storage", function(e) {
+            if (e.key === "hue_username") {
+                hueUser = e.newValue || "";
+                updateUI();
+            }
+        });
+
+        checkConnection();
+    </script>
+</body>
+</html>

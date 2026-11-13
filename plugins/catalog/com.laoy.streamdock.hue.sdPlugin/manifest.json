@@ -6,13 +6,11 @@
       "States": [
         {
           "Image": "static/icon/hue_off.png",
-          "Title": "OFF",
           "TitleAlignment": "bottom",
           "FontSize": "10"
         },
         {
           "Image": "static/icon/hue_on.png",
-          "Title": "ON",
           "TitleAlignment": "bottom",
           "FontSize": "10"
         }
@@ -22,7 +20,8 @@
       "SupportedInMultiActions": true,
       "UUID": "com.laoy.streamdock.hue.toggle",
       "Tooltip": "Allumer ou éteindre vos lumières Philips Hue",
-      "Context": "GLOBAL"
+      "Context": "GLOBAL",
+      "PropertyInspectorPath": "pi/index.html"
     },
     {
       "Icon": "static/icon/hue_scene.png",
@@ -39,7 +38,8 @@
       "SupportedInMultiActions": true,
       "UUID": "com.laoy.streamdock.hue.scene",
       "Tooltip": "Activer une scène d'éclairage Philips Hue",
-      "Context": "GLOBAL"
+      "Context": "GLOBAL",
+      "PropertyInspectorPath": "pi/index.html"
     }
   ],
   "Author": "Laoy",

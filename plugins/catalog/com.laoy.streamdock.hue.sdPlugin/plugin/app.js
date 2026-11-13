@@ -1,7 +1,7 @@
-// Philips Hue StreamDock Plugin with Local Bridge Auto-Integration
+// Philips Hue StreamDock Plugin with Local Bridge Auto-Integration & Property Inspector
 let streamDeckSocket = null;
 let globalPluginUUID = "";
-const HUE_BRIDGE_IP = "192.168.1.3";
+const HUE_BRIDGE_IP = localStorage.getItem("hue_bridge_ip") || "192.168.1.3";
 let hueUser = localStorage.getItem("hue_username") || "";
 let isPairing = false;
 let pairingInterval = null;
@@ -20,6 +20,23 @@ async function loadTokenFromFile() {
     } catch(e) {}
 }
 loadTokenFromFile();
+
+// Listen to storage events from Property Inspector or pair popup
+window.addEventListener("storage", function(e) {
+    if (e.key === "hue_username" && e.newValue) {
+        hueUser = e.newValue;
+        console.log("[HUE] Username updated via storage event:", hueUser);
+        syncRealHueState();
+    }
+});
+
+window.addEventListener("message", function(e) {
+    if (e.data && e.data.type === "HUE_PAIRED" && e.data.user) {
+        hueUser = e.data.user;
+        console.log("[HUE] Username updated via message:", hueUser);
+        syncRealHueState();
+    }
+});
 
 const actionContexts = {
     "com.laoy.streamdock.hue.toggle": [],
@@ -125,7 +142,18 @@ async function syncRealHueState() {
     }
 }
 
+function openPairingPopup() {
+    try {
+        window.open("plugin/pair.html", "HuePairingWindow", "width=440,height=520,resizable=no");
+    } catch(e) {
+        console.warn("[HUE] Could not open pair window:", e);
+    }
+}
+
 async function startPairingFlow(context) {
+    // Open visual popup for user guidance
+    openPairingPopup();
+
     if (isPairing) return;
     isPairing = true;
     sendTitle(context, "Appuie\nPont Hue");
@@ -146,7 +174,7 @@ async function startPairingFlow(context) {
             return;
         }
 
-        if (attempts >= 20) { // 30 seconds timeout
+        if (attempts >= 40) { // 60 seconds timeout
             clearInterval(pairingInterval);
             isPairing = false;
             sendTitle(context, "OFF");
@@ -159,7 +187,7 @@ async function toggleHueLight(context) {
     if (!lightStates[context]) lightStates[context] = { on: false, sceneIndex: 0 };
     const st = lightStates[context];
 
-    // If not paired yet, try pairing or prompt
+    // If not paired yet, open pairing popup and guide user
     if (!hueUser) {
         await startPairingFlow(context);
         return;
