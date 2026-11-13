@@ -179,6 +179,75 @@
       "requiresPremium": true,
       "requiresCrimsons": true,
       "icon": null
+    },
+    {
+      "id": "obs-studio",
+      "slug": "obs-studio",
+      "name": "OBS Studio",
+      "summary": "Scènes et contrôle OBS WebSocket depuis StreamDock (bientôt).",
+      "description": "Stub catalogue — scènes, stream/record. Non installable tant que le runtime n’est pas branché.",
+      "packageId": "com.laoy.streamdock.obs.sdPlugin",
+      "packagePath": "com.laoy.streamdock.obs.sdPlugin",
+      "version": "3.1.0",
+      "status": "coming_soon",
+      "pricing": "tbd",
+      "categories": [
+        "streamdeck",
+        "streaming",
+        "utility"
+      ],
+      "surfaces": [
+        "streamdock"
+      ],
+      "requiresPremium": true,
+      "requiresCrimsons": true,
+      "icon": null
+    },
+    {
+      "id": "volume",
+      "slug": "volume",
+      "name": "Volume",
+      "summary": "Volume Windows master / pistes et Wave Link (bientôt).",
+      "description": "Stub catalogue — master ±/mute, pistes app, Wave Link discovery.",
+      "packageId": "com.laoy.streamdock.volume.sdPlugin",
+      "packagePath": "com.laoy.streamdock.volume.sdPlugin",
+      "version": "3.1.0",
+      "status": "coming_soon",
+      "pricing": "tbd",
+      "categories": [
+        "streamdeck",
+        "audio",
+        "utility"
+      ],
+      "surfaces": [
+        "streamdock"
+      ],
+      "requiresPremium": true,
+      "requiresCrimsons": true,
+      "icon": null
+    },
+    {
+      "id": "valorant",
+      "slug": "valorant",
+      "name": "Valorant",
+      "summary": "Rank et dernier match Valorant (bientôt).",
+      "description": "Stub catalogue — info-only rank / match history.",
+      "packageId": "com.laoy.streamdock.valorant.sdPlugin",
+      "packagePath": "com.laoy.streamdock.valorant.sdPlugin",
+      "version": "3.1.0",
+      "status": "coming_soon",
+      "pricing": "tbd",
+      "categories": [
+        "streamdeck",
+        "game",
+        "utility"
+      ],
+      "surfaces": [
+        "streamdock"
+      ],
+      "requiresPremium": true,
+      "requiresCrimsons": true,
+      "icon": null
     }
   ]
 }

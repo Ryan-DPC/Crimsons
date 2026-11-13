@@ -4,7 +4,8 @@ import { getChampIcon } from '../../utils/lolDisplay';
 import { 
     Disc3, MessageSquare, Laptop, Music, MicOff, Mic, Headphones, 
     MonitorPlay, Play, Pause, SkipForward, SkipBack, 
-    ShoppingBag, ExternalLink
+    ShoppingBag, ExternalLink, Lightbulb, ChevronLeft, ChevronRight,
+    Tv, RefreshCw, Clapperboard, Volume2, VolumeX, Crosshair
 } from 'lucide-react';
 import { PLUGIN_STORE_BASE_URL, pluginStoreUrl } from '../../lib/pluginStore';
 
@@ -81,7 +82,10 @@ export default function HomeTab() {
     const { 
         appData, updateSetting, sum, v, hist, champs, seasonStats, 
         spotifyState, discordState, spotifyCommand, discordCommand, discordConnected,
-        appleMusicState, appleMusicCommand, togglePlugin, setTab
+        appleMusicState, appleMusicCommand, togglePlugin, setTab,
+        hueState, hueCommand, twitchState, twitchCommand,
+        obsState, obsCommand, volumeState, volumeCommand,
+        valorantState, valorantCommand,
     } = useLCU();
     const { isPremium } = useAuth();
     
@@ -90,6 +94,11 @@ export default function HomeTab() {
     const isSpotifyEnabled = isPremium && (appData?.plugins?.spotify ?? false);
     const isDiscordEnabled = isPremium && (appData?.plugins?.discord ?? false);
     const isAppleMusicEnabled = isPremium && (appData?.plugins?.apple_music ?? appData?.plugins?.appleMusic ?? false);
+    const isHueEnabled = isPremium && (appData?.plugins?.hue ?? false);
+    const isTwitchEnabled = isPremium && (appData?.plugins?.twitch ?? false);
+    const isObsEnabled = isPremium && (appData?.plugins?.obs ?? false);
+    const isVolumeEnabled = isPremium && (appData?.plugins?.volume ?? false);
+    const isValorantEnabled = isPremium && (appData?.plugins?.valorant ?? false);
 
     const openLyricsWindow = async () => {
         try {
@@ -426,6 +435,41 @@ export default function HomeTab() {
                             onChange={(v) => togglePlugin('discord', v)}
                             disabled={!isPremium}
                         />
+                        <ModuleStoreRow
+                            label="Philips Hue"
+                            slug="philips-hue"
+                            value={isHueEnabled}
+                            onChange={(v) => togglePlugin('hue', v)}
+                            disabled={!isPremium}
+                        />
+                        <ModuleStoreRow
+                            label="Twitch"
+                            slug="twitch"
+                            value={isTwitchEnabled}
+                            onChange={(v) => togglePlugin('twitch', v)}
+                            disabled={!isPremium}
+                        />
+                        <ModuleStoreRow
+                            label="OBS Studio"
+                            slug="obs-studio"
+                            value={isObsEnabled}
+                            onChange={(v) => togglePlugin('obs', v)}
+                            disabled={!isPremium}
+                        />
+                        <ModuleStoreRow
+                            label="Volume"
+                            slug="volume"
+                            value={isVolumeEnabled}
+                            onChange={(v) => togglePlugin('volume', v)}
+                            disabled={!isPremium}
+                        />
+                        <ModuleStoreRow
+                            label="Valorant"
+                            slug="valorant"
+                            value={isValorantEnabled}
+                            onChange={(v) => togglePlugin('valorant', v)}
+                            disabled={!isPremium}
+                        />
                     </div>
                 </div>
 
@@ -542,6 +586,199 @@ export default function HomeTab() {
                                 <span className="text-[9px] font-black uppercase tracking-wider">{discordState?.is_camera_on ? 'Cam ON' : 'Cam OFF'}</span>
                             </button>
                         </div>
+                    </div>
+                )}
+
+                {/* HUE WIDGET — stub-friendly when sidecar not yet pushing HUE_STATE */}
+                {isHueEnabled && (
+                    <div className="flex flex-col gap-3 mt-4">
+                        <span className="text-[10px] font-black text-white/40 uppercase tracking-widest border-b border-white/5 pb-2">Philips Hue</span>
+                        <div className="bg-[#0a0a0c] border border-white/5 rounded-xl p-4 flex items-center gap-4 transition-colors hover:border-amber-500/30">
+                            <div className="w-10 h-10 bg-amber-500/10 rounded-lg flex items-center justify-center">
+                                <Lightbulb className={`w-5 h-5 ${hueState?.groups?.[hueState?.selected_group_index || 0]?.on ? 'text-amber-400' : 'text-white/30'}`} />
+                            </div>
+                            <div className="flex flex-col flex-1 min-w-0">
+                                <span className="text-white font-bold text-xs truncate">
+                                    {(() => {
+                                        const g = hueState?.groups?.[hueState?.selected_group_index || 0];
+                                        if (!g) return hueState?.mock || !hueState ? 'Stub · connecté' : 'Aucune pièce';
+                                        return `${g.name} · ${g.on ? 'ON' : 'OFF'} · ${Math.round(((g.bri || 0) / 254) * 100)}%`;
+                                    })()}
+                                </span>
+                                <span className="text-white/50 text-[10px] truncate uppercase font-bold tracking-widest">
+                                    {(() => {
+                                        if (!hueState) return 'En attente WS · mock';
+                                        const groups = hueState?.groups || [];
+                                        const g = groups[hueState?.selected_group_index || 0];
+                                        const scenes = (hueState?.scenes || []).filter((s: any) => !s.group || s.group === g?.id);
+                                        const sc = scenes[hueState?.selected_scene_index || 0];
+                                        const mock = hueState?.mock ? ' · mock' : '';
+                                        return `${sc?.name || 'Aucune scène'}${mock}`;
+                                    })()}
+                                </span>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => hueCommand('toggle')}
+                                className="p-2.5 bg-amber-600/10 hover:bg-amber-600/20 text-amber-400 rounded-xl border border-amber-500/20 transition-all"
+                                title="On/Off"
+                            >
+                                <Lightbulb className="w-4 h-4" />
+                            </button>
+                        </div>
+                        <div className="grid grid-cols-4 gap-2 mt-1">
+                            <button type="button" onClick={() => hueCommand('room_prev')} className="flex items-center justify-center py-3 bg-white/5 hover:bg-white/10 text-white/70 rounded-xl border border-white/5 transition-all" title="Pièce précédente">
+                                <ChevronLeft className="w-4 h-4" />
+                            </button>
+                            <button type="button" onClick={() => hueCommand('bri_down')} className="flex items-center justify-center py-3 bg-white/5 hover:bg-white/10 text-white/70 rounded-xl border border-white/5 text-[9px] font-black uppercase tracking-wider transition-all">−</button>
+                            <button type="button" onClick={() => hueCommand('bri_up')} className="flex items-center justify-center py-3 bg-white/5 hover:bg-white/10 text-white/70 rounded-xl border border-white/5 text-[9px] font-black uppercase tracking-wider transition-all">+</button>
+                            <button type="button" onClick={() => hueCommand('room_next')} className="flex items-center justify-center py-3 bg-white/5 hover:bg-white/10 text-white/70 rounded-xl border border-white/5 transition-all" title="Pièce suivante">
+                                <ChevronRight className="w-4 h-4" />
+                            </button>
+                        </div>
+                        <a href={pluginStoreUrl('philips-hue')} target="_blank" rel="noreferrer" className="text-[9px] text-amber-400/70 hover:text-amber-300 font-black uppercase tracking-widest transition-colors">
+                            Store → /plugins/philips-hue
+                        </a>
+                    </div>
+                )}
+
+                {/* TWITCH WIDGET */}
+                {isTwitchEnabled && (
+                    <div className="flex flex-col gap-3 mt-4">
+                        <span className="text-[10px] font-black text-white/40 uppercase tracking-widest border-b border-white/5 pb-2">Twitch</span>
+                        <div className="bg-[#0a0a0c] border border-white/5 rounded-xl p-4 flex items-center gap-4 transition-colors hover:border-red-500/30">
+                            <div className="w-10 h-10 bg-red-500/10 rounded-lg flex items-center justify-center relative">
+                                <Tv className="w-5 h-5 text-red-500" />
+                                {(twitchState?.live || twitchState?.mock || !twitchState) && (
+                                    <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]" title={twitchState?.live ? 'Live' : 'Stub'} />
+                                )}
+                            </div>
+                            <div className="flex flex-col flex-1 min-w-0">
+                                <span className="text-white font-bold text-xs truncate">
+                                    {typeof twitchState?.viewers === 'number' ? `${twitchState.viewers} viewers` : '—'}
+                                    {twitchState?.live ? ' · LIVE' : twitchState?.mock || !twitchState ? ' · stub' : ' · offline'}
+                                </span>
+                                <span className="text-white/50 text-[10px] truncate uppercase font-bold tracking-widest">
+                                    {twitchState?.username || 'Twitch'}{twitchState?.title ? ` · ${twitchState.title}` : !twitchState ? ' · en attente WS' : ''}
+                                </span>
+                            </div>
+                            <button type="button" onClick={() => twitchCommand('refresh')} className="p-2.5 bg-red-600/10 hover:bg-red-600/20 text-red-400 rounded-xl border border-red-500/20 transition-all" title="Refresh">
+                                <RefreshCw className="w-4 h-4" />
+                            </button>
+                        </div>
+                        <a href={pluginStoreUrl('twitch')} target="_blank" rel="noreferrer" className="text-[9px] text-red-400/70 hover:text-red-300 font-black uppercase tracking-widest transition-colors">
+                            Store → /plugins/twitch
+                        </a>
+                    </div>
+                )}
+
+                {/* OBS WIDGET — stub connecté même sans OBS_STATE */}
+                {isObsEnabled && (
+                    <div className="flex flex-col gap-3 mt-4">
+                        <span className="text-[10px] font-black text-white/40 uppercase tracking-widest border-b border-white/5 pb-2">OBS Studio</span>
+                        <div className="bg-[#0a0a0c] border border-white/5 rounded-xl p-4 flex items-center gap-4 transition-colors hover:border-purple-500/30">
+                            <div className="w-10 h-10 bg-purple-500/10 rounded-lg flex items-center justify-center">
+                                <Clapperboard className="w-5 h-5 text-purple-400" />
+                            </div>
+                            <div className="flex flex-col flex-1 min-w-0">
+                                <span className="text-white font-bold text-xs truncate">
+                                    {obsState?.current_scene || (obsState?.mock || !obsState ? 'Stub · scène' : 'Aucune scène')}
+                                </span>
+                                <span className="text-white/50 text-[10px] truncate uppercase font-bold tracking-widest">
+                                    {obsState?.streaming ? 'Streaming' : obsState?.recording ? 'Recording' : obsState?.connected ? 'Connecté' : 'Stub · connecté'}
+                                    {obsState?.mock || !obsState ? ' · mock' : ''}
+                                </span>
+                            </div>
+                            <button type="button" onClick={() => obsCommand('refresh')} className="p-2.5 bg-purple-600/10 hover:bg-purple-600/20 text-purple-400 rounded-xl border border-purple-500/20 transition-all" title="Refresh">
+                                <RefreshCw className="w-4 h-4" />
+                            </button>
+                        </div>
+                        <a href={pluginStoreUrl('obs-studio')} target="_blank" rel="noreferrer" className="text-[9px] text-purple-400/70 hover:text-purple-300 font-black uppercase tracking-widest transition-colors">
+                            Store → /plugins/obs-studio
+                        </a>
+                    </div>
+                )}
+
+                {/* VOLUME WIDGET */}
+                {isVolumeEnabled && (
+                    <div className="flex flex-col gap-3 mt-4">
+                        <span className="text-[10px] font-black text-white/40 uppercase tracking-widest border-b border-white/5 pb-2">Volume / Wave Link</span>
+                        <div className="bg-[#0a0a0c] border border-white/5 rounded-xl p-4 flex items-center gap-4 transition-colors hover:border-sky-500/30">
+                            <div className="w-10 h-10 bg-sky-500/10 rounded-lg flex items-center justify-center">
+                                {volumeState?.master_muted ? (
+                                    <VolumeX className="w-5 h-5 text-sky-400" />
+                                ) : (
+                                    <Volume2 className="w-5 h-5 text-sky-400" />
+                                )}
+                            </div>
+                            <div className="flex flex-col flex-1 min-w-0">
+                                <span className="text-white font-bold text-xs truncate">
+                                    Master · {volumeState?.master_muted ? 'MUTE' : `${Math.round((volumeState?.master_level ?? 0) * 100)}%`}
+                                    {!volumeState ? ' · stub' : ''}
+                                </span>
+                                <span className="text-white/50 text-[10px] truncate uppercase font-bold tracking-widest">
+                                    {(() => {
+                                        if (!volumeState) return 'En attente WS · mock';
+                                        const tracks = volumeState?.tracks || [];
+                                        const idx = volumeState?.selected_track_index || 0;
+                                        const t = tracks[idx];
+                                        if (!t) return volumeState?.mock ? 'Mock tracks' : 'Aucune piste';
+                                        const wl = volumeState?.wavelink?.available ? ' · WL detected' : '';
+                                        return `${t.name} · ${t.muted ? 'MUTE' : `${Math.round((t.level || 0) * 100)}%`}${volumeState?.mock ? ' · mock' : ''}${wl}`;
+                                    })()}
+                                </span>
+                            </div>
+                            <button type="button" onClick={() => volumeCommand('master_mute')} className="p-2.5 bg-sky-600/10 hover:bg-sky-600/20 text-sky-400 rounded-xl border border-sky-500/20 transition-all" title="Master mute">
+                                <VolumeX className="w-4 h-4" />
+                            </button>
+                        </div>
+                        <div className="grid grid-cols-4 gap-2 mt-1">
+                            <button type="button" onClick={() => volumeCommand('track_prev')} className="flex items-center justify-center py-3 bg-white/5 hover:bg-white/10 text-white/70 rounded-xl border border-white/5 transition-all" title="Piste précédente">
+                                <ChevronLeft className="w-4 h-4" />
+                            </button>
+                            <button type="button" onClick={() => volumeCommand('track_down')} className="flex items-center justify-center py-3 bg-white/5 hover:bg-white/10 text-white/70 rounded-xl border border-white/5 text-[9px] font-black uppercase tracking-wider transition-all">−</button>
+                            <button type="button" onClick={() => volumeCommand('track_up')} className="flex items-center justify-center py-3 bg-white/5 hover:bg-white/10 text-white/70 rounded-xl border border-white/5 text-[9px] font-black uppercase tracking-wider transition-all">+</button>
+                            <button type="button" onClick={() => volumeCommand('track_next')} className="flex items-center justify-center py-3 bg-white/5 hover:bg-white/10 text-white/70 rounded-xl border border-white/5 transition-all" title="Piste suivante">
+                                <ChevronRight className="w-4 h-4" />
+                            </button>
+                        </div>
+                        <a href={pluginStoreUrl('volume')} target="_blank" rel="noreferrer" className="text-[9px] text-sky-400/70 hover:text-sky-300 font-black uppercase tracking-widest transition-colors">
+                            Store → /plugins/volume
+                        </a>
+                    </div>
+                )}
+
+                {/* VALORANT WIDGET */}
+                {isValorantEnabled && (
+                    <div className="flex flex-col gap-3 mt-4">
+                        <span className="text-[10px] font-black text-white/40 uppercase tracking-widest border-b border-white/5 pb-2">Valorant</span>
+                        <div className="bg-[#0a0a0c] border border-white/5 rounded-xl p-4 flex items-center gap-4 transition-colors hover:border-red-500/30">
+                            <div className="w-10 h-10 bg-red-500/10 rounded-lg flex items-center justify-center">
+                                <Crosshair className="w-5 h-5 text-red-500" />
+                            </div>
+                            <div className="flex flex-col flex-1 min-w-0">
+                                <span className="text-white font-bold text-xs truncate">
+                                    {valorantState?.rank?.tier || '—'} · {typeof valorantState?.rank?.rr === 'number' ? `${valorantState.rank.rr} RR` : '—'}
+                                    {!valorantState ? ' · stub' : ''}
+                                </span>
+                                <span className="text-white/50 text-[10px] truncate uppercase font-bold tracking-widest">
+                                    {(() => {
+                                        if (!valorantState) return 'En attente WS · mock';
+                                        const matches = valorantState?.matches || [];
+                                        const idx = valorantState?.match_index || 0;
+                                        const m = matches[idx];
+                                        if (!m) return valorantState?.mock ? 'Mock' : 'Aucune partie';
+                                        return `${m.won ? 'W' : 'L'} ${m.kills}/${m.deaths}/${m.assists} · ${m.agent}${valorantState?.mock ? ' · mock' : ''}`;
+                                    })()}
+                                </span>
+                            </div>
+                            <button type="button" onClick={() => valorantCommand('refresh')} className="p-2.5 bg-red-600/10 hover:bg-red-600/20 text-red-400 rounded-xl border border-red-500/20 transition-all" title="Refresh">
+                                <RefreshCw className="w-4 h-4" />
+                            </button>
+                        </div>
+                        <a href={pluginStoreUrl('valorant')} target="_blank" rel="noreferrer" className="text-[9px] text-red-400/70 hover:text-red-300 font-black uppercase tracking-widest transition-colors">
+                            Store → /plugins/valorant
+                        </a>
                     </div>
                 )}
 

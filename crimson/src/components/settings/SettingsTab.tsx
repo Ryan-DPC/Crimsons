@@ -7,8 +7,9 @@ import {
     Settings as SettingsIcon, Shield, Check, 
     RefreshCw, Zap, Power, 
     AlertCircle, Activity, Layout, Terminal,
-    Key, Compass, Music
+    Key, Compass, Music, ExternalLink
 } from 'lucide-react';
+import { pluginStoreUrl } from '../../lib/pluginStore';
 
 // Reusable animated toggle component
 const Toggle = ({ value, onChange, label, description, disabled }: {
@@ -221,6 +222,11 @@ const SettingsTab = () => {
                 apple_music: "com.laoy.streamdock.applemusic",
                 spotify: "com.laoy.streamdock.spotify",
                 discord: "com.laoy.streamdock.discord",
+                hue: "com.laoy.streamdock.hue",
+                twitch: "com.laoy.streamdock.twitch",
+                obs: "com.laoy.streamdock.obs",
+                volume: "com.laoy.streamdock.volume",
+                valorant: "com.laoy.streamdock.valorant",
             };
             const installed: Record<string, boolean> = {};
             for (const [key, id] of Object.entries(ids)) {
@@ -244,6 +250,11 @@ const SettingsTab = () => {
                 apple_music: raw.apple_music ?? raw.appleMusic ?? false,
                 spotify: raw.spotify ?? false,
                 discord: raw.discord ?? false,
+                hue: raw.hue ?? false,
+                twitch: raw.twitch ?? false,
+                obs: raw.obs ?? false,
+                volume: raw.volume ?? false,
+                valorant: raw.valorant ?? false,
             };
             setPluginsState(next);
         } else {
@@ -253,6 +264,11 @@ const SettingsTab = () => {
                 apple_music: false,
                 spotify: false,
                 discord: false,
+                hue: false,
+                twitch: false,
+                obs: false,
+                volume: false,
+                valorant: false,
             });
         }
     }, [appData]);
@@ -731,27 +747,62 @@ const SettingsTab = () => {
                                         key: 'apple_music',
                                         name: 'Apple Music',
                                         desc: 'Contrôle Cider, molettes volume et touches dédiées (Premium)',
+                                        storeSlug: 'apple-music',
                                     },
                                     {
                                         key: 'leagueOfLegends',
                                         name: 'League of Legends',
                                         desc: 'Auto-accept, pick/ban et contrôle StreamDock (catalogue)',
+                                        storeSlug: 'league-of-legends',
                                     },
                                     {
                                         key: 'spotify',
                                         name: 'Spotify',
                                         desc: 'Contrôle de lecture et covers (catalogue · Premium)',
+                                        storeSlug: 'spotify',
                                     },
                                     {
                                         key: 'discord',
                                         name: 'Discord',
                                         desc: 'Mute / deafen / caméra (catalogue · Premium)',
+                                        storeSlug: 'discord',
+                                    },
+                                    {
+                                        key: 'hue',
+                                        name: 'Philips Hue',
+                                        desc: 'Pièces, scènes et luminosité (catalogue · Premium · stub OK)',
+                                        storeSlug: 'philips-hue',
+                                    },
+                                    {
+                                        key: 'twitch',
+                                        name: 'Twitch',
+                                        desc: 'Viewers, clips, markers (catalogue · Premium · stub OK)',
+                                        storeSlug: 'twitch',
+                                    },
+                                    {
+                                        key: 'obs',
+                                        name: 'OBS Studio',
+                                        desc: 'Scènes / stream OBS WebSocket (catalogue · Premium · stub OK)',
+                                        storeSlug: 'obs-studio',
+                                    },
+                                    {
+                                        key: 'volume',
+                                        name: 'Volume',
+                                        desc: 'Master / pistes Windows + Wave Link (catalogue · Premium)',
+                                        storeSlug: 'volume',
+                                    },
+                                    {
+                                        key: 'valorant',
+                                        name: 'Valorant',
+                                        desc: 'Rank et dernier match (catalogue · Premium · info)',
+                                        storeSlug: 'valorant',
                                     },
                                 ].map((plugin) => {
-                                    const isPremiumPlugin = plugin.key === 'spotify' || plugin.key === 'discord' || plugin.key === 'apple_music';
+                                    const isPremiumPlugin = ['spotify', 'discord', 'apple_music', 'hue', 'twitch', 'obs', 'volume', 'valorant'].includes(plugin.key);
                                     const isInstalled = !!pluginsInstalled[plugin.key];
-                                    // Discord: intégration app IPC même sans plugin StreamDock installé
-                                    const requiresDeckPlugin = plugin.key !== 'discord';
+                                    // Discord + hub stubs (Hue/Twitch/OBS/…) : toggle Hub même sans pack StreamDock FS
+                                    const hubStubKeys = ['discord', 'hue', 'twitch', 'obs', 'volume', 'valorant'];
+                                    const requiresDeckPlugin = !hubStubKeys.includes(plugin.key);
                                     let isEnabled = pluginsState[plugin.key] ?? false;
                                     let isDisabled = requiresDeckPlugin && !isInstalled;
                                     
@@ -846,12 +897,23 @@ const SettingsTab = () => {
                                                     Plugin StreamDock via catalogue — pas de pack embarqué
                                                 </p>
                                             )}
+                                            {plugin.storeSlug && (
+                                                <a
+                                                    href={pluginStoreUrl(plugin.storeSlug)}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    className="mt-3 inline-flex items-center gap-1.5 text-[9px] text-white/35 hover:text-white/70 font-black uppercase tracking-widest transition-colors border-t border-white/5 pt-3"
+                                                >
+                                                    <ExternalLink className="w-3 h-3" />
+                                                    Store /plugins/{plugin.storeSlug}
+                                                </a>
+                                            )}
                                         </div>
                                     );
                                 })}
                             </div>
                             <p className="mt-8 text-[10px] text-white/25 uppercase font-bold tracking-widest leading-relaxed">
-                                Crimsons ne livre aucun plugin. Catalogue web / API : LoL, Spotify, Discord, Hue, Twitch… (catégories StreamDock, jeu, utilitaire, médias, etc.).
+                                Crimsons ne livre aucun plugin. Catalogue web / API : LoL, Spotify, Discord, Hue, Twitch, OBS, Volume, Valorant… (catégories StreamDock, jeu, utilitaire, médias, etc.).
                             </p>
                         </section>
                     </div>

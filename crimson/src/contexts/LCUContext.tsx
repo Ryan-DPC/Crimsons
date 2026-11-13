@@ -78,6 +78,96 @@ interface LCUContextType {
         error?: string | null;
     } | null;
     discordConnected: boolean;
+
+    // Philips Hue State
+    hueState: {
+        connected: boolean;
+        mock: boolean;
+        bridge_ip?: string | null;
+        groups: Array<{
+            id: string;
+            name: string;
+            kind: string;
+            on: boolean;
+            bri: number;
+            ct?: number | null;
+        }>;
+        scenes: Array<{
+            id: string;
+            name: string;
+            group?: string | null;
+        }>;
+        selected_group_index: number;
+        selected_scene_index: number;
+        error?: string | null;
+    } | null;
+
+    // Twitch State
+    twitchState: {
+        connected: boolean;
+        mock: boolean;
+        live: boolean;
+        viewers: number;
+        username?: string | null;
+        title?: string | null;
+        game_name?: string | null;
+        last_clip_id?: string | null;
+        last_marker_id?: string | null;
+        follower_goal_current?: number;
+        follower_goal_target?: number;
+        alerts_muted?: boolean;
+        error?: string | null;
+    } | null;
+
+    // OBS Studio State (sidecar stub / WebSocket)
+    obsState: {
+        connected: boolean;
+        mock: boolean;
+        current_scene?: string | null;
+        scenes?: string[];
+        streaming?: boolean;
+        recording?: boolean;
+        error?: string | null;
+    } | null;
+
+    // Volume / Wave Link State
+    volumeState: {
+        connected: boolean;
+        mock: boolean;
+        master_level: number;
+        master_muted: boolean;
+        tracks: Array<{
+            id: string;
+            name: string;
+            source: string;
+            level: number;
+            muted: boolean;
+        }>;
+        selected_track_index: number;
+        wavelink?: {
+            available: boolean;
+            connected: boolean;
+            status?: string;
+        };
+        error?: string | null;
+    } | null;
+
+    // Valorant State
+    valorantState: {
+        connected: boolean;
+        mock: boolean;
+        rank: { tier: string; rr: number; episode?: string };
+        matches: Array<{
+            match_id: string;
+            won: boolean;
+            kills: number;
+            deaths: number;
+            assists: number;
+            agent: string;
+        }>;
+        match_index: number;
+        error?: string | null;
+    } | null;
     
     // Connection Status
     serverConnected: boolean;
@@ -100,6 +190,11 @@ interface LCUContextType {
     loginSpotify: (clientId: string, clientSecret: string) => Promise<void>;
     spotifyCommand: (endpoint: string) => void;
     discordCommand: (endpoint: string, params?: any) => void;
+    hueCommand: (endpoint: string, params?: any) => void;
+    twitchCommand: (endpoint: string, params?: any) => void;
+    obsCommand: (endpoint: string, params?: any) => void;
+    volumeCommand: (endpoint: string, params?: any) => void;
+    valorantCommand: (endpoint: string, params?: any) => void;
     togglePlugin: (plugin: string, enabled: boolean) => Promise<void>;
     resyncAuthSession: () => void;
     seasonStats: { wins: number, losses: number } | null;
@@ -156,6 +251,11 @@ export const LCUProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [appleMusicState, setAppleMusicState] = useState<any>(null);
     const [discordConnected, setDiscordConnected] = useState(false);
     const [discordState, setDiscordState] = useState<any>(null);
+    const [hueState, setHueState] = useState<any>(null);
+    const [twitchState, setTwitchState] = useState<any>(null);
+    const [obsState, setObsState] = useState<any>(null);
+    const [volumeState, setVolumeState] = useState<any>(null);
+    const [valorantState, setValorantState] = useState<any>(null);
     const buildsRef = useRef<(RuneBuild | null)[]>([]);
 
     const scannedLobbyId = useRef<string>('');
@@ -717,12 +817,27 @@ export const LCUProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 if (typeof msg.discord_enabled === 'boolean') plugins.discord = msg.discord_enabled;
                 if (typeof msg.lol_enabled === 'boolean') plugins.leagueOfLegends = msg.lol_enabled;
                 if (typeof msg.apple_music_enabled === 'boolean') plugins.apple_music = msg.apple_music_enabled;
+                if (typeof msg.hue_enabled === 'boolean') plugins.hue = msg.hue_enabled;
+                if (typeof msg.twitch_enabled === 'boolean') plugins.twitch = msg.twitch_enabled;
+                if (typeof msg.obs_enabled === 'boolean') plugins.obs = msg.obs_enabled;
+                if (typeof msg.volume_enabled === 'boolean') plugins.volume = msg.volume_enabled;
+                if (typeof msg.valorant_enabled === 'boolean') plugins.valorant = msg.valorant_enabled;
                 next.plugins = plugins;
                 return next;
             });
         } else if (msg.type === 'DISCORD_STATE') {
             setDiscordState(msg.data);
             setDiscordConnected(msg.data?.connected || false);
+        } else if (msg.type === 'HUE_STATE') {
+            setHueState(msg.data || null);
+        } else if (msg.type === 'TWITCH_STATE') {
+            setTwitchState(msg.data || null);
+        } else if (msg.type === 'OBS_STATE') {
+            setObsState(msg.data || null);
+        } else if (msg.type === 'VOLUME_STATE') {
+            setVolumeState(msg.data || null);
+        } else if (msg.type === 'VALORANT_STATE') {
+            setValorantState(msg.data || null);
         } else if (msg.type === 'AUTO_ACCEPT_STATE') {
             // Sidecar already mutated disk — refresh UI only (do not re-toggle).
             const d = await invoke<any>('get_app_data');
@@ -1156,6 +1271,61 @@ export const LCUProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
     };
 
+    const hueCommand = (endpoint: string, params?: any) => {
+        const ws = socketsRef.current[40510];
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({
+                type: 'HUE_COMMAND',
+                endpoint,
+                payload: params || {},
+            }));
+        }
+    };
+
+    const twitchCommand = (endpoint: string, params?: any) => {
+        const ws = socketsRef.current[40510];
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({
+                type: 'TWITCH_COMMAND',
+                endpoint,
+                payload: params || {},
+            }));
+        }
+    };
+
+    const obsCommand = (endpoint: string, params?: any) => {
+        const ws = socketsRef.current[40510];
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({
+                type: 'OBS_COMMAND',
+                endpoint,
+                payload: params || {},
+            }));
+        }
+    };
+
+    const volumeCommand = (endpoint: string, params?: any) => {
+        const ws = socketsRef.current[40510];
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({
+                type: 'VOLUME_COMMAND',
+                endpoint,
+                payload: params || {},
+            }));
+        }
+    };
+
+    const valorantCommand = (endpoint: string, params?: any) => {
+        const ws = socketsRef.current[40510];
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({
+                type: 'VALORANT_COMMAND',
+                endpoint,
+                payload: params || {},
+            }));
+        }
+    };
+
     const togglePlugin = async (plugin: string, enabled: boolean) => {
         // Canonical storage/WS key for Apple Music is apple_music (legacy UI used appleMusic).
         const canonical = plugin === 'appleMusic' ? 'apple_music' : plugin;
@@ -1194,10 +1364,20 @@ export const LCUProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             appleMusicState, appleMusicConnected, appleMusicCommand,
             spotifyConnected, spotifyState,
             discordConnected, discordState,
+            hueState,
+            twitchState,
+            obsState,
+            volumeState,
+            valorantState,
             setTab, toggleSimMode, simMode, tab, toggleAutoBan, toggleAutoPick, updateGeminiKey, updateSetting, doImport, handleSecondaryClick, handleShardClick,
             loginSpotify,
             spotifyCommand,
             discordCommand,
+            hueCommand,
+            twitchCommand,
+            obsCommand,
+            volumeCommand,
+            valorantCommand,
             togglePlugin,
             resyncAuthSession,
             seasonStats,
