@@ -7,6 +7,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const PORT = parseInt(process.env.PORT || '3000', 10);
+/** Default loopback only; set BIND_ADDRESS=0.0.0.0 to expose (e.g. container). */
+const BIND_ADDRESS = process.env.BIND_ADDRESS || '127.0.0.1';
 const DIST_DIR = path.resolve(process.cwd(), 'dist');
 const CATALOG_CANDIDATES = [
   path.resolve(process.cwd(), 'data/catalog.json'),
@@ -195,6 +197,6 @@ const server = http.createServer((req, res) => {
   }
 });
 
-server.listen(PORT, '0.0.0.0', () => {
-  console.log(`Crimsons Store running on http://0.0.0.0:${PORT}`);
+server.listen(PORT, BIND_ADDRESS, () => {
+  console.log(`Crimsons Store running on http://${BIND_ADDRESS}:${PORT}`);
 });

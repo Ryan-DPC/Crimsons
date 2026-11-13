@@ -21,6 +21,11 @@ Deno.serve(async (req) => {
   }
 
   const cfg = loadPaymentsConfig(Deno.env)
+  // Aligné checkout/portal : aucune mutation si paiements désactivés.
+  if (!cfg.paymentsEnabled) {
+    return textResponse('Paiements désactivés (PAYMENTS_DISABLED)', 503)
+  }
+
   const webhookSecret = Deno.env.get('STRIPE_WEBHOOK_SECRET') ?? ''
   if (!cfg.stripeSecretKey || !webhookSecret) {
     return textResponse('Stripe webhook non configuré', 500)
@@ -58,13 +63,22 @@ Deno.serve(async (req) => {
 
   const admin = createServiceClient()
 
-  // Idempotence
-  const { data: seen } = await admin
+  // Idempotence : claim atomique (INSERT ON CONFLICT DO NOTHING) avant tout traitement.
+  // Traiter seulement si l'insert a créé la ligne (évite double application en course).
+  const { data: claimed, error: claimErr } = await admin
     .from('stripe_webhook_events')
+    .upsert(
+      { event_id: event.id, event_type: event.type },
+      { onConflict: 'event_id', ignoreDuplicates: true },
+    )
     .select('event_id')
-    .eq('event_id', event.id)
     .maybeSingle()
-  if (seen) {
+
+  if (claimErr) {
+    console.error('[stripe-webhook] claim', claimErr.message)
+    return textResponse('Webhook handler error', 500)
+  }
+  if (!claimed) {
     return jsonResponse({ ok: true, duplicate: true })
   }
 
@@ -91,15 +105,12 @@ Deno.serve(async (req) => {
         console.log(`[stripe-webhook] ignore ${event.type}`)
     }
 
-    await admin.from('stripe_webhook_events').insert({
-      event_id: event.id,
-      event_type: event.type,
-    })
-
     return jsonResponse({ ok: true })
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     console.error('[stripe-webhook] handler', message)
+    // Libérer le claim pour laisser Stripe retenter après échec de traitement.
+    await admin.from('stripe_webhook_events').delete().eq('event_id', event.id)
     // Do not echo internal DB/Stripe details to the webhook caller.
     return textResponse('Webhook handler error', 500)
   }
