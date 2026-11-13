@@ -357,30 +357,61 @@ async fn accept_loop(
     }
 }
 
-/// Vrai si l'origine designe la machine locale. Couvre la webview Tauri, qui
-/// se presente sous http://tauri.localhost sur Windows, et les plugins
-/// StreamDock, charges depuis des fichiers locaux.
-/// Strip bearer / refresh tokens from WS payloads before they hit the log file.
-fn redact_ws_payload_for_log(value: &serde_json::Value) -> String {
-    const SENSITIVE: &[&str] = &[
-        "access_token",
-        "refresh_token",
-        "token",
-        "client_secret",
-        "authorization",
-        "password",
-    ];
-    let mut cloned = value.clone();
-    if let Some(obj) = cloned.as_object_mut() {
-        for key in SENSITIVE {
-            if let Some(v) = obj.get_mut(*key) {
-                if v.as_str().map(|s| !s.is_empty()).unwrap_or(false) {
-                    *v = serde_json::Value::String("***".to_string());
+/// Cap inbound WS text frames so a local client cannot flood the sidecar
+/// with multi-megabyte JSON (settings dumps, base64 images, etc.).
+const MAX_WS_TEXT_BYTES: usize = 256 * 1024;
+
+const WS_SENSITIVE_KEYS: &[&str] = &[
+    "access_token",
+    "refresh_token",
+    "token",
+    "client_secret",
+    "client_id",
+    "authorization",
+    "password",
+    "apikey",
+    "api_key",
+    "secret",
+];
+
+/// Plugins that TOGGLE_PLUGIN may enable/disable. Unknown names are ignored.
+const TOGGLEABLE_PLUGINS: &[&str] = &["spotify", "discord", "leagueOfLegends", "hue", "twitch"];
+
+/// Strip bearer / refresh tokens (including nested payload fields) before logs.
+fn redact_value_in_place(value: &mut serde_json::Value) {
+    match value {
+        serde_json::Value::Object(map) => {
+            for (k, v) in map.iter_mut() {
+                let key_l = k.to_ascii_lowercase();
+                let sensitive = WS_SENSITIVE_KEYS.iter().any(|s| {
+                    key_l == *s || key_l.ends_with(s) || key_l.contains(&format!("_{s}"))
+                });
+                if sensitive {
+                    if v.as_str().map(|s| !s.is_empty()).unwrap_or(true) {
+                        *v = serde_json::Value::String("***".to_string());
+                    }
+                } else {
+                    redact_value_in_place(v);
                 }
             }
         }
+        serde_json::Value::Array(items) => {
+            for item in items {
+                redact_value_in_place(item);
+            }
+        }
+        _ => {}
     }
+}
+
+fn redact_ws_payload_for_log(value: &serde_json::Value) -> String {
+    let mut cloned = value.clone();
+    redact_value_in_place(&mut cloned);
     cloned.to_string()
+}
+
+fn is_valid_streamdock_port(port: u64) -> bool {
+    (1..=65535).contains(&port)
 }
 
 fn is_local_origin(origin: &str) -> bool {
@@ -431,7 +462,10 @@ fn is_remote_web_origin(origin: &str) -> bool {
 
 #[cfg(test)]
 mod origin_tests {
-    use super::{is_local_origin, is_remote_web_origin, redact_ws_payload_for_log, reject_remote_web};
+    use super::{
+        is_local_origin, is_remote_web_origin, is_valid_streamdock_port, redact_ws_payload_for_log,
+        reject_remote_web, TOGGLEABLE_PLUGINS,
+    };
     use serde_json::json;
 
     #[test]
@@ -447,6 +481,31 @@ mod origin_tests {
         assert!(!redacted.contains("super-secret"));
         assert!(!redacted.contains("also-secret"));
         assert!(redacted.contains("spotify"));
+    }
+
+    #[test]
+    fn redact_ws_payload_masque_les_jetons_imbriques() {
+        let raw = json!({
+            "type": "SPOTIFY_AUTH",
+            "payload": {
+                "client_secret": "nested-secret",
+                "settings": { "password": "pw-secret" }
+            }
+        });
+        let redacted = redact_ws_payload_for_log(&raw);
+        assert!(!redacted.contains("nested-secret"));
+        assert!(!redacted.contains("pw-secret"));
+        assert!(redacted.contains("***"));
+    }
+
+    #[test]
+    fn streamdock_port_et_plugins_allowlist() {
+        assert!(is_valid_streamdock_port(1));
+        assert!(is_valid_streamdock_port(65535));
+        assert!(!is_valid_streamdock_port(0));
+        assert!(!is_valid_streamdock_port(70000));
+        assert!(TOGGLEABLE_PLUGINS.contains(&"spotify"));
+        assert!(!TOGGLEABLE_PLUGINS.contains(&"unknown"));
     }
 
     #[test]
@@ -712,6 +771,14 @@ async fn handle_connection(
                         Some(Ok(msg)) => {
                             if let Ok(text) = msg.into_text() {
                                 if text.trim().is_empty() { continue; }
+                                if text.len() > MAX_WS_TEXT_BYTES {
+                                    tracing::warn!(
+                                        "[WS] Frame ignored: {} bytes exceeds limit {}",
+                                        text.len(),
+                                        MAX_WS_TEXT_BYTES
+                                    );
+                                    continue;
+                                }
                                 // Parse Command and Dispatch
                                 if let Ok(value) = serde_json::from_str::<serde_json::Value>(&text) {
                                     // 1. Log incoming command for diagnostics
@@ -724,7 +791,12 @@ async fn handle_connection(
                                             .as_object()
                                             .or_else(|| value["payload"].as_object())
                                         {
-                                            tracing::info!("[DEBUG SETTINGS] Received for context {}: {:?}", ctx, settings);
+                                            // Never dump raw settings (may contain tokens / secrets).
+                                            tracing::info!(
+                                                "[DEBUG SETTINGS] Received for context {} ({} keys)",
+                                                ctx,
+                                                settings.len()
+                                            );
                                             
                                             // 1. Persist settings in-memory
                                             for bridge in crate::streamdock::ACTIVE_BRIDGES.iter_mut() {
@@ -796,6 +868,10 @@ async fn handle_connection(
 
                                     if value["type"] == "TOGGLE_PLUGIN" {
                                         if let (Some(plugin), Some(enabled)) = (value["plugin"].as_str(), value["enabled"].as_bool()) {
+                                            if !TOGGLEABLE_PLUGINS.contains(&plugin) {
+                                                tracing::warn!("[AUTH] Ignored TOGGLE_PLUGIN for unknown plugin {}", plugin);
+                                                continue;
+                                            }
                                             // Sans ce controle, n'importe quel client WebSocket
                                             // local activait un service premium d'un seul message.
                                             // Hue / Twitch APIs are not implemented — never enable them.
@@ -1108,7 +1184,8 @@ async fn handle_connection(
 
                                     if value["type"] == "REGISTER_STREAMDOCK_BRIDGE" {
                                         let port_id = value["port"].as_u64()
-                                            .or_else(|| value["port"].as_str().and_then(|s| s.parse::<u64>().ok()));
+                                            .or_else(|| value["port"].as_str().and_then(|s| s.parse::<u64>().ok()))
+                                            .filter(|&p| is_valid_streamdock_port(p));
 
                                         if let (Some(_p), Some(u)) = (port_id, value["uuid"].as_str()) {
                                             tracing::info!("");
@@ -1284,7 +1361,8 @@ async fn handle_connection(
 
                                     if value["type"] == "REGISTER_STREAMDOCK" {
                                         let port_opt = value["port"].as_u64()
-                                            .or_else(|| value["port"].as_str().and_then(|s| s.parse::<u64>().ok()));
+                                            .or_else(|| value["port"].as_str().and_then(|s| s.parse::<u64>().ok()))
+                                            .filter(|&p| is_valid_streamdock_port(p));
 
                                         if let (Some(p), Some(u), Some(r)) = (port_opt, value["uuid"].as_str(), value["register_event"].as_str()) {
                                             tracing::info!("[SD HANDOVER] Port: {} UUID: {} Event: {}", p, u, r);
@@ -1517,13 +1595,11 @@ async fn handle_connection(
                                         let _ = ws_stream.send(tokio_tungstenite::tungstenite::Message::Text(response_json.to_string().into())).await;
                                     }
                                 } else {
-                                    // Fallback: Log unknown JSON structure
-                                    let log_path = crate::storage::get_data_dir().join("streamdock.log");
-                                    if let Ok(mut log_file) = std::fs::OpenOptions::new().create(true).append(true).open(log_path) {
-                                        use std::io::Write;
-                                        let _ = writeln!(log_file, "[PRIMARY WS UNKNOWN] Payload: {}", text);
-                                    }
-                                    tracing::info!("");
+                                    // Fallback: never write raw unknown frames (may contain secrets).
+                                    tracing::info!(
+                                        "[PRIMARY WS UNKNOWN] non-JSON or unexpected frame ({} bytes)",
+                                        text.len()
+                                    );
                                 }
                             }
                         }

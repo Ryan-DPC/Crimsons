@@ -1,0 +1,19 @@
+services:
+  crimson-store:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: crimson-store
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5174:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+    networks:
+      - hoopslive-net
+
+networks:
+  hoopslive-net:
+    external: true
+    name: hoopslive-slim_hoopslive-slim

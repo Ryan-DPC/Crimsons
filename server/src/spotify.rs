@@ -45,6 +45,44 @@ fn parse_smart_shuffle(json: &serde_json::Value) -> bool {
     false
 }
 
+/// Explicit command surface for WS / StreamDock — refuse anything else before URL build.
+fn is_allowed_spotify_endpoint(endpoint: &str) -> bool {
+    matches!(
+        endpoint,
+        "play"
+            | "playuri"
+            | "pause"
+            | "next"
+            | "previous"
+            | "playpause"
+            | "volumeup"
+            | "volumedown"
+            | "volumecontrol"
+            | "volumeset"
+            | "mute"
+            | "skip"
+            | "shuffle"
+            | "repeat"
+            | "add-to-playlist"
+            | "likesong"
+            | "like"
+            | "unlike"
+            | "switch-device"
+            | "changedevice"
+            | "transfer-to-crimson"
+            | "playlist"
+    )
+}
+
+/// Spotify playlist/track/device ids are opaque alphanumeric (plus `-` / `_`).
+fn is_safe_spotify_id(id: &str) -> bool {
+    !id.is_empty()
+        && id.len() <= 128
+        && id
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+}
+
 pub struct SpotifyClient {
     pub access_token: Option<String>,
     pub refresh_token: Option<String>,
@@ -972,6 +1010,11 @@ impl SpotifyService {
     }
 
     async fn handle_command_once(&self, endpoint: &str, params: Option<serde_json::Value>) -> Result<(bool, u16), Box<dyn std::error::Error>> {
+        // Allowlist first — never interpolate an untrusted endpoint into a URL.
+        if !is_allowed_spotify_endpoint(endpoint) {
+            return Err("Invalid endpoint".into());
+        }
+
         let token = match self.ensure_valid_token().await {
             Some(t) => t,
             None => return Err("No token".into()),
@@ -1046,7 +1089,13 @@ impl SpotifyService {
                     *time = std::time::Instant::now();
                 }
                 
-                crate::storage::log_to_file("spotify.log", &format!("Volume CMD: {} ({} -> {}) Step: {} (Params: {:?})", endpoint, current_vol, new_vol, step, params));
+                crate::storage::log_to_file(
+                    "spotify.log",
+                    &format!(
+                        "Volume CMD: {} ({} -> {}) Step: {}",
+                        endpoint, current_vol, new_vol, step
+                    ),
+                );
                 url = format!("https://api.spotify.com/v1/me/player/volume?volume_percent={}", new_vol);
                 "PUT"
             },
@@ -1055,7 +1104,7 @@ impl SpotifyService {
                     p["volume"].as_u64()
                     .or_else(|| p["payload"]["volume"].as_u64())
                     .or_else(|| p["payload"]["settings"]["volume"].as_u64())
-                ).unwrap_or(50) as u32;
+                ).unwrap_or(50).min(100) as u32;
                 self.cached_volume.store(target_vol, std::sync::atomic::Ordering::Relaxed);
                 
                 if let Ok(mut time) = self.last_volume_change.lock() {
@@ -1173,8 +1222,26 @@ impl SpotifyService {
             },
             "add-to-playlist" => {
                 // This is a special case, uses /v1/playlists/{playlist_id}/tracks
-                if let (Some(pid), Some(uri)) = (params.as_ref().and_then(|p| p["payload"]["playlist_id"].as_str()), params.as_ref().and_then(|p| p["payload"]["track_uri"].as_str())) {
-                    url = format!("https://api.spotify.com/v1/playlists/{}/tracks?uris={}", pid, uri);
+                if let (Some(pid), Some(uri)) = (
+                    params.as_ref().and_then(|p| p["payload"]["playlist_id"].as_str()),
+                    params.as_ref().and_then(|p| p["payload"]["track_uri"].as_str()),
+                ) {
+                    if !is_safe_spotify_id(pid) {
+                        return Err("Invalid playlist_id".into());
+                    }
+                    // Expect spotify:track:<id> or a bare track id.
+                    let track_id = uri
+                        .strip_prefix("spotify:track:")
+                        .unwrap_or(uri);
+                    if !is_safe_spotify_id(track_id) {
+                        return Err("Invalid track_uri".into());
+                    }
+                    let safe_uri = format!("spotify:track:{}", track_id);
+                    url = format!(
+                        "https://api.spotify.com/v1/playlists/{}/tracks?uris={}",
+                        pid,
+                        urlencoding::encode(&safe_uri)
+                    );
                 }
                 "POST"
             },
@@ -1202,6 +1269,9 @@ impl SpotifyService {
                  }
 
                  if let Some(track_id) = id {
+                    if !is_safe_spotify_id(&track_id) {
+                        return Err("Invalid track_id".into());
+                    }
                     url = format!("https://api.spotify.com/v1/me/tracks?ids={}", track_id);
                  } else {
                     return Err("No active track to like/unlike".into());
@@ -1285,10 +1355,13 @@ impl SpotifyService {
         let device_id = params.as_ref().and_then(|p| p["payload"]["settings"]["device_id"].as_str());
         if let Some(dev) = device_id {
             if !dev.is_empty() {
+                if !is_safe_spotify_id(dev) {
+                    return Err("Invalid device_id".into());
+                }
                 if url.contains('?') {
-                    url.push_str(&format!("&device_id={}", dev));
+                    url.push_str(&format!("&device_id={}", urlencoding::encode(dev)));
                 } else {
-                    url.push_str(&format!("?device_id={}", dev));
+                    url.push_str(&format!("?device_id={}", urlencoding::encode(dev)));
                 }
             }
         }
@@ -1567,6 +1640,29 @@ impl SpotifyService {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod endpoint_hardening_tests {
+    use super::{is_allowed_spotify_endpoint, is_safe_spotify_id};
+
+    #[test]
+    fn allowlist_refuse_path_injection() {
+        assert!(is_allowed_spotify_endpoint("play"));
+        assert!(is_allowed_spotify_endpoint("playlist"));
+        assert!(!is_allowed_spotify_endpoint("play/../../admin"));
+        assert!(!is_allowed_spotify_endpoint(""));
+        assert!(!is_allowed_spotify_endpoint("transfer"));
+    }
+
+    #[test]
+    fn spotify_ids_refuse_separators() {
+        assert!(is_safe_spotify_id("3n3Ppam7vgaVa1iaRUc9Lp"));
+        assert!(!is_safe_spotify_id("../etc/passwd"));
+        assert!(!is_safe_spotify_id("a/b"));
+        assert!(!is_safe_spotify_id(""));
+        assert!(!is_safe_spotify_id(&"x".repeat(200)));
     }
 }
 

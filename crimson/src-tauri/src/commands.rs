@@ -8,8 +8,25 @@ pub async fn crimson_quit_app(app: tauri::AppHandle) {
   app.exit(0);
 }
 
+/// Reject path traversal / separators in plugin folder names before joining under APPDATA.
+fn is_safe_plugin_id(plugin_id: &str) -> bool {
+    let id = plugin_id.trim();
+    if id.is_empty() || id.len() > 128 {
+        return false;
+    }
+    // StreamDeck / StreamDock ids look like `com.vendor.product` — no separators, no `..`.
+    if id.contains("..") || id.contains('/') || id.contains('\\') || id.contains('\0') {
+        return false;
+    }
+    id.chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-' || c == '_')
+}
+
 #[tauri::command]
 pub fn check_plugin_presence(plugin_id: String) -> bool {
+    if !is_safe_plugin_id(&plugin_id) {
+        return false;
+    }
     if let Ok(appdata) = std::env::var("APPDATA") {
         let elgato_path = std::path::Path::new(&appdata)
             .join("Elgato")
@@ -27,6 +44,27 @@ pub fn check_plugin_presence(plugin_id: String) -> bool {
                (streamdock_path.exists() && streamdock_path.is_dir());
     }
     false
+}
+
+#[cfg(test)]
+mod plugin_id_tests {
+    use super::is_safe_plugin_id;
+
+    #[test]
+    fn accepts_normal_plugin_ids() {
+        assert!(is_safe_plugin_id("com.laoy.streamdock.spotify"));
+        assert!(is_safe_plugin_id("com.elgato.example-plugin"));
+    }
+
+    #[test]
+    fn rejects_path_traversal() {
+        assert!(!is_safe_plugin_id("../AppData"));
+        assert!(!is_safe_plugin_id("..\\Windows"));
+        assert!(!is_safe_plugin_id("com/laoy/evil"));
+        assert!(!is_safe_plugin_id("a\\b"));
+        assert!(!is_safe_plugin_id(""));
+        assert!(!is_safe_plugin_id(&"x".repeat(200)));
+    }
 }
 
 
