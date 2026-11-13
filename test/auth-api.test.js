@@ -15,7 +15,8 @@ describe('hoopslive obs HTTP auth + API', () => {
 
   before(async () => {
     process.env.HOOPSLIVE_OBS_TOKEN = TOKEN;
-    process.env.HOOPSLIVE_OBS_PUBLIC_PATH_SECRET = SECRET;
+    process.env.OBS_PATH_SECRET = SECRET;
+    delete process.env.HOOPSLIVE_OBS_PUBLIC_PATH_SECRET;
     process.env.HOOPSLIVE_OBS_CORS_ORIGIN = 'https://example.test';
     delete process.env.HOOPSLIVE_OBS_IP_ALLOWLIST;
 

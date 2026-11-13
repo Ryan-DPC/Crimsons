@@ -12,7 +12,8 @@ Compte à rebours **source de vérité serveur** (process Node du store), consom
 | Variable | Requis | Description |
 | --- | --- | --- |
 | `HOOPSLIVE_OBS_TOKEN` | **oui** | Secret API (Bearer / `X-HoopsLive-Token`). **Ne jamais committer.** |
-| `HOOPSLIVE_OBS_PUBLIC_PATH_SECRET` | **oui** (overlays) | Segment d’URL après `/hl-obs/`. 404 si faux. |
+| `OBS_PATH_SECRET` | **oui** (overlays) | Segment d’URL après `/hl-obs/`. 404 si faux. **Nom primaire.** |
+| `HOOPSLIVE_OBS_PUBLIC_PATH_SECRET` | alias | Fallback si `OBS_PATH_SECRET` est vide. |
 | `HOOPSLIVE_OBS_PUBLIC_BASE` | recommandé | Origine publique HTTPS **sans** slash final, ex. `https://store.hoopslive.ch` ou `https://hoopslive.ch`. **Ne pas hardcoder** un domaine inventé. |
 | `HOOPSLIVE_OBS_CORS_ORIGIN` | optionnel | Origine CORS restreinte (sinon pas d’en-tête CORS). |
 | `HOOPSLIVE_OBS_IP_ALLOWLIST` | optionnel | CSV d’IP clientes autorisées. |
@@ -55,7 +56,7 @@ GET /hl-obs/<PUBLIC_PATH_SECRET>/auth?k=<TOKEN>&next=scenes/start.html
 
 ## Overlays OBS (Browser Source)
 
-Base : `$HOOPSLIVE_OBS_PUBLIC_BASE/hl-obs/$HOOPSLIVE_OBS_PUBLIC_PATH_SECRET/`
+Base : `$HOOPSLIVE_OBS_PUBLIC_BASE/hl-obs/$OBS_PATH_SECRET/`
 
 | Scène | URL relative |
 | --- | --- |
@@ -80,7 +81,8 @@ Packs visuels HoopsLive pourront remplacer les HTML plus tard sans changer l’A
 
 ```bash
 export HOOPSLIVE_OBS_TOKEN=dev-token
-export HOOPSLIVE_OBS_PUBLIC_PATH_SECRET=dev-secret
+export OBS_PATH_SECRET=dev-secret
+# ou alias : export HOOPSLIVE_OBS_PUBLIC_PATH_SECRET=dev-secret
 export HOOPSLIVE_OBS_PUBLIC_BASE=http://127.0.0.1:3000
 # optionnel
 export HOOPSLIVE_OBS_CORS_ORIGIN=http://127.0.0.1:3000
