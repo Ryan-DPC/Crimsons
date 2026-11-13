@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "updatedAt": "2026-11-13",
+  "categories": [
+    {
+      "id": "streamdeck",
+      "label": "StreamDock",
+      "description": "Pack installable dans Stream Dock / StreamDeck (boutons physiques)."
+    },
+    {
+      "id": "game",
+      "label": "Jeu",
+      "description": "Automatisation et infos liées à un jeu (LCU, Riot cloud, live)."
+    },
+    {
+      "id": "utility",
+      "label": "Utilitaire",
+      "description": "Outils transverses hors jeu."
+    },
+    {
+      "id": "media",
+      "label": "Médias",
+      "description": "Lecture audio / vidéo et contrôles associés."
+    },
+    {
+      "id": "communication",
+      "label": "Communication",
+      "description": "Voix, chat, présence (Discord, etc.)."
+    }
+  ],
+  "plugins": [
+    {
+      "id": "valorant",
+      "slug": "valorant",
+      "name": "Valorant",
+      "summary": "Rang et dernières parties Valorant (info-only) sur StreamDock.",
+      "description": "Plugin StreamDock info-only : tier + RR, historique de matchs (W/L, KDA, agent) via l’API cloud Riot et le sidecar Crimsons. Aucun contrôle client / Vanguard. Premium ou future licence solo.",
+      "packageId": "com.laoy.streamdock.valorant.sdPlugin",
+      "packagePath": "com.laoy.streamdock.valorant.sdPlugin",
+      "version": "0.1.0",
+      "status": "coming_soon",
+      "pricing": "5.99 CHF/mois",
+      "categories": [
+        "streamdeck",
+        "game"
+      ],
+      "surfaces": [
+        "streamdock",
+        "crimsons-hub"
+      ],
+      "requiresPremium": true,
+      "requiresCrimsons": true,
+      "icon": null,
+      "targetApp": "Crimsons & StreamDock",
+      "hardware": {
+        "streamdock": true,
+        "elgato": false
+      }
+    }
+  ]
+}

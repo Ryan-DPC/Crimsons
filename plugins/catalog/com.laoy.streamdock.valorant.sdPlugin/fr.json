@@ -1,0 +1,28 @@
+{
+  "Description": "Valorant info-only (rang, dernière partie) via Crimsons — aucun contrôle client.",
+  "Name": "Valorant (Info)",
+  "com.laoy.streamdock.valorant.rank": {
+    "Name": "Rang",
+    "Tooltip": "Palier compétitif + RR"
+  },
+  "com.laoy.streamdock.valorant.lastmatch": {
+    "Name": "Dernière partie",
+    "Tooltip": "V/D · KDA · agent"
+  },
+  "com.laoy.streamdock.valorant.match_prev": {
+    "Name": "Partie préc.",
+    "Tooltip": "Partie précédente dans l’historique"
+  },
+  "com.laoy.streamdock.valorant.match_next": {
+    "Name": "Partie suiv.",
+    "Tooltip": "Partie suivante dans l’historique"
+  },
+  "com.laoy.streamdock.valorant.refresh": {
+    "Name": "Actualiser",
+    "Tooltip": "Rafraîchir via le sidecar Crimsons"
+  },
+  "com.laoy.streamdock.valorant.openhub": {
+    "Name": "Ouvrir Hub / Store",
+    "Tooltip": "Ouvrir la page store /plugins/valorant"
+  }
+}

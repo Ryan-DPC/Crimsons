@@ -1,0 +1,28 @@
+{
+  "Description": "Valorant info-only (rank, last match) via Crimsons — no client control.",
+  "Name": "Valorant (Info)",
+  "com.laoy.streamdock.valorant.rank": {
+    "Name": "Rank",
+    "Tooltip": "Competitive tier + RR"
+  },
+  "com.laoy.streamdock.valorant.lastmatch": {
+    "Name": "Last Match",
+    "Tooltip": "W/L · KDA · agent"
+  },
+  "com.laoy.streamdock.valorant.match_prev": {
+    "Name": "Match Prev",
+    "Tooltip": "Previous match in history"
+  },
+  "com.laoy.streamdock.valorant.match_next": {
+    "Name": "Match Next",
+    "Tooltip": "Next match in history"
+  },
+  "com.laoy.streamdock.valorant.refresh": {
+    "Name": "Refresh",
+    "Tooltip": "Refresh from Crimsons sidecar"
+  },
+  "com.laoy.streamdock.valorant.openhub": {
+    "Name": "Open Hub / Store",
+    "Tooltip": "Open store page /plugins/valorant"
+  }
+}

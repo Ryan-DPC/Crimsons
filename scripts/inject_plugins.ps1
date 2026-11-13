@@ -9,6 +9,7 @@ $ScriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyI
 $ProjectRoot = (Resolve-Path (Join-Path $ScriptDir "..")).Path
 $pluginSource = Join-Path $ProjectRoot "plugins\streamdeck"
 $optionalSource = Join-Path $pluginSource "optional"
+$catalogSource = Join-Path $ProjectRoot "plugins\catalog"
 $pluginDest = "$env:APPDATA\HotSpot\StreamDock\plugins"
 
 # Plugins livrés / injectés par défaut
@@ -34,6 +35,9 @@ foreach ($plugin in $plugins) {
     if (-not (Test-Path $src)) {
         $src = Join-Path $optionalSource $plugin
     }
+    if (-not (Test-Path $src)) {
+        $src = Join-Path $catalogSource $plugin
+    }
     $dst = Join-Path $pluginDest $plugin
 
     if (Test-Path $src) {
@@ -43,11 +47,13 @@ foreach ($plugin in $plugins) {
         }
         Copy-Item -Recurse -Force $src $dst
     } else {
-        Write-Host "Warning: Source $plugin not found in $pluginSource or optional/" -ForegroundColor Yellow
+        Write-Host "Warning: Source $plugin not found in streamdeck/, optional/, or catalog/" -ForegroundColor Yellow
     }
 }
 
 Write-Host "Plugin injection complete!" -ForegroundColor Cyan
 Write-Host "Tip: .\scripts\inject_plugins.ps1 -IncludeDiscord" -ForegroundColor DarkGray
+Write-Host "Tip: .\scripts\inject_plugins.ps1 -Extra com.laoy.streamdock.valorant.sdPlugin" -ForegroundColor DarkGray
 Write-Host "Hue/Twitch stubs live under plugins/streamdeck/optional/ (not shipped by default)." -ForegroundColor DarkGray
+Write-Host "Valorant lives under plugins/catalog/." -ForegroundColor DarkGray
 Write-Host "Please restart StreamDock to apply changes." -ForegroundColor Yellow

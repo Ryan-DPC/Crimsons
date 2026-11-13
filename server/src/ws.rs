@@ -10,6 +10,7 @@ use crate::spotify::SpotifyService;
 use crate::discord::DiscordService;
 use crate::hue::HueService;
 use crate::twitch::TwitchService;
+use crate::valorant::ValorantService;
 
 pub async fn start_ws_server(
     sender: WsSender, 
@@ -17,11 +18,23 @@ pub async fn start_ws_server(
     discord_service: Arc<DiscordService>, 
     hue_service: Arc<HueService>,
     twitch_service: Arc<TwitchService>,
+    valorant_service: Arc<ValorantService>,
     db: Arc<crate::db::StreamDockDB>,
     is_lol_enabled: Arc<std::sync::atomic::AtomicBool>
 ) {
     let is_auto_accept_enabled = Arc::new(std::sync::atomic::AtomicBool::new(true));
-    start_ws_server_modular(40510, sender, Some(spotify_service), Some(discord_service), Some(hue_service), Some(twitch_service), db, is_lol_enabled, is_auto_accept_enabled).await;
+    start_ws_server_modular(
+        40510,
+        sender,
+        Some(spotify_service),
+        Some(discord_service),
+        Some(hue_service),
+        Some(twitch_service),
+        Some(valorant_service),
+        db,
+        is_lol_enabled,
+        is_auto_accept_enabled,
+    ).await;
 }
 
 pub async fn start_ws_server_modular(
@@ -31,6 +44,7 @@ pub async fn start_ws_server_modular(
     discord_service: Option<Arc<DiscordService>>, 
     hue_service: Option<Arc<HueService>>,
     twitch_service: Option<Arc<TwitchService>>,
+    valorant_service: Option<Arc<ValorantService>>,
     db: Arc<crate::db::StreamDockDB>,
     is_lol_enabled: Arc<std::sync::atomic::AtomicBool>,
     is_auto_accept_enabled: Arc<std::sync::atomic::AtomicBool>
@@ -67,18 +81,19 @@ pub async fn start_ws_server_modular(
                 let di = discord_service.clone();
                 let hu = hue_service.clone();
                 let tw = twitch_service.clone();
+                let va = valorant_service.clone();
                 let db6 = db.clone();
                 let lol6 = is_lol_enabled.clone();
                 let aa6 = is_auto_accept_enabled.clone();
                 tokio::spawn(async move {
-                    accept_loop(l6, s, sp, di, hu, tw, db6, lol6, aa6).await;
+                    accept_loop(l6, s, sp, di, hu, tw, va, db6, lol6, aa6).await;
                 });
             }
 
             tracing::info!("WebSocket server listening on {}", addr);
             accept_loop(
                 listener, sender, spotify_service, discord_service, hue_service,
-                twitch_service, db, is_lol_enabled, is_auto_accept_enabled,
+                twitch_service, valorant_service, db, is_lol_enabled, is_auto_accept_enabled,
             ).await;
             tracing::error!("WebSocket listener accept loop exited!");
         },
@@ -140,6 +155,7 @@ async fn accept_loop(
     discord_service: Option<Arc<DiscordService>>,
     hue_service: Option<Arc<HueService>>,
     twitch_service: Option<Arc<TwitchService>>,
+    valorant_service: Option<Arc<ValorantService>>,
     db: Arc<crate::db::StreamDockDB>,
     is_lol_enabled: Arc<std::sync::atomic::AtomicBool>,
     is_auto_accept_enabled: Arc<std::sync::atomic::AtomicBool>,
@@ -150,6 +166,7 @@ async fn accept_loop(
         let discord_clone = discord_service.clone();
         let hue_clone = hue_service.clone();
         let twitch_clone = twitch_service.clone();
+        let valorant_clone = valorant_service.clone();
         let db_clone = db.clone();
         let is_lol_enabled_clone = is_lol_enabled.clone();
         let is_auto_accept_enabled_clone = is_auto_accept_enabled.clone();
@@ -352,7 +369,7 @@ async fn accept_loop(
                     tracing::warn!("[SPOTIFY] Callback recu sans parametre code");
                 }
             }
-            handle_connection(stream, sender_clone, spotify_clone, discord_clone, hue_clone, twitch_clone, db_clone, is_lol_enabled_clone, is_auto_accept_enabled_clone).await;
+            handle_connection(stream, sender_clone, spotify_clone, discord_clone, hue_clone, twitch_clone, valorant_clone, db_clone, is_lol_enabled_clone, is_auto_accept_enabled_clone).await;
         });
     }
 }
@@ -506,6 +523,7 @@ async fn handle_connection(
     discord: Option<Arc<DiscordService>>, 
     hue: Option<Arc<HueService>>,
     twitch: Option<Arc<TwitchService>>,
+    valorant: Option<Arc<ValorantService>>,
     db: Arc<crate::db::StreamDockDB>,
     is_lol_enabled: Arc<std::sync::atomic::AtomicBool>,
     is_auto_accept_enabled: Arc<std::sync::atomic::AtomicBool>
@@ -607,6 +625,13 @@ async fn handle_connection(
             )).await;
         }
 
+        if let Some(v) = &valorant {
+            let snap = v.snapshot().await;
+            let _ = ws_stream.send(tokio_tungstenite::tungstenite::Message::Text(
+                json!({ "type": "VALORANT_STATE", "data": snap }).to_string().into()
+            )).await;
+        }
+
         // Push plugin prefs + live entitlement so Hub matches disk/server truth.
         {
             let plugins = data.other.get("plugins").cloned().unwrap_or(json!({}));
@@ -618,6 +643,7 @@ async fn handle_connection(
                     "premium": premium,
                     "spotify_enabled": spotify.as_ref().map(|s| s.is_enabled.load(std::sync::atomic::Ordering::Relaxed)).unwrap_or(false),
                     "discord_enabled": discord.as_ref().map(|d| d.is_enabled.load(std::sync::atomic::Ordering::Relaxed)).unwrap_or(false),
+                    "valorant_enabled": valorant.as_ref().map(|v| v.is_enabled.load(std::sync::atomic::Ordering::Relaxed)).unwrap_or(false),
                     "lol_enabled": is_lol_enabled.load(std::sync::atomic::Ordering::Relaxed),
                 }).to_string().into()
             )).await;
@@ -816,7 +842,7 @@ async fn handle_connection(
                                                 continue;
                                             }
                                             if enabled
-                                                && ["spotify", "discord"].contains(&plugin)
+                                                && ["spotify", "discord", "valorant"].contains(&plugin)
                                                 && !crate::entitlement::is_premium().await
                                             {
                                                 tracing::warn!("[AUTH] Blocked TOGGLE_PLUGIN {} for free user", plugin);
@@ -852,6 +878,22 @@ async fn handle_connection(
                                                         if !enabled {
                                                             let empty_state = crate::discord::DiscordState::default();
                                                             let _ = sender.0.send(json!({ "type": "DISCORD_STATE", "data": empty_state }).to_string());
+                                                        }
+                                                    }
+                                                }
+                                                "valorant" => {
+                                                    if let Some(v) = &valorant {
+                                                        v.is_enabled.store(enabled, std::sync::atomic::Ordering::Relaxed);
+                                                        if enabled {
+                                                            let v_clone = v.clone();
+                                                            tokio::spawn(async move { v_clone.refresh().await; });
+                                                        } else {
+                                                            let idle = crate::valorant::ValorantState {
+                                                                connected: false,
+                                                                mock: true,
+                                                                ..Default::default()
+                                                            };
+                                                            let _ = sender.0.send(json!({ "type": "VALORANT_STATE", "data": idle }).to_string());
                                                         }
                                                     }
                                                 }
@@ -951,6 +993,10 @@ async fn handle_connection(
                                             let snap = s.auth_snapshot_state().await;
                                             let _ = sender.0.send(json!({ "type": "SPOTIFY_STATE", "data": snap }).to_string());
                                         }
+                                        if let Some(v) = &valorant {
+                                            let snap = v.snapshot().await;
+                                            let _ = sender.0.send(json!({ "type": "VALORANT_STATE", "data": snap }).to_string());
+                                        }
                                         let data_path = storage::get_data_path_from_env();
                                         let data = storage::load_data_from_path(data_path);
                                         let plugins = data.other.get("plugins").cloned().unwrap_or(json!({}));
@@ -961,6 +1007,7 @@ async fn handle_connection(
                                             "premium": premium,
                                             "spotify_enabled": spotify.as_ref().map(|s| s.is_enabled.load(std::sync::atomic::Ordering::Relaxed)).unwrap_or(false),
                                             "discord_enabled": discord.as_ref().map(|d| d.is_enabled.load(std::sync::atomic::Ordering::Relaxed)).unwrap_or(false),
+                                            "valorant_enabled": valorant.as_ref().map(|v| v.is_enabled.load(std::sync::atomic::Ordering::Relaxed)).unwrap_or(false),
                                             "lol_enabled": is_lol_enabled.load(std::sync::atomic::Ordering::Relaxed),
                                         }).to_string());
                                         continue;
@@ -1014,7 +1061,7 @@ async fn handle_connection(
                                     }
 
                                     let cmd_type = value["type"].as_str().unwrap_or("");
-                                    if ["SPOTIFY_COMMAND", "DISCORD_COMMAND", "HUE_COMMAND", "TWITCH_COMMAND"].contains(&cmd_type) {
+                                    if ["SPOTIFY_COMMAND", "DISCORD_COMMAND", "HUE_COMMAND", "TWITCH_COMMAND", "VALORANT_COMMAND"].contains(&cmd_type) {
                                         // Le verdict vient de Supabase, plus de data.json : ce
                                         // fichier est ecrit par le client et modifiable a la main.
                                         if !crate::entitlement::is_premium().await {
@@ -1103,6 +1150,24 @@ async fn handle_connection(
                                             "plugin": "twitch",
                                             "message": crate::twitch::UNAVAILABLE_MSG
                                         }).to_string());
+                                        continue;
+                                    }
+
+                                    if value["type"] == "VALORANT_COMMAND" {
+                                        if let Some(v) = &valorant {
+                                            if !v.is_enabled.load(std::sync::atomic::Ordering::Relaxed) {
+                                                tracing::info!("[VALORANT] Command ignored: service disabled");
+                                                continue;
+                                            }
+                                            if let Some(endpoint) = value["endpoint"].as_str() {
+                                                let v_clone = v.clone();
+                                                let endpoint_str = endpoint.to_string();
+                                                let payload = value.get("payload").cloned();
+                                                tokio::spawn(async move {
+                                                    let _ = v_clone.handle_command(&endpoint_str, payload).await;
+                                                });
+                                            }
+                                        }
                                         continue;
                                     }
 

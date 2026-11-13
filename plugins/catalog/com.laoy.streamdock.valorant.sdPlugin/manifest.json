@@ -1,0 +1,106 @@
+{
+  "Author": "Laoy",
+  "Category": "Valorant",
+  "CategoryIcon": "static/icon/valorant.png",
+  "CodePath": "plugin/index.html",
+  "Description": "Valorant info-only (rank, last match) via Crimsons sidecar — no client control / Vanguard.",
+  "Icon": "static/icon/valorant.png",
+  "Name": "Valorant (Info)",
+  "Version": "0.1.0",
+  "SDKVersion": 2,
+  "Software": {
+    "MinimumVersion": "2.0.0"
+  },
+  "OS": [
+    {
+      "Platform": "windows",
+      "MinimumVersion": "10"
+    }
+  ],
+  "Actions": [
+    {
+      "Name": "Rank",
+      "UUID": "com.laoy.streamdock.valorant.rank",
+      "Icon": "static/icon/rank.png",
+      "States": [
+        {
+          "Image": "static/icon/rank.png",
+          "TitleAlignment": "bottom",
+          "FontSize": "9"
+        }
+      ],
+      "Tooltip": "Competitive tier + RR (info-only)",
+      "Context": "GLOBAL"
+    },
+    {
+      "Name": "Last Match",
+      "UUID": "com.laoy.streamdock.valorant.lastmatch",
+      "Icon": "static/icon/lastmatch.png",
+      "States": [
+        {
+          "Image": "static/icon/lastmatch.png",
+          "TitleAlignment": "bottom",
+          "FontSize": "8"
+        }
+      ],
+      "Tooltip": "Last match W/L · KDA · agent (scroll with Prev/Next)",
+      "Context": "GLOBAL"
+    },
+    {
+      "Name": "Match Prev",
+      "UUID": "com.laoy.streamdock.valorant.match_prev",
+      "Icon": "static/icon/match_prev.png",
+      "States": [
+        {
+          "Image": "static/icon/match_prev.png",
+          "TitleAlignment": "middle",
+          "FontSize": "10"
+        }
+      ],
+      "Tooltip": "Scroll to previous match in history",
+      "Context": "GLOBAL"
+    },
+    {
+      "Name": "Match Next",
+      "UUID": "com.laoy.streamdock.valorant.match_next",
+      "Icon": "static/icon/match_next.png",
+      "States": [
+        {
+          "Image": "static/icon/match_next.png",
+          "TitleAlignment": "middle",
+          "FontSize": "10"
+        }
+      ],
+      "Tooltip": "Scroll to next (more recent) match",
+      "Context": "GLOBAL"
+    },
+    {
+      "Name": "Refresh",
+      "UUID": "com.laoy.streamdock.valorant.refresh",
+      "Icon": "static/icon/refresh.png",
+      "States": [
+        {
+          "Image": "static/icon/refresh.png",
+          "TitleAlignment": "middle",
+          "FontSize": "10"
+        }
+      ],
+      "Tooltip": "Refresh rank + match history from sidecar",
+      "Context": "GLOBAL"
+    },
+    {
+      "Name": "Open Hub / Store",
+      "UUID": "com.laoy.streamdock.valorant.openhub",
+      "Icon": "static/icon/openhub.png",
+      "States": [
+        {
+          "Image": "static/icon/openhub.png",
+          "TitleAlignment": "middle",
+          "FontSize": "10"
+        }
+      ],
+      "Tooltip": "Open Crimsons Hub / Store plugin page",
+      "Context": "GLOBAL"
+    }
+  ]
+}
