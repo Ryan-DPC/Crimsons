@@ -1,0 +1,48 @@
+{
+  "Description": "Philips Hue rooms, brightness and scenes via Crimsons sidecar.",
+  "Name": "Philips Hue",
+  "com.laoy.streamdock.hue.toggle": {
+    "Name": "Lights On/Off",
+    "Tooltip": "Toggle selected room / group"
+  },
+  "com.laoy.streamdock.hue.bri_up": {
+    "Name": "Brightness Up",
+    "Tooltip": "Raise selected room brightness"
+  },
+  "com.laoy.streamdock.hue.bri_down": {
+    "Name": "Brightness Down",
+    "Tooltip": "Lower selected room brightness"
+  },
+  "com.laoy.streamdock.hue.status": {
+    "Name": "Room Status",
+    "Tooltip": "Selected room + scene"
+  },
+  "com.laoy.streamdock.hue.room_prev": {
+    "Name": "Room Prev",
+    "Tooltip": "Previous room / group"
+  },
+  "com.laoy.streamdock.hue.room_next": {
+    "Name": "Room Next",
+    "Tooltip": "Next room / group"
+  },
+  "com.laoy.streamdock.hue.scene_prev": {
+    "Name": "Scene Prev",
+    "Tooltip": "Previous scene (apply)"
+  },
+  "com.laoy.streamdock.hue.scene_next": {
+    "Name": "Scene Next",
+    "Tooltip": "Next scene (apply)"
+  },
+  "com.laoy.streamdock.hue.ct_preset": {
+    "Name": "Color Temp Preset",
+    "Tooltip": "Apply CT preset (stub)"
+  },
+  "com.laoy.streamdock.hue.refresh": {
+    "Name": "Refresh",
+    "Tooltip": "Refresh bridge / mock state"
+  },
+  "com.laoy.streamdock.hue.openhub": {
+    "Name": "Open Hub / Store",
+    "Tooltip": "Open store page /plugins/philips-hue"
+  }
+}

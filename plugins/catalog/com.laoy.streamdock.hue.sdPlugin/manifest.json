@@ -1,0 +1,183 @@
+{
+  "Author": "Laoy",
+  "Category": "Philips Hue",
+  "CategoryIcon": "static/icon/hue.png",
+  "CodePath": "plugin/index.html",
+  "Description": "Philips Hue rooms, brightness and scenes via Crimsons sidecar (local bridge or mock).",
+  "Icon": "static/icon/hue.png",
+  "Name": "Philips Hue",
+  "Version": "0.1.0",
+  "SDKVersion": 2,
+  "Software": {
+    "MinimumVersion": "2.0.0"
+  },
+  "OS": [
+    {
+      "Platform": "windows",
+      "MinimumVersion": "10"
+    }
+  ],
+  "Actions": [
+    {
+      "Name": "Lights On/Off",
+      "UUID": "com.laoy.streamdock.hue.toggle",
+      "Icon": "static/icon/toggle.png",
+      "States": [
+        {
+          "Image": "static/icon/toggle_off.png",
+          "Title": "OFF",
+          "TitleAlignment": "bottom",
+          "FontSize": "9"
+        },
+        {
+          "Image": "static/icon/toggle.png",
+          "Title": "ON",
+          "TitleAlignment": "bottom",
+          "FontSize": "9"
+        }
+      ],
+      "Tooltip": "Toggle selected room / group lights",
+      "Context": "GLOBAL"
+    },
+    {
+      "Name": "Brightness Up",
+      "UUID": "com.laoy.streamdock.hue.bri_up",
+      "Icon": "static/icon/bri_up.png",
+      "States": [
+        {
+          "Image": "static/icon/bri_up.png",
+          "TitleAlignment": "bottom",
+          "FontSize": "9"
+        }
+      ],
+      "Tooltip": "Raise brightness of selected room",
+      "Context": "GLOBAL"
+    },
+    {
+      "Name": "Brightness Down",
+      "UUID": "com.laoy.streamdock.hue.bri_down",
+      "Icon": "static/icon/bri_down.png",
+      "States": [
+        {
+          "Image": "static/icon/bri_down.png",
+          "TitleAlignment": "bottom",
+          "FontSize": "9"
+        }
+      ],
+      "Tooltip": "Lower brightness of selected room",
+      "Context": "GLOBAL"
+    },
+    {
+      "Name": "Room Status",
+      "UUID": "com.laoy.streamdock.hue.status",
+      "Icon": "static/icon/status.png",
+      "States": [
+        {
+          "Image": "static/icon/status.png",
+          "TitleAlignment": "bottom",
+          "FontSize": "8"
+        }
+      ],
+      "Tooltip": "Show selected room + scene (dial = brightness)",
+      "Context": "GLOBAL"
+    },
+    {
+      "Name": "Room Prev",
+      "UUID": "com.laoy.streamdock.hue.room_prev",
+      "Icon": "static/icon/room_prev.png",
+      "States": [
+        {
+          "Image": "static/icon/room_prev.png",
+          "TitleAlignment": "middle",
+          "FontSize": "10"
+        }
+      ],
+      "Tooltip": "Select previous room / group",
+      "Context": "GLOBAL"
+    },
+    {
+      "Name": "Room Next",
+      "UUID": "com.laoy.streamdock.hue.room_next",
+      "Icon": "static/icon/room_next.png",
+      "States": [
+        {
+          "Image": "static/icon/room_next.png",
+          "TitleAlignment": "middle",
+          "FontSize": "10"
+        }
+      ],
+      "Tooltip": "Select next room / group",
+      "Context": "GLOBAL"
+    },
+    {
+      "Name": "Scene Prev",
+      "UUID": "com.laoy.streamdock.hue.scene_prev",
+      "Icon": "static/icon/scene_prev.png",
+      "States": [
+        {
+          "Image": "static/icon/scene_prev.png",
+          "TitleAlignment": "bottom",
+          "FontSize": "9"
+        }
+      ],
+      "Tooltip": "Previous scene (apply)",
+      "Context": "GLOBAL"
+    },
+    {
+      "Name": "Scene Next",
+      "UUID": "com.laoy.streamdock.hue.scene_next",
+      "Icon": "static/icon/scene_next.png",
+      "States": [
+        {
+          "Image": "static/icon/scene_next.png",
+          "TitleAlignment": "bottom",
+          "FontSize": "9"
+        }
+      ],
+      "Tooltip": "Next scene (apply)",
+      "Context": "GLOBAL"
+    },
+    {
+      "Name": "Color Temp Preset",
+      "UUID": "com.laoy.streamdock.hue.ct_preset",
+      "Icon": "static/icon/ct_preset.png",
+      "States": [
+        {
+          "Image": "static/icon/ct_preset.png",
+          "TitleAlignment": "bottom",
+          "FontSize": "9"
+        }
+      ],
+      "Tooltip": "Apply neutral color-temperature preset (stub)",
+      "Context": "GLOBAL"
+    },
+    {
+      "Name": "Refresh",
+      "UUID": "com.laoy.streamdock.hue.refresh",
+      "Icon": "static/icon/refresh.png",
+      "States": [
+        {
+          "Image": "static/icon/refresh.png",
+          "TitleAlignment": "middle",
+          "FontSize": "10"
+        }
+      ],
+      "Tooltip": "Refresh Hue groups / scenes from bridge (or mock)",
+      "Context": "GLOBAL"
+    },
+    {
+      "Name": "Open Hub / Store",
+      "UUID": "com.laoy.streamdock.hue.openhub",
+      "Icon": "static/icon/openhub.png",
+      "States": [
+        {
+          "Image": "static/icon/openhub.png",
+          "TitleAlignment": "middle",
+          "FontSize": "10"
+        }
+      ],
+      "Tooltip": "Open Crimsons Hub / Store plugin page",
+      "Context": "GLOBAL"
+    }
+  ]
+}

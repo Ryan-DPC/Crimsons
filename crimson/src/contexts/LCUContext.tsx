@@ -61,6 +61,29 @@ interface LCUContextType {
         error?: string | null;
     } | null;
     discordConnected: boolean;
+
+    // Philips Hue State
+    hueState: {
+        connected: boolean;
+        mock: boolean;
+        bridge_ip?: string | null;
+        groups: Array<{
+            id: string;
+            name: string;
+            kind: string;
+            on: boolean;
+            bri: number;
+            ct?: number | null;
+        }>;
+        scenes: Array<{
+            id: string;
+            name: string;
+            group?: string | null;
+        }>;
+        selected_group_index: number;
+        selected_scene_index: number;
+        error?: string | null;
+    } | null;
     
     // Connection Status
     serverConnected: boolean;
@@ -83,6 +106,7 @@ interface LCUContextType {
     loginSpotify: (clientId: string, clientSecret: string) => Promise<void>;
     spotifyCommand: (endpoint: string) => void;
     discordCommand: (endpoint: string, params?: any) => void;
+    hueCommand: (endpoint: string, params?: any) => void;
     togglePlugin: (plugin: string, enabled: boolean) => Promise<void>;
     resyncAuthSession: () => void;
     seasonStats: { wins: number, losses: number } | null;
@@ -135,6 +159,7 @@ export const LCUProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [spotifyState, setSpotifyState] = useState<any>(null);
     const [discordConnected, setDiscordConnected] = useState(false);
     const [discordState, setDiscordState] = useState<any>(null);
+    const [hueState, setHueState] = useState<any>(null);
     const buildsRef = useRef<(RuneBuild | null)[]>([]);
 
     const scannedLobbyId = useRef<string>('');
@@ -690,6 +715,8 @@ export const LCUProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         } else if (msg.type === 'DISCORD_STATE') {
             setDiscordState(msg.data);
             setDiscordConnected(msg.data?.connected || false);
+        } else if (msg.type === 'HUE_STATE') {
+            setHueState(msg.data || null);
         } else if (msg.type === 'AUTO_ACCEPT_STATE') {
             // Sidecar already mutated disk — refresh UI only (do not re-toggle).
             const d = await invoke<any>('get_app_data');
@@ -1105,6 +1132,17 @@ export const LCUProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
     };
 
+    const hueCommand = (endpoint: string, params?: any) => {
+        const ws = socketsRef.current[40510];
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({
+                type: 'HUE_COMMAND',
+                endpoint,
+                payload: params || {},
+            }));
+        }
+    };
+
     const togglePlugin = async (plugin: string, enabled: boolean) => {
         const d = await invoke<any>('get_app_data');
         if (!d.plugins) d.plugins = {};
@@ -1139,10 +1177,12 @@ export const LCUProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             serverConnected, lolConnected,
             spotifyConnected, spotifyState,
             discordConnected, discordState,
+            hueState,
             setTab, toggleSimMode, simMode, tab, toggleAutoBan, toggleAutoPick, updateGeminiKey, updateSetting, doImport, handleSecondaryClick, handleShardClick,
             loginSpotify,
             spotifyCommand,
             discordCommand,
+            hueCommand,
             togglePlugin,
             resyncAuthSession,
             seasonStats,

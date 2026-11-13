@@ -1,0 +1,48 @@
+{
+  "Description": "Pièces Hue, luminosité et scènes via le sidecar Crimsons.",
+  "Name": "Philips Hue",
+  "com.laoy.streamdock.hue.toggle": {
+    "Name": "Lumières On/Off",
+    "Tooltip": "Basculer la pièce / groupe sélectionné"
+  },
+  "com.laoy.streamdock.hue.bri_up": {
+    "Name": "Luminosité +",
+    "Tooltip": "Augmenter la luminosité"
+  },
+  "com.laoy.streamdock.hue.bri_down": {
+    "Name": "Luminosité −",
+    "Tooltip": "Diminuer la luminosité"
+  },
+  "com.laoy.streamdock.hue.status": {
+    "Name": "État pièce",
+    "Tooltip": "Pièce + scène sélectionnées"
+  },
+  "com.laoy.streamdock.hue.room_prev": {
+    "Name": "Pièce préc.",
+    "Tooltip": "Pièce / groupe précédent"
+  },
+  "com.laoy.streamdock.hue.room_next": {
+    "Name": "Pièce suiv.",
+    "Tooltip": "Pièce / groupe suivant"
+  },
+  "com.laoy.streamdock.hue.scene_prev": {
+    "Name": "Scène préc.",
+    "Tooltip": "Scène précédente (appliquer)"
+  },
+  "com.laoy.streamdock.hue.scene_next": {
+    "Name": "Scène suiv.",
+    "Tooltip": "Scène suivante (appliquer)"
+  },
+  "com.laoy.streamdock.hue.ct_preset": {
+    "Name": "Temp. couleur",
+    "Tooltip": "Preset CT (stub)"
+  },
+  "com.laoy.streamdock.hue.refresh": {
+    "Name": "Rafraîchir",
+    "Tooltip": "Rafraîchir bridge / mock"
+  },
+  "com.laoy.streamdock.hue.openhub": {
+    "Name": "Ouvrir Hub / Store",
+    "Tooltip": "Ouvrir /plugins/philips-hue"
+  }
+}

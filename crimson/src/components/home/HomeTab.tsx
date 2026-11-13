@@ -1,7 +1,7 @@
 import { useLCU } from '../../contexts/LCUContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { getChampIcon } from '../../utils/lolDisplay';
-import { Disc3, MessageSquare, Laptop, Music, MicOff, Mic, Headphones, MonitorPlay } from 'lucide-react';
+import { Disc3, MessageSquare, Laptop, Music, MicOff, Mic, Headphones, MonitorPlay, Lightbulb, ChevronLeft, ChevronRight } from 'lucide-react';
 
 
 // Reusable animated toggle component
@@ -24,7 +24,7 @@ const Toggle = ({ value, onChange, label, disabled }: {
 );
 
 export default function HomeTab() {
-    const { appData, updateSetting, sum, v, hist, champs, seasonStats, spotifyState, discordState, spotifyCommand, discordCommand, discordConnected } = useLCU();
+    const { appData, updateSetting, sum, v, hist, champs, seasonStats, spotifyState, discordState, spotifyCommand, discordCommand, discordConnected, hueState, hueCommand } = useLCU();
     const { isPremium } = useAuth();
     
     const openLyricsWindow = async () => {
@@ -351,6 +351,84 @@ export default function HomeTab() {
                                 <span className="text-[9px] font-black uppercase tracking-wider">{discordState?.is_camera_on ? 'Cam ON' : 'Cam OFF'}</span>
                             </button>
                         </div>
+                    </div>
+                )}
+
+                {isPremium && appData?.plugins?.hue && (
+                    <div className="flex flex-col gap-3 mt-4">
+                        <span className="text-[10px] font-black text-white/40 uppercase tracking-widest border-b border-white/5 pb-2">Philips Hue</span>
+                        <div className="bg-[#0a0a0c] border border-white/5 rounded-xl p-4 flex items-center gap-4 transition-colors hover:border-amber-500/30">
+                            <div className="w-10 h-10 bg-amber-500/10 rounded-lg flex items-center justify-center">
+                                <Lightbulb className={`w-5 h-5 ${hueState?.groups?.[hueState?.selected_group_index || 0]?.on ? 'text-amber-400' : 'text-white/30'}`} />
+                            </div>
+                            <div className="flex flex-col flex-1 min-w-0">
+                                <span className="text-white font-bold text-xs truncate">
+                                    {(() => {
+                                        const g = hueState?.groups?.[hueState?.selected_group_index || 0];
+                                        if (!g) return hueState?.mock ? 'Mock · en attente' : 'Aucune pièce';
+                                        return `${g.name} · ${g.on ? 'ON' : 'OFF'} · ${Math.round(((g.bri || 0) / 254) * 100)}%`;
+                                    })()}
+                                </span>
+                                <span className="text-white/50 text-[10px] truncate uppercase font-bold tracking-widest">
+                                    {(() => {
+                                        const groups = hueState?.groups || [];
+                                        const g = groups[hueState?.selected_group_index || 0];
+                                        const scenes = (hueState?.scenes || []).filter((s: any) => !s.group || s.group === g?.id);
+                                        const sc = scenes[hueState?.selected_scene_index || 0];
+                                        const mock = hueState?.mock ? ' · mock' : '';
+                                        return `${sc?.name || 'Aucune scène'}${mock}`;
+                                    })()}
+                                </span>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => hueCommand('toggle')}
+                                className="p-2.5 bg-amber-600/10 hover:bg-amber-600/20 text-amber-400 rounded-xl border border-amber-500/20 transition-all"
+                                title="On/Off"
+                            >
+                                <Lightbulb className="w-4 h-4" />
+                            </button>
+                        </div>
+                        <div className="grid grid-cols-4 gap-2 mt-1">
+                            <button
+                                type="button"
+                                onClick={() => hueCommand('room_prev')}
+                                className="flex items-center justify-center py-3 bg-white/5 hover:bg-white/10 text-white/70 rounded-xl border border-white/5 transition-all"
+                                title="Pièce précédente"
+                            >
+                                <ChevronLeft className="w-4 h-4" />
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => hueCommand('bri_down')}
+                                className="flex items-center justify-center py-3 bg-white/5 hover:bg-white/10 text-white/70 rounded-xl border border-white/5 text-[9px] font-black uppercase tracking-wider transition-all"
+                            >
+                                −
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => hueCommand('bri_up')}
+                                className="flex items-center justify-center py-3 bg-white/5 hover:bg-white/10 text-white/70 rounded-xl border border-white/5 text-[9px] font-black uppercase tracking-wider transition-all"
+                            >
+                                +
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => hueCommand('room_next')}
+                                className="flex items-center justify-center py-3 bg-white/5 hover:bg-white/10 text-white/70 rounded-xl border border-white/5 transition-all"
+                                title="Pièce suivante"
+                            >
+                                <ChevronRight className="w-4 h-4" />
+                            </button>
+                        </div>
+                        <a
+                            href="https://store.crimsons.app/plugins/philips-hue"
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-[9px] text-amber-400/70 hover:text-amber-300 font-black uppercase tracking-widest transition-colors"
+                        >
+                            Store → /plugins/philips-hue
+                        </a>
                     </div>
                 )}
 

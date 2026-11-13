@@ -38,7 +38,7 @@ const SettingsTab = () => {
         appData, updateSetting, loginSpotify,
         updateStatus, updateProgress, availableVersion, 
         checkUpdates, installUpdate, serverConnected, 
-        togglePlugin, spotifyConnected, spotifyState,
+        togglePlugin, spotifyConnected, spotifyState, hueState, hueCommand,
         resyncAuthSession
     } = useLCU();
     
@@ -235,6 +235,14 @@ const SettingsTab = () => {
             name: 'Discord',
             desc: 'Mute / deafen / caméra',
             premium: true,
+        },
+        {
+            key: 'hue',
+            id: 'com.laoy.streamdock.hue',
+            name: 'Philips Hue',
+            desc: 'Pièces, luminosité, scènes',
+            premium: true,
+            storePath: '/plugins/philips-hue',
         },
     ];
 
@@ -738,7 +746,7 @@ const SettingsTab = () => {
                                 <div className="bg-black/20 border border-white/5 rounded-3xl px-8 py-12 text-center">
                                     <p className="text-sm font-black text-white uppercase tracking-widest">Aucun plugin installé</p>
                                     <p className="mt-3 text-[10px] text-white/30 uppercase font-bold tracking-widest leading-relaxed">
-                                        LoL, Spotify et Discord sont des plugins externes. Ils apparaissent ici une fois installés sur StreamDock.
+                                        LoL, Spotify, Discord et Hue sont des plugins externes. Ils apparaissent ici une fois installés sur StreamDock.
                                     </p>
                                 </div>
                             ) : (
@@ -820,6 +828,42 @@ const SettingsTab = () => {
                                                     <p className="text-[9px] text-white/25 uppercase font-bold tracking-widest leading-relaxed">
                                                         Requis pour le statut vocal. Discord Developer Portal → New Application → copier l’Application ID.
                                                     </p>
+                                                </div>
+                                            )}
+
+                                            {plugin.key === 'hue' && isEnabled && (
+                                                <div className="mt-4 space-y-3 border-t border-white/5 pt-4">
+                                                    <div className="flex items-center justify-between gap-3">
+                                                        <div className="min-w-0">
+                                                            <p className="text-[10px] font-black text-white uppercase tracking-widest truncate">
+                                                                {(() => {
+                                                                    const g = hueState?.groups?.[hueState?.selected_group_index || 0];
+                                                                    if (!g) return hueState?.mock ? 'Mock · en attente' : 'Aucune pièce';
+                                                                    return `${g.name} · ${g.on ? 'ON' : 'OFF'} · ${Math.round(((g.bri || 0) / 254) * 100)}%`;
+                                                                })()}
+                                                            </p>
+                                                            <p className="text-[9px] text-white/40 uppercase font-bold tracking-widest mt-1 truncate">
+                                                                {hueState?.bridge_ip
+                                                                    ? `Bridge ${hueState.bridge_ip}`
+                                                                    : (hueState?.mock ? 'Mock (HUE_BRIDGE_IP / HUE_USERNAME)' : 'Bridge')}
+                                                            </p>
+                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => hueCommand('refresh')}
+                                                            className="shrink-0 px-3 py-2 bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 text-[9px] font-black uppercase tracking-widest rounded-xl border border-amber-500/20 transition-all"
+                                                        >
+                                                            Refresh
+                                                        </button>
+                                                    </div>
+                                                    <a
+                                                        href="https://store.crimsons.app/plugins/philips-hue"
+                                                        target="_blank"
+                                                        rel="noreferrer"
+                                                        className="inline-flex items-center gap-1 text-amber-400/80 hover:text-amber-300 text-[8px] font-black uppercase tracking-widest transition-colors"
+                                                    >
+                                                        <Compass size={10} /> Store /plugins/philips-hue
+                                                    </a>
                                                 </div>
                                             )}
                                         </div>

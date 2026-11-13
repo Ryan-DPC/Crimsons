@@ -208,20 +208,7 @@ async function main() {
     record('AUTH_SESSION accepted', 'PASSED', 'sent (no ack by design)');
   }
 
-  // Hue / Twitch must stay gated
-  app.clear();
-  app.send({ type: 'TOGGLE_PLUGIN', plugin: 'hue', enabled: true });
-  try {
-    const denied = await app.waitFor(
-      (m) => m.type === 'FEATURE_UNAVAILABLE' && m.plugin === 'hue',
-      4000,
-      'FEATURE_UNAVAILABLE hue'
-    );
-    record('Hue gated (coming soon)', 'PASSED', denied.message || '');
-  } catch (e) {
-    record('Hue gated (coming soon)', 'FAILED', String(e.message || e));
-  }
-
+  // Twitch must stay gated; Hue is MVP (premium) with mock without bridge env.
   app.clear();
   app.send({ type: 'TOGGLE_PLUGIN', plugin: 'twitch', enabled: true });
   try {
@@ -233,6 +220,36 @@ async function main() {
     record('Twitch gated (coming soon)', 'PASSED', denied.message || '');
   } catch (e) {
     record('Twitch gated (coming soon)', 'FAILED', String(e.message || e));
+  }
+
+  app.clear();
+  app.send({ type: 'TOGGLE_PLUGIN', plugin: 'hue', enabled: true });
+  try {
+    const hueMsg = await app.waitFor(
+      (m) =>
+        (m.type === 'HUE_STATE' && m.data) ||
+        (m.type === 'AUTH_ERROR') ||
+        (m.type === 'FEATURE_UNAVAILABLE' && m.plugin === 'hue'),
+      5000,
+      'HUE_STATE or AUTH after hue toggle'
+    );
+    if (hueMsg.type === 'HUE_STATE') {
+      record(
+        'Hue TOGGLE_PLUGIN enable',
+        'PASSED',
+        `mock=${!!hueMsg.data.mock} groups=${(hueMsg.data.groups || []).length}`
+      );
+      app.clear();
+      app.send({ type: 'HUE_COMMAND', endpoint: 'toggle', payload: {} });
+      const after = await app.waitFor((m) => m.type === 'HUE_STATE' && m.data, 4000, 'HUE_STATE after toggle');
+      record('Hue HUE_COMMAND toggle', 'PASSED', `groups=${(after.data.groups || []).length}`);
+    } else if (hueMsg.type === 'AUTH_ERROR') {
+      record('Hue TOGGLE_PLUGIN enable', 'SKIPPED', 'premium required');
+    } else {
+      record('Hue TOGGLE_PLUGIN enable', 'FAILED', hueMsg.message || hueMsg.type);
+    }
+  } catch (e) {
+    record('Hue TOGGLE_PLUGIN enable', 'FAILED', String(e.message || e));
   }
 
   // --- League of Legends (Crimsons plugin protocol) ---

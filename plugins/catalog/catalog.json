@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "updatedAt": "2026-11-13",
+  "categories": [
+    {
+      "id": "streamdeck",
+      "label": "StreamDock",
+      "description": "Pack installable dans Stream Dock / StreamDeck (boutons physiques)."
+    },
+    {
+      "id": "smart-home",
+      "label": "Maison connectée",
+      "description": "Éclairage et périphériques domotiques."
+    },
+    {
+      "id": "utility",
+      "label": "Utilitaire",
+      "description": "Outils transverses hors jeu."
+    }
+  ],
+  "plugins": [
+    {
+      "id": "philips-hue",
+      "slug": "philips-hue",
+      "name": "Philips Hue",
+      "summary": "Pièces Hue, luminosité et scènes depuis StreamDock.",
+      "description": "Plugin StreamDock : on/off pièce/groupe, luminosité ±, scroll scènes, preset température couleur (stub). Bridge local via HUE_BRIDGE_IP / HUE_USERNAME ; mock déterministe sinon. Premium.",
+      "packageId": "com.laoy.streamdock.hue.sdPlugin",
+      "packagePath": "com.laoy.streamdock.hue.sdPlugin",
+      "version": "0.1.0",
+      "status": "coming_soon",
+      "pricing": "5.99 CHF/mois",
+      "categories": [
+        "streamdeck",
+        "smart-home",
+        "utility"
+      ],
+      "surfaces": [
+        "streamdock",
+        "crimsons-hub"
+      ],
+      "requiresPremium": true,
+      "requiresCrimsons": true,
+      "icon": null,
+      "targetApp": "Crimsons & StreamDock",
+      "hardware": {
+        "streamdock": true,
+        "elgato": false
+      }
+    }
+  ]
+}
