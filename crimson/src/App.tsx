@@ -5,16 +5,29 @@ import { getVersion } from '@tauri-apps/api/app';
 
 // Components
 import HomeTab from './components/home/HomeTab';
-import LobbyTab from './components/lobby/LobbyTab';
-import HistoryTab from './components/history/HistoryTab';
 import SettingsTab from './components/settings/SettingsTab';
 import DebugTab from './components/debug/DebugTab';
+import HubNav from './components/hub/HubNav';
+import LolPage from './components/hub/LolPage';
+import ValorantPage from './components/hub/ValorantPage';
+import SpotifyPage from './components/hub/SpotifyPage';
+import AppleMusicPage from './components/hub/AppleMusicPage';
+import VolumePage from './components/hub/VolumePage';
+import HuePage from './components/hub/HuePage';
+import TwitchPage from './components/hub/TwitchPage';
+import ObsPage from './components/hub/ObsPage';
 import { useAuth } from './contexts/AuthContext';
 import LoginScreen from './components/auth/LoginScreen';
 import logoRed from './assets/logos/logo_red_transparent.png';
 import logoMark from './assets/logos/logo_mark_only.png';
 import OnboardingModal from './components/common/OnboardingModal';
 import TitlebarMenus from './components/common/TitlebarMenus';
+import {
+  HUB_NAV_ITEMS,
+  isHubPluginEnabled,
+  isHubView,
+  normalizeHubView,
+} from './lib/hubViews';
 
 // Icons
 import { 
@@ -33,14 +46,30 @@ function App() {
     loginSpotify, spotifyConnected,
   } = useLCU();
 
-  const { session, user, loading } = useAuth();
+  const { session, user, loading, isPremium } = useAuth();
   const isLolEnabled = appData?.plugins?.leagueOfLegends ?? false;
+  const activeView = normalizeHubView(tab);
 
+  // Demo deep-link: ?hubView=valorant (VITE_HUB_UI_DEMO) for screenshots / local preview.
   useEffect(() => {
-    if (!isLolEnabled && (tab === 'league' || tab === 'lobby' || tab === 'history')) {
+    if (import.meta.env.VITE_HUB_UI_DEMO !== '1') return;
+    const view = new URLSearchParams(window.location.search).get('hubView');
+    if (view && isHubView(view)) setTab(view);
+  }, [setTab]);
+
+  // Hide rules: leave a plugin page when the plugin is off / absent / not premium.
+  useEffect(() => {
+    const normalized = normalizeHubView(tab);
+    if (normalized !== tab && isHubView(normalized)) {
+      setTab(normalized);
+      return;
+    }
+    if (!isHubView(normalized) || normalized === 'home') return;
+    const item = HUB_NAV_ITEMS.find((i) => i.id === normalized);
+    if (!item || !isHubPluginEnabled(item, appData?.plugins, isPremium)) {
       setTab('home');
     }
-  }, [isLolEnabled, tab, setTab]);
+  }, [tab, appData?.plugins, isPremium, setTab]);
 
   const [appVersion, setAppVersion] = useState<string>('1.1.0');
   const [showCloseDialog, setShowCloseDialog] = useState(false);
@@ -238,18 +267,25 @@ function App() {
         {/* Ambient Background Glows */}
         <div className="absolute top-0 left-1/4 w-96 h-96 bg-red-600/5 rounded-full blur-[120px] pointer-events-none" />
         <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-orange-600/5 rounded-full blur-[120px] pointer-events-none" />
-        {tab === 'league' || tab === 'lobby' ? (
+
+        {/* Hub pages nav — items only when plugin enabled */}
+        {tab !== 'settings' && tab !== 'debug' && <HubNav />}
+
+        {activeView === 'lol' && isLolEnabled ? (
           <div className="flex-1 min-h-0 flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-1000">
-            <LobbyTab />
-          </div>
-        ) : tab === 'history' ? (
-          <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide max-w-[1600px] mx-auto p-8 w-full animate-in fade-in slide-in-from-bottom-4 duration-1000">
-            <HistoryTab />
+            <LolPage />
           </div>
         ) : (
           <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden scrollbar-hide">
             <div className="max-w-[1600px] mx-auto p-8 min-h-full flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-1000">
-              {tab === 'home' && <HomeTab />}
+              {activeView === 'home' && <HomeTab />}
+              {activeView === 'valorant' && <ValorantPage />}
+              {activeView === 'spotify' && <SpotifyPage />}
+              {activeView === 'apple_music' && <AppleMusicPage />}
+              {activeView === 'volume' && <VolumePage />}
+              {activeView === 'hue' && <HuePage />}
+              {activeView === 'twitch' && <TwitchPage />}
+              {activeView === 'obs' && <ObsPage />}
               {tab === 'settings' && <SettingsTab />}
               {tab === 'debug' && <DebugTab />}
             </div>

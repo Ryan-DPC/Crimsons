@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { PLUGIN_STORE_BASE_URL } from '../../lib/pluginStore';
+import { useLCU } from '../../contexts/LCUContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { getVisibleHubNav, type HubView } from '../../lib/hubViews';
 
 type MenuId = 'file' | 'view' | 'help' | null;
 
@@ -23,6 +26,9 @@ export default function TitlebarMenus({
   const [openMenu, setOpenMenu] = useState<MenuId>(null);
   const [showAbout, setShowAbout] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const { setTab, appData } = useLCU();
+  const { isPremium } = useAuth();
+  const hubPages = getVisibleHubNav(appData?.plugins, isPremium);
 
   useEffect(() => {
     if (!openMenu) return;
@@ -69,7 +75,14 @@ export default function TitlebarMenus({
       id: 'view',
       label: 'View',
       items: [
-        { label: 'Hub', action: () => run(onFocusHub) },
+        ...hubPages.map((item) => ({
+          label: item.id === 'home' ? 'Hub' : item.label,
+          action: () =>
+            run(() => {
+              if (item.id === 'home') onFocusHub();
+              else setTab(item.id as HubView);
+            }),
+        })),
         { label: 'Refresh', action: () => run(() => window.location.reload()) },
       ],
     },

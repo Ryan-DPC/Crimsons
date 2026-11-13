@@ -157,6 +157,12 @@ interface LCUContextType {
         connected: boolean;
         mock: boolean;
         rank: { tier: string; rr: number; episode?: string };
+        /** Current / last map when the sidecar provides it. */
+        map?: string;
+        /** Your agent draft (ta draft) when available. */
+        draft?: { agent?: string; locked?: boolean };
+        /** Career W-L / WR when Riot match-history API is wired. */
+        career?: { wins: number; losses: number; winrate?: number };
         matches: Array<{
             match_id: string;
             won: boolean;
@@ -164,6 +170,7 @@ interface LCUContextType {
             deaths: number;
             assists: number;
             agent: string;
+            map?: string;
         }>;
         match_index: number;
         error?: string | null;
@@ -232,7 +239,25 @@ export const LCUProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [isImporting, setIsImporting] = useState<number | null>(null);
     const [simMode, setSimMode] = useState(false);
     const [tab, setTab] = useState('home');
-    const [appData, setAppData] = useState<any>(null);
+    const hubUiDemo = import.meta.env.VITE_HUB_UI_DEMO === '1';
+    const [appData, setAppData] = useState<any>(
+        hubUiDemo
+            ? {
+                firstLaunchFinished: true,
+                plugins: {
+                    leagueOfLegends: true,
+                    spotify: true,
+                    discord: true,
+                    apple_music: true,
+                    hue: true,
+                    twitch: true,
+                    obs: true,
+                    volume: true,
+                    valorant: true,
+                },
+            }
+            : null,
+    );
     const appDataRef = useRef<any>(null);
     useEffect(() => { appDataRef.current = appData; }, [appData]);
     const { session, loading: authLoading } = useAuth();
@@ -257,6 +282,31 @@ export const LCUProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [volumeState, setVolumeState] = useState<any>(null);
     const [valorantState, setValorantState] = useState<any>(null);
     const buildsRef = useRef<(RuneBuild | null)[]>([]);
+
+    // Demo mock payloads for hub screenshots / browser preview (VITE_HUB_UI_DEMO=1).
+    useEffect(() => {
+        if (!hubUiDemo) return;
+        setValorantState({
+            connected: true,
+            mock: true,
+            rank: { tier: 'Diamond 2', rr: 64 },
+            map: 'Ascent',
+            draft: { agent: 'Jett', locked: true },
+            career: undefined,
+            matches: [
+                { match_id: '1', won: true, kills: 18, deaths: 12, assists: 4, agent: 'Jett', map: 'Ascent' },
+                { match_id: '2', won: false, kills: 9, deaths: 15, assists: 3, agent: 'Reyna', map: 'Bind' },
+                { match_id: '3', won: true, kills: 22, deaths: 14, assists: 6, agent: 'Jett', map: 'Haven' },
+            ],
+            match_index: 0,
+        });
+        setSpotifyState({
+            track_name: 'Blinding Lights',
+            artist_name: 'The Weeknd',
+            album_art: '',
+            is_playing: true,
+        });
+    }, [hubUiDemo]);
 
     const scannedLobbyId = useRef<string>('');
     const lastFetchParams = useRef<string>('');
@@ -800,6 +850,8 @@ export const LCUProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }));
             setSpotifyConnected(!!msg.data?.has_token);
         } else if (msg.type === 'PLUGIN_PREFS') {
+            // Hub UI demo keeps seeded toggles (sidecar disk may disagree on the VM).
+            if (hubUiDemo) return;
             // Server truth for Hub toggles — merge into appData without wiping other keys.
             setAppData((prev: any) => {
                 const next = { ...(prev || {}) };
@@ -837,6 +889,7 @@ export const LCUProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         } else if (msg.type === 'VOLUME_STATE') {
             setVolumeState(msg.data || null);
         } else if (msg.type === 'VALORANT_STATE') {
+            if (hubUiDemo) return;
             setValorantState(msg.data || null);
         } else if (msg.type === 'AUTO_ACCEPT_STATE') {
             // Sidecar already mutated disk — refresh UI only (do not re-toggle).

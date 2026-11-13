@@ -23,15 +23,43 @@ const AuthContext = createContext<AuthContextType>({
     signOut: async () => {},
 });
 
+/** Cloud / Vite demo: VITE_HUB_UI_DEMO=1 seeds a fake session so hub pages can be screenshot without Supabase. */
+const HUB_UI_DEMO = import.meta.env.VITE_HUB_UI_DEMO === '1';
+
+function buildDemoSession(): Session {
+    const now = Math.floor(Date.now() / 1000);
+    const user = {
+        id: '00000000-0000-4000-8000-000000000001',
+        aud: 'authenticated',
+        role: 'authenticated',
+        email: 'demo@crimsons.local',
+        app_metadata: {},
+        user_metadata: {},
+        created_at: new Date().toISOString(),
+    } as User;
+    return {
+        access_token: 'demo',
+        refresh_token: 'demo',
+        expires_in: 3600,
+        expires_at: now + 3600,
+        token_type: 'bearer',
+        user,
+    } as Session;
+}
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const [session, setSession] = useState<Session | null>(null);
-    const [user, setUser] = useState<User | null>(null);
-    const [isPremium, setIsPremium] = useState(false);
-    const [loading, setLoading] = useState(true);
+    const [session, setSession] = useState<Session | null>(HUB_UI_DEMO ? buildDemoSession() : null);
+    const [user, setUser] = useState<User | null>(HUB_UI_DEMO ? buildDemoSession().user : null);
+    const [isPremium, setIsPremium] = useState(HUB_UI_DEMO);
+    const [loading, setLoading] = useState(!HUB_UI_DEMO);
     const signingOutRef = useRef(false);
     const applyingRef = useRef(false);
 
     useEffect(() => {
+        if (HUB_UI_DEMO) {
+            setLoading(false);
+            return;
+        }
         let cancelled = false;
 
         const apply = (next: Session | null) => {
