@@ -452,10 +452,8 @@ impl HueService {
         if is_mock {
             // Mock: turn selected group on + bump bri slightly to show "applied".
             let mut st = self.state.write().await;
-            if let Some(g) = st
-                .groups
-                .get_mut(st.selected_group_index)
-            {
+            let idx = st.selected_group_index;
+            if let Some(g) = st.groups.get_mut(idx) {
                 g.on = true;
                 g.bri = clamp_bri(g.bri as i32 + 5);
             }
