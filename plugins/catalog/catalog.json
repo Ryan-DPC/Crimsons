@@ -158,6 +158,29 @@
       "icon": null
     },
     {
+      "id": "obs-studio",
+      "slug": "obs-studio",
+      "name": "OBS Studio",
+      "summary": "Enregistrement, streaming, scènes et mixage audio OBS sur StreamDock.",
+      "description": "Pilotez vos lives et enregistrements OBS Studio en direct depuis vos touches et molettes StreamDock : scènes, sources, audio, caméra virtuelle.",
+      "packageId": "com.hotspot.streamdock.obsstudio.sdPlugin",
+      "packagePath": "com.hotspot.streamdock.obsstudio.sdPlugin",
+      "version": "2.0.0",
+      "status": "ready",
+      "pricing": "free",
+      "categories": [
+        "streamdeck",
+        "streaming",
+        "utility"
+      ],
+      "surfaces": [
+        "streamdock"
+      ],
+      "requiresPremium": false,
+      "requiresCrimsons": false,
+      "icon": null
+    },
+    {
       "id": "twitch",
       "slug": "twitch",
       "name": "Twitch",

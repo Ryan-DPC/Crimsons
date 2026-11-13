@@ -1,0 +1,50 @@
+{
+	"Author": "Hotspot",
+	"Name": "OBS Studio",
+	"Description": "Плагин OBS Studio на Stream Dock",
+	"Category": "OBS Studio",
+    "com.hotspot.streamdock.obsstudio.record": {
+        "Name": "Записывать",
+        "Tooltip": "Начать/остановить запись"
+    },
+    "com.hotspot.streamdock.obsstudio.stream": {
+        "Name": "Push-стриминг",
+        "Tooltip": "Запустить/остановить потоковую передачу"
+    },
+    "com.hotspot.streamdock.obsstudio.virtualcamera": {
+        "Name": "виртуальная камера",
+        "Tooltip": "Включить/выключить виртуальную камеру"
+    },
+    "com.hotspot.streamdock.obsstudio.scene": {
+        "Name": "Сцены",
+        "Tooltip": "переключить сцену"
+    },
+    "com.hotspot.streamdock.obsstudio.source": {
+        "Name": "источник",
+        "Tooltip": "Показать/скрыть источники"
+    },
+    "com.hotspot.streamdock.obsstudio.mixeraudio": {
+        "Name": "Один клик, чтобы отключить звук",
+        "Tooltip": "Отключить/включить звук"
+    },
+    "com.hotspot.streamdock.obsstudio.studiomode": {
+        "Name": "студийный режим",
+        "Tooltip": "Включить/выключить студийный режим"
+    },
+    "com.hotspot.streamdock.obsstudio.screenshot": {
+        "Name": "Скриншот",
+        "Tooltip": "Сделайте снимок экрана текущей сцены"
+    },
+    "com.hotspot.streamdock.obsstudio.transition": {
+        "Name": "Эффекты перехода",
+        "Tooltip": "Показать эффекты перехода"
+    },
+    "com.hotspot.streamdock.obsstudio.shortcutup": {
+        "Name": "Фоновое изображение зеленого экрана UP",
+        "Tooltip": "Сочетания клавиш – фоновое изображение зеленого экрана UP"
+    },
+    "com.hotspot.streamdock.obsstudio.shortcutdn": {
+        "Name": "Фоновое изображение зеленого экрана DN",
+        "Tooltip": "Сочетания клавиш – фоновое изображение зеленого экрана DN"
+    }
+}

@@ -1,49 +1,55 @@
 {
   "Actions": [
     {
-      "Icon": "static/icon/twitch_chat@2x.png",
-      "Name": "Send Chat Message (Soon)",
+      "Icon": "static/icon/twitch_chat.png",
+      "Name": "Message Chat",
       "Controllers": ["Keypad"],
       "States": [
         {
-          "Image": "static/icon/twitch_chat.png"
+          "Image": "static/icon/twitch_chat.png",
+          "TitleAlignment": "bottom",
+          "FontSize": "10"
         }
       ],
       "UUID": "com.laoy.streamdock.twitch.chat",
-      "PropertyInspectorPath": "propertyInspector/index.html"
+      "Tooltip": "Envoyer un message prédéfini dans votre chat Twitch"
     },
     {
-      "Icon": "static/icon/twitch_ad@2x.png",
-      "Name": "Run Ad (Soon)",
+      "Icon": "static/icon/twitch_ad.png",
+      "Name": "Lancer Publicité (30s)",
       "Controllers": ["Keypad"],
       "States": [
         {
-          "Image": "static/icon/twitch_ad.png"
+          "Image": "static/icon/twitch_ad.png",
+          "TitleAlignment": "bottom",
+          "FontSize": "10"
         }
       ],
       "UUID": "com.laoy.streamdock.twitch.ad",
-      "PropertyInspectorPath": "propertyInspector/index.html"
+      "Tooltip": "Lancer une pause publicitaire de 30 secondes"
     },
     {
-      "Icon": "static/icon/twitch_viewers@2x.png",
-      "Name": "Viewer Count (Soon)",
-      "Controllers": ["Information"],
+      "Icon": "static/icon/twitch_viewers.png",
+      "Name": "Compteur Viewers",
+      "Controllers": ["Keypad", "Information"],
       "States": [
         {
           "Image": "static/icon/twitch_viewers.png",
-          "Title": "0"
+          "Title": "0",
+          "TitleAlignment": "bottom",
+          "FontSize": "11"
         }
       ],
       "UUID": "com.laoy.streamdock.twitch.viewers",
-      "PropertyInspectorPath": "propertyInspector/index.html"
+      "Tooltip": "Afficher le nombre de spectateurs en direct sur votre chaîne"
     }
   ],
   "Author": "Laoy",
-  "Description": "Twitch — stub for future external Crimsons plugin catalog (not shipped in base pack)",
-  "Icon": "static/icon/twitch_chat@2x.png",
-  "Name": "Twitch (External)",
-  "Category": "Twitch (External)",
-  "CategoryIcon": "static/icon/twitch_chat@2x.png",
+  "Description": "Actions créateur et modération Twitch pour StreamDock",
+  "Icon": "static/icon/twitch_chat.png",
+  "Name": "Twitch",
+  "Category": "Twitch",
+  "CategoryIcon": "static/icon/twitch_chat.png",
   "Version": "3.1.0",
   "SDKVersion": 1,
   "OS": [
@@ -53,7 +59,7 @@
     }
   ],
   "Software": {
-    "MinimumVersion": "3.10.188.226"
+    "MinimumVersion": "2.0.0"
   },
-  "CodePath": "plugin/index.html"
+  "CodePath": "index.html"
 }

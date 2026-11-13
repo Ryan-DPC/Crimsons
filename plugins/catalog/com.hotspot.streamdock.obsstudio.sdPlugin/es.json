@@ -1,0 +1,50 @@
+{
+	"Author": "Hotspot",
+	"Name": "Estudio OBS",
+	"Description": "Complemento OBS Studio en el Stream Dock",
+	"Category": "Estudio OBS",
+    "com.hotspot.streamdock.obsstudio.record": {
+        "Name": "Grabación",
+        "Tooltip": "Iniciar/detener grabación"
+    },
+    "com.hotspot.streamdock.obsstudio.stream": {
+        "Name": "Streaming",
+        "Tooltip": "Iniciar/detener streaming"
+    },
+    "com.hotspot.streamdock.obsstudio.virtualcamera": {
+        "Name": "Cámara virtual",
+        "Tooltip": "Encender/apagar la cámara virtual"
+    },
+    "com.hotspot.streamdock.obsstudio.scene": {
+        "Name": "Escenario",
+        "Tooltip": "Cambiar escenas"
+    },
+    "com.hotspot.streamdock.obsstudio.source": {
+        "Name": "Fuente",
+        "Tooltip": "Mostrar/ocultar fuentes"
+    },
+    "com.hotspot.streamdock.obsstudio.mixeraudio": {
+        "Name": "Silencio con un clic",
+        "Tooltip": "Silenciar/reactivar audio"
+    },
+    "com.hotspot.streamdock.obsstudio.studiomode": {
+        "Name": "Modo Studio",
+        "Tooltip": "Habilita/deshabilita el modo de estudio"
+    },
+    "com.hotspot.streamdock.obsstudio.screenshot": {
+        "Name": "Captura de pantalla",
+        "Tooltip": "Tomar una captura de pantalla de la escena actual"
+    },
+    "com.hotspot.streamdock.obsstudio.transition": {
+        "Name": "Efectos de transición",
+        "Tooltip": "Muestra efectos de transición"
+    },
+    "com.hotspot.streamdock.obsstudio.shortcutup": {
+        "Name": "Imagen de fondo verde UP",
+        "Tooltip": "Tecla de método abreviado - de fondo de pantalla verde UP"
+    },
+    "com.hotspot.streamdock.obsstudio.shortcutdn": {
+        "Name": "Imagen de fondo verde DN",
+        "Tooltip": "Tecla de método abreviado - de fondo de pantalla verde DN"
+    }
+}

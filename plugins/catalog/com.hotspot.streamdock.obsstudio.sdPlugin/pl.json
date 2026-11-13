@@ -1,0 +1,50 @@
+{
+	"Author": "Hotspot",
+	"Name": "OBS Studio",
+	"Description": "Wtyczka dla OBS Studio",
+	"Category": "OBS Studio",
+    "com.hotspot.streamdock.obsstudio.record": {
+        "Name": "Nagrywaj",
+        "Tooltip": "Rozpocznij/zatrzymaj nagrywanie"
+    },
+    "com.hotspot.streamdock.obsstudio.stream": {
+        "Name": "Stream",
+        "Tooltip": "Rozpocznij/zatrzymaj streaming"
+    },
+    "com.hotspot.streamdock.obsstudio.virtualcamera": {
+        "Name": "Wirtualna kamera",
+        "Tooltip": "Włącz/wyłącz wirtualną kamerę"
+    },
+    "com.hotspot.streamdock.obsstudio.scene": {
+        "Name": "Scena",
+        "Tooltip": "Zmień scenę"
+    },
+    "com.hotspot.streamdock.obsstudio.source": {
+        "Name": "Widok źródła",
+        "Tooltip": "Pokaż/ukryj źródło"
+    },
+    "com.hotspot.streamdock.obsstudio.mixeraudio": {
+        "Name": "Mikser audio",
+        "Tooltip": "Wycisz/Wyłącz wyciszenie miksera audio"
+    },
+    "com.hotspot.streamdock.obsstudio.studiomode": {
+        "Name": "Tryb studio",
+        "Tooltip": "Przełącz na tryb studio"
+    },
+    "com.hotspot.streamdock.obsstudio.screenshot": {
+        "Name": "Zrzut ekranu",
+        "Tooltip": "Utwórz stopklatkę z aktualnego widoku"
+    },
+    "com.hotspot.streamdock.obsstudio.transition": {
+        "Name": "Przejście",
+        "Tooltip": "Pokaż przejście"
+    },
+    "com.hotspot.streamdock.obsstudio.shortcutup": {
+        "Name": "Obraz zielonego tła na wierzchu",
+        "Tooltip": "Skrót - Obraz zielonego tła na wierzchu"
+    },
+    "com.hotspot.streamdock.obsstudio.shortcutdn": {
+        "Name": "Obraz zielonego tła pod spodem",
+        "Tooltip": "Skrót - Obraz zielonego tła pod spodem"
+    }
+}

@@ -1,0 +1,50 @@
+{
+	"Author": "Hotspot",
+	"Name": "OBS Studio",
+	"Description": "OBS Studio-Plugin im Stream Dock",
+	"Category": "OBS Studio",
+    "com.hotspot.streamdock.obsstudio.record": {
+        "Name": "Aufzeichnung",
+        "Tooltip": "Aufzeichnung starten/stoppen"
+    },
+    "com.hotspot.streamdock.obsstudio.stream": {
+        "Name": "Push-Streaming",
+        "Tooltip": "Streaming starten/stoppen"
+    },
+    "com.hotspot.streamdock.obsstudio.virtualcamera": {
+        "Name": "Virtuelle Kamera",
+        "Tooltip": "Ein-/Ausschalten der virtuellen Kamera"
+    },
+    "com.hotspot.streamdock.obsstudio.scene": {
+        "Name": "Szenario",
+        "Tooltip": "Szenen wechseln"
+    },
+    "com.hotspot.streamdock.obsstudio.source": {
+        "Name": "Quelle",
+        "Tooltip": "Quellen ein-/ausblenden"
+    },
+    "com.hotspot.streamdock.obsstudio.mixeraudio": {
+        "Name": "Audio-Mixer",
+        "Tooltip": "Audio stummschalten / Stummschaltung aufheben"
+    },
+    "com.hotspot.streamdock.obsstudio.studiomode": {
+        "Name": "Studio-Modus",
+        "Tooltip": "Aktiviert/deaktiviert den Studiomodus"
+    },
+    "com.hotspot.streamdock.obsstudio.screenshot": {
+        "Name": "Screenshot",
+        "Tooltip": "Machen Sie einen Screenshot der aktuellen Szene"
+    },
+    "com.hotspot.streamdock.obsstudio.transition": {
+        "Name": "Übergangseffekte",
+        "Tooltip": "Zeigt Übergangseffekte an"
+    },
+    "com.hotspot.streamdock.obsstudio.shortcutup": {
+        "Name": "Greenscreen-Hintergrund-UP",
+        "Tooltip": "Tastenkombination - Greenscreen-Hintergrund-UP"
+    },
+    "com.hotspot.streamdock.obsstudio.shortcutdn": {
+        "Name": "Greenscreen-Hintergrund-DN",
+        "Tooltip": "Tastenkombination - Greenscreen-Hintergrund-DN"
+    }
+}

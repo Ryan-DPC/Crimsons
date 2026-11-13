@@ -1,0 +1,50 @@
+{
+	"Author": "Hotspot",
+	"Name": "OBS Studio",
+	"Description": "Plugin OBS Studio sullo Stream Dock",
+	"Category": "OBS Studio",
+    "com.hotspot.streamdock.obsstudio.record": {
+        "Name": "Registrazione",
+        "Tooltip": "Avviare/interrompere la registrazione"
+    },
+    "com.hotspot.streamdock.obsstudio.stream": {
+        "Name": "Push streaming",
+        "Tooltip": "Avviare/interrompere lo streaming"
+    },
+    "com.hotspot.streamdock.obsstudio.virtualcamera": {
+        "Name": "Telecamera virtuale",
+        "Tooltip": "Accensione/spegnimento della fotocamera virtuale"
+    },
+    "com.hotspot.streamdock.obsstudio.scene": {
+        "Name": "Scenario",
+        "Tooltip": "Passare da una scena all'altra"
+    },
+    "com.hotspot.streamdock.obsstudio.source": {
+        "Name": "Fonte",
+        "Tooltip": "Mostrare/nascondere le fonti"
+    },
+    "com.hotspot.streamdock.obsstudio.mixeraudio": {
+        "Name": "Audio Mixer",
+        "Tooltip": "Disattiva / riattiva audio"
+    },
+    "com.hotspot.streamdock.obsstudio.studiomode": {
+        "Name": "Modalità Studio",
+        "Tooltip": "Abilita/disabilita la modalità studio"
+    },
+    "com.hotspot.streamdock.obsstudio.screenshot": {
+        "Name": "Immagine dello schermo",
+        "Tooltip": "Cattura uno screenshot della scena corrente"
+    },
+    "com.hotspot.streamdock.obsstudio.transition": {
+        "Name": "Transizione",
+        "Tooltip": "Visualizza gli effetti di transizione"
+    },
+    "com.hotspot.streamdock.obsstudio.shortcutup": {
+        "Name": "Sfondo schermo verde UP",
+        "Tooltip": "Tasto di scelta rapida - immagine di sfondo dello schermo verde UP"
+    },
+    "com.hotspot.streamdock.obsstudio.shortcutdn": {
+        "Name": "Sfondo schermo verde DN",
+        "Tooltip": "Tasto di scelta rapida - sfondo schermo verde DN"
+    }
+}

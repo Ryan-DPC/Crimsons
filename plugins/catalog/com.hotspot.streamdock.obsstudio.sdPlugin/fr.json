@@ -1,0 +1,50 @@
+{
+	"Author": "Hotspot",
+	"Name": "OBS Studio",
+	"Description": "Plugin OBS Studio sur le Stream Dock",
+	"Category": "OBS Studio",
+    "com.hotspot.streamdock.obsstudio.record": {
+        "Name": "Enregistrement",
+        "Tooltip": "Démarrer/arrêter l’enregistrement"
+    },
+    "com.hotspot.streamdock.obsstudio.stream": {
+        "Name": "Diffusion push streaming",
+        "Tooltip": "Démarrer/arrêter le streaming"
+    },
+    "com.hotspot.streamdock.obsstudio.virtualcamera": {
+        "Name": "Caméra virtuelle",
+        "Tooltip": "Activer/éteindre la caméra virtuelle"
+    },
+    "com.hotspot.streamdock.obsstudio.scene": {
+        "Name": "Scénario",
+        "Tooltip": "Changer de scène"
+    },
+    "com.hotspot.streamdock.obsstudio.source": {
+        "Name": "Source",
+        "Tooltip": "Afficher/masquer les sources"
+    },
+    "com.hotspot.streamdock.obsstudio.mixeraudio": {
+        "Name": "Mélangeur audio",
+        "Tooltip": "Couper / activer le son"
+    },
+    "com.hotspot.streamdock.obsstudio.studiomode": {
+        "Name": "Mode Studio",
+        "Tooltip": "Active/désactive le mode studio"
+    },
+    "com.hotspot.streamdock.obsstudio.screenshot": {
+        "Name": "Capture d’écran",
+        "Tooltip": "Prendre une capture d’écran de la scène actuelle"
+    },
+    "com.hotspot.streamdock.obsstudio.transition": {
+        "Name": "Effets de transition",
+        "Tooltip": "Affiche les effets de transition"
+    },
+    "com.hotspot.streamdock.obsstudio.shortcutup": {
+        "Name": "Image de fond vert UP",
+        "Tooltip": "Touche de raccourci - arrière-plan d’écran vert UP"
+    },
+    "com.hotspot.streamdock.obsstudio.shortcutdn": {
+        "Name": "Image de fond vert DN",
+        "Tooltip": "Touche de raccourci - arrière-plan d’écran vert DN"
+    }
+}

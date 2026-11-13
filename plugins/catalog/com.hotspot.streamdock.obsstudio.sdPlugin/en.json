@@ -1,0 +1,50 @@
+{
+	"Author": "Hotspot",
+	"Name": "OBS Studio",
+	"Description": "Stream Dock plugin for OBS Studio",
+	"Category": "OBS Studio",
+    "com.hotspot.streamdock.obsstudio.record": {
+        "Name": "Record",
+        "Tooltip": "Start/Stop recording to file"
+    },
+    "com.hotspot.streamdock.obsstudio.stream": {
+        "Name": "Stream",
+        "Tooltip": "Start/Stop streaming"
+    },
+    "com.hotspot.streamdock.obsstudio.virtualcamera": {
+        "Name": "Virtual camera",
+        "Tooltip": "Turn on/off the virtual camera"
+    },
+    "com.hotspot.streamdock.obsstudio.scene": {
+        "Name": "Scene",
+        "Tooltip": "Switch scene"
+    },
+    "com.hotspot.streamdock.obsstudio.source": {
+        "Name": "Source Visibility",
+        "Tooltip": "Show/Hide source"
+    },
+    "com.hotspot.streamdock.obsstudio.mixeraudio": {
+        "Name": "Audio Mixer",
+        "Tooltip": "Mute/Unmute audio source"
+    },
+    "com.hotspot.streamdock.obsstudio.studiomode": {
+        "Name": "Studio Mode",
+        "Tooltip": "Toggle Studio Mode"
+    },
+    "com.hotspot.streamdock.obsstudio.screenshot": {
+        "Name": "Screenshot",
+        "Tooltip": "Screenshot the active scene"
+    },
+    "com.hotspot.streamdock.obsstudio.transition": {
+        "Name": "Transition",
+        "Tooltip": "Show transition"
+    },
+    "com.hotspot.streamdock.obsstudio.shortcutup": {
+        "Name": "Green background image UP",
+        "Tooltip": "Shortcut key - Green screen background UP"
+    },
+    "com.hotspot.streamdock.obsstudio.shortcutdn": {
+        "Name": "Green background image DN",
+        "Tooltip": "Shortcut key - Green screen background DN"
+    }
+}

@@ -1,0 +1,50 @@
+{
+	"Author": "Hotspot",
+	"Name": "Estúdio OBS",
+	"Description": "Plugin do ESTÚDIO OBS na Doca de Streaming",
+	"Category": "Estúdio OBS",
+    "com.hotspot.streamdock.obsstudio.record": {
+        "Name": "Gravação",
+        "Tooltip": "Gravação de início/paragem"
+    },
+    "com.hotspot.streamdock.obsstudio.stream": {
+        "Name": "Streaming",
+        "Tooltip": "Streaming de início/paragem"
+    },
+    "com.hotspot.streamdock.obsstudio.virtualcamera": {
+        "Name": "Câmera virtual",
+        "Tooltip": "Ligue/desligue a câmara virtual"
+    },
+    "com.hotspot.streamdock.obsstudio.scene": {
+        "Name": "Cenário",
+        "Tooltip": "Mudar cenas"
+    },
+    "com.hotspot.streamdock.obsstudio.source": {
+        "Name": "Fonte",
+        "Tooltip": "Fontes de exibição/ocultação"
+    },
+    "com.hotspot.streamdock.obsstudio.mixeraudio": {
+        "Name": "Mudo de um clique",
+        "Tooltip": "Áudio mudo / indudo"
+    },
+    "com.hotspot.streamdock.obsstudio.studiomode": {
+        "Name": "Modo estúdio",
+        "Tooltip": "Permite/desativa o modo estúdio"
+    },
+    "com.hotspot.streamdock.obsstudio.screenshot": {
+        "Name": "Screenshot",
+        "Tooltip": "Tire uma imagem da cena atual"
+    },
+    "com.hotspot.streamdock.obsstudio.transition": {
+        "Name": "Efeitos de transição",
+        "Tooltip": "Exibe efeitos de transição"
+    },
+    "com.hotspot.streamdock.obsstudio.shortcutup": {
+        "Name": "Fundo de tela verde UP",
+        "Tooltip": "Chave de atalho - fundo de tela verde UP"
+    },
+    "com.hotspot.streamdock.obsstudio.shortcutdn": {
+        "Name": "Fundo de tela verde DN",
+        "Tooltip": "Chave de atalho - fundo de tela verde DN"
+    }
+}

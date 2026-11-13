@@ -1,0 +1,210 @@
+{
+	"Actions": [
+		{
+			"Name": "Record",
+			"Icon": "Images/actions/record/icon",
+			"States": [
+				{
+					"Name": "Start",
+					"Image": "Images/actions/record/on"
+				},
+				{
+					"Name": "Stop",
+					"Image": "Images/actions/record/off"
+				}
+			],
+			"DisableAutomaticStates": true,
+			"Tooltip": "Start/Stop recording to file",
+			"UUID": "com.hotspot.streamdock.obsstudio.record"
+		},
+		{
+			"Name": "Stream",
+			"Icon": "Images/actions/stream/icon",
+			"States": [
+				{
+					"Name": "Start",
+					"Image": "Images/actions/stream/on"
+				},
+				{
+					"Name": "Stop",
+					"Image": "Images/actions/stream/off"
+				}
+			],
+			"DisableAutomaticStates": true,
+			"Tooltip": "Start/Stop streaming",
+			"UUID": "com.hotspot.streamdock.obsstudio.stream"
+		},
+		{
+			"Name": "Virtual camera",
+			"Icon": "Images/actions/virtualcamera/icon",
+			"States": [
+				{
+					"Name": "Start",
+					"Image": "Images/actions/virtualcamera/on"
+				},
+				{
+					"Name": "Stop",
+					"Image": "Images/actions/virtualcamera/off"
+				}
+			],
+			"DisableAutomaticStates": true,
+			"Tooltip": "Turn on/off the virtual camera",
+			"UUID": "com.hotspot.streamdock.obsstudio.virtualcamera"
+		},
+		{
+			"Name": "Scene",
+			"Icon": "Images/actions/scene/icon",
+			"States": [
+				{
+					"Name": "Start",
+					"Image": "Images/actions/scene/on"
+				},
+				{
+					"Name": "Stop",
+					"Image": "Images/actions/scene/off"
+				}
+			],
+			"DisableAutomaticStates": true,
+			"Tooltip": "Switch scene",
+			"UUID": "com.hotspot.streamdock.obsstudio.scene"
+		},
+		{
+			"Name": "Source Visibility",
+			"Icon": "Images/actions/scene.item.visibility/icon",
+			"States": [
+				{
+					"Name": "Show",
+					"Image": "Images/actions/scene.item.visibility/on"
+				},
+				{
+					"Name": "Hide",
+					"Image": "Images/actions/scene.item.visibility/off"
+				}
+			],
+			"DisableAutomaticStates": true,
+			"Tooltip": "Show/Hide source",
+			"UUID": "com.hotspot.streamdock.obsstudio.source"
+		},
+		{
+			"Name": "Audio Mixer",
+			"Icon": "Images/actions/source.audio.mute/icon",
+			"States": [
+				{
+					"Name": "Unmute",
+					"Image": "Images/actions/source.audio.mute/on"
+				},
+				{
+					"Name": "Mute",
+					"Image": "Images/actions/source.audio.mute/off"
+				}
+			],
+			"DisableAutomaticStates": true,
+			"Tooltip": "Mute/Unmute audio source",
+			"UUID": "com.hotspot.streamdock.obsstudio.mixeraudio"
+		},
+		{
+			"Name": "Studio Mode",
+			"Icon": "Images/actions/studiomode/icon",
+			"States": [
+				{
+					"Name": "Enable",
+					"Image": "Images/actions/studiomode/on"
+				},
+				{
+					"Name": "Disable",
+					"Image": "Images/actions/studiomode/off"
+				}
+			],
+			"DisableAutomaticStates": true,
+			"Tooltip": "Toggle Studio Mode",
+			"UUID": "com.hotspot.streamdock.obsstudio.studiomode"
+		},
+		{
+			"Name": "Screenshot",
+			"Icon": "Images/actions/screenshot/icon",
+			"States": [
+				{
+					"Name": "Enable",
+					"Image": "Images/actions/screenshot/on"
+				},
+				{
+					"Name": "Disable",
+					"Image": "Images/actions/screenshot/off"
+				}
+			],
+			"DisableAutomaticStates": true,
+			"Tooltip": "Screenshot the active scene",
+			"UUID": "com.hotspot.streamdock.obsstudio.screenshot"
+		},
+		{
+			"Name": "Transition",
+			"Icon": "Images/actions/transition/icon",
+			"States": [
+				{
+					"Name": "Enable",
+					"Image": "Images/actions/transition/on"
+				},
+				{
+					"Name": "Disable",
+					"Image": "Images/actions/transition/off"
+				}
+			],
+			"DisableAutomaticStates": true,
+			"Tooltip": "Set a transition",
+			"UUID": "com.hotspot.streamdock.obsstudio.transition"
+		},
+		{
+			"Name": "绿幕背景图 UP",
+			"Icon": "Images/actions/green.screen.background/iconup",
+			"States": [
+				{
+					"Image": "Images/actions/green.screen.background/up"
+				}
+			],
+			"DisableAutomaticStates": true,
+			"Tooltip": "快捷键-绿幕背景图 UP",
+			"UUID": "com.hotspot.streamdock.obsstudio.shortcutup"
+		},
+		{
+			"Name": "绿幕背景图 DN",
+			"Icon": "Images/actions/green.screen.background/icondn",
+			"States": [
+				{
+					"Image": "Images/actions/green.screen.background/dn"
+				}
+			],
+			"DisableAutomaticStates": true,
+			"Tooltip": "快捷键-绿幕背景图 DN",
+			"UUID": "com.hotspot.streamdock.obsstudio.shortcutdn"
+		}
+	],
+	"Author": "Hotspot",
+	"Name": "OBS Studio",
+	"Category": "OBS Studio",
+	"CategoryIcon": "Images/actions/stream/icon.png",
+	"Icon": "Images/actions/stream/icon.png",
+	"Description": "Stream Dock plugin for OBS Studio",
+	"URL": "http://video.hotspotek.com.cn/",
+	"PrivateAPI": true,
+	"Version": "2.0",
+	  	"OS": [
+		{
+		  "Platform": "windows",
+		  "MinimumVersion": "10"
+		},
+		{
+		  "Platform": "mac",
+		  "MinimumVersion": "10.11"
+		}
+	],
+	"ApplicationsToMonitor": {
+		"windows": [
+		  "obs32.exe",
+		  "obs64.exe"
+		],
+		"mac": [
+		  "com.obsproject.obs-studio"
+		]
+	}
+}
+  
