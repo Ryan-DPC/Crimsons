@@ -13,17 +13,42 @@ Messages WS :
 
 | Type | Direction | Rôle |
 | --- | --- | --- |
-| `HUE_STATE` | server → client | Snapshot groups + scenes + sélection |
+| `HUE_STATE` | server → client | Snapshot groups + scenes + sélection (change-detect anti-spam) |
 | `HUE_COMMAND` | client → server | `endpoint` + `payload` |
 
 Prefs Hub : `plugins.hue` (premium). Catalogue slug : `philips-hue` · **5.99 CHF/mois** · StreamDock ✓ · Elgato ✗.
 
-## Bridge local
+## Pairing bridge (CLIP v1)
+
+Le sidecar lit uniquement des credentials **locaux** (pas de cloud Hue / OAuth).
+
+1. Trouver l’IP LAN du bridge (app Hue → Paramètres → Bridge, ou mDNS `hue-bridge.local`).
+2. Appuyer sur le **bouton link** du bridge (fenêtre ~30 s).
+3. Créer un username API :
+
+```bash
+curl -s -X POST "http://<BRIDGE_IP>/api" \
+  -H "Content-Type: application/json" \
+  -d '{"devicetype":"crimsons#desktop"}'
+```
+
+Réponse attendue : `[{"success":{"username":"<TOKEN>"}}]`.
+
+4. Exporter pour `crimsons-server` (session / service Windows) :
+
+```powershell
+$env:HUE_BRIDGE_IP = "192.168.x.x"
+$env:HUE_USERNAME  = "<TOKEN>"
+# optionnel : forcer le mock même avec credentials
+# $env:HUE_MOCK = "1"
+```
+
+5. Relancer le sidecar, activer **Philips Hue** dans Hub → Plugins (premium), puis **Refresh**.
 
 | Variable | Rôle |
 | --- | --- |
 | `HUE_BRIDGE_IP` | IP LAN du bridge |
-| `HUE_USERNAME` | Username API local (bouton link) |
+| `HUE_USERNAME` | Username API local (étape 3) |
 | `HUE_MOCK=1` | Force le mock même avec credentials |
 
 Sans credentials (VM Linux / CI) → **mock** déterministe (Living Room, Bedroom, Gaming Den + scènes).
@@ -46,7 +71,7 @@ API utilisée : CLIP v1 HTTP `http://{ip}/api/{user}/groups|scenes` et `PUT …/
 ## Limites
 
 - CLIP v1 uniquement (pas encore CLIP v2 / Entertainment).
-- Pas de pairing automatique du username (env manuel).
+- Pairing username manuel (env) — pas de wizard in-app.
 - CT preset = stub (warm / cool / neutral mireds).
 - Sur Linux VM : mock uniquement sans bridge.
 - Premium + sidecar Crimsons requis.

@@ -862,12 +862,7 @@ async fn handle_connection(
                                                     if let Some(h) = &hue {
                                                         h.is_enabled.store(enabled, std::sync::atomic::Ordering::Relaxed);
                                                         if !enabled {
-                                                            let idle = crate::hue::HueState {
-                                                                connected: false,
-                                                                mock: true,
-                                                                ..Default::default()
-                                                            };
-                                                            let _ = sender.0.send(json!({ "type": "HUE_STATE", "data": idle }).to_string());
+                                                            h.set_disabled_idle().await;
                                                         } else {
                                                             h.refresh().await;
                                                         }
@@ -876,6 +871,25 @@ async fn handle_connection(
                                                 _ => {}
                                             }
                                             tracing::info!("Toggled plugin {} to {} in memory", plugin, enabled);
+
+                                            // Persist pref so entitlement::start_guard stays aligned
+                                            // (UI also writes data.json; this covers races / StreamDock).
+                                            {
+                                                let data_path = storage::get_data_path_from_env();
+                                                let mut data = storage::load_data_from_path(data_path.clone());
+                                                let mut plugins = data
+                                                    .other
+                                                    .get("plugins")
+                                                    .cloned()
+                                                    .unwrap_or_else(|| json!({}));
+                                                if let Some(obj) = plugins.as_object_mut() {
+                                                    obj.insert(plugin.to_string(), json!(enabled));
+                                                } else {
+                                                    plugins = json!({ plugin: enabled });
+                                                }
+                                                data.other.insert("plugins".into(), plugins);
+                                                storage::save_data_to_path(data_path, &data);
+                                            }
 
                                             // Immediate heartbeat broadcast for snappy visual updates
                                             let hb = json!({
@@ -962,8 +976,18 @@ async fn handle_connection(
                                             let _ = sender.0.send(json!({ "type": "SPOTIFY_STATE", "data": snap }).to_string());
                                         }
                                         if let Some(h) = &hue {
-                                            let snap = h.snapshot().await;
-                                            let _ = sender.0.send(json!({ "type": "HUE_STATE", "data": snap }).to_string());
+                                            // Avoid re-seeding Hub/StreamDock with stale groups when off.
+                                            if h.is_enabled.load(std::sync::atomic::Ordering::Relaxed) {
+                                                let snap = h.snapshot().await;
+                                                let _ = sender.0.send(json!({ "type": "HUE_STATE", "data": snap }).to_string());
+                                            } else {
+                                                let idle = crate::hue::HueState {
+                                                    connected: false,
+                                                    mock: true,
+                                                    ..Default::default()
+                                                };
+                                                let _ = sender.0.send(json!({ "type": "HUE_STATE", "data": idle }).to_string());
+                                            }
                                         }
                                         let data_path = storage::get_data_path_from_env();
                                         let data = storage::load_data_from_path(data_path);

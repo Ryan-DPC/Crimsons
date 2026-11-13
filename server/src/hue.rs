@@ -203,6 +203,8 @@ pub fn mock_state() -> HueState {
 
 pub struct HueService {
     state: Arc<RwLock<HueState>>,
+    /// Last `HUE_STATE` payload sent on the WS bus (change-detect anti-spam).
+    last_broadcast: Arc<RwLock<Option<HueState>>>,
     sender: WsSender,
     pub is_enabled: Arc<AtomicBool>,
 }
@@ -211,6 +213,7 @@ impl HueService {
     pub fn new(sender: WsSender) -> Self {
         Self {
             state: Arc::new(RwLock::new(mock_state())),
+            last_broadcast: Arc::new(RwLock::new(None)),
             sender,
             is_enabled: Arc::new(AtomicBool::new(false)),
         }
@@ -220,12 +223,49 @@ impl HueService {
         self.state.read().await.clone()
     }
 
-    async fn broadcast(&self) {
+    /// Idle snapshot when the Hub toggle turns Hue off (clears internal + WS state).
+    pub async fn set_disabled_idle(&self) {
+        let idle = HueState {
+            connected: false,
+            mock: true,
+            ..Default::default()
+        };
+        {
+            let mut st = self.state.write().await;
+            *st = idle.clone();
+        }
+        self.broadcast_force(&idle).await;
+    }
+
+    /// Push `HUE_STATE` only when the snapshot differs from the last send.
+    async fn broadcast_if_changed(&self) -> bool {
         let data = self.state.read().await.clone();
+        {
+            let last = self.last_broadcast.read().await;
+            if last.as_ref() == Some(&data) {
+                return false;
+            }
+        }
+        self.broadcast_force(&data).await;
+        true
+    }
+
+    async fn broadcast_force(&self, data: &HueState) {
+        {
+            let mut last = self.last_broadcast.write().await;
+            *last = Some(data.clone());
+        }
         let _ = self
             .sender
             .0
             .send(serde_json::json!({ "type": "HUE_STATE", "data": data }).to_string());
+    }
+
+    async fn broadcast(&self) {
+        let data = self.state.read().await.clone();
+        // Command paths always push so Hub / StreamDock get immediate feedback
+        // even when a no-op refresh returns an identical snapshot.
+        self.broadcast_force(&data).await;
     }
 
     pub async fn handle_command(
@@ -500,10 +540,16 @@ impl HueService {
     pub async fn start_background_polling(&self) {
         let enabled = self.is_enabled.clone();
         let this_state = self.state.clone();
+        let last_broadcast = self.last_broadcast.clone();
         let sender = self.sender.clone();
         tokio::spawn(async move {
+            // Initial paint once; subsequent ticks are change-detected.
             {
                 let data = this_state.read().await.clone();
+                {
+                    let mut last = last_broadcast.write().await;
+                    *last = Some(data.clone());
+                }
                 let _ = sender
                     .0
                     .send(serde_json::json!({ "type": "HUE_STATE", "data": data }).to_string());
@@ -558,6 +604,16 @@ impl HueService {
                     }
                 }
                 let data = this_state.read().await.clone();
+                {
+                    let last = last_broadcast.read().await;
+                    if last.as_ref() == Some(&data) {
+                        continue;
+                    }
+                }
+                {
+                    let mut last = last_broadcast.write().await;
+                    *last = Some(data.clone());
+                }
                 let _ = sender
                     .0
                     .send(serde_json::json!({ "type": "HUE_STATE", "data": data }).to_string());
@@ -793,5 +849,35 @@ mod tests {
         assert_eq!(v["mock"], true);
         assert!(v["groups"].as_array().unwrap().len() >= 3);
         assert!(v["scenes"].as_array().unwrap().len() >= 4);
+    }
+
+    #[test]
+    fn hue_state_partial_eq_detects_bri_change() {
+        let a = mock_state();
+        let mut b = a.clone();
+        assert_eq!(a, b);
+        b.groups[0].bri = clamp_bri(b.groups[0].bri as i32 + 10);
+        assert_ne!(a, b);
+    }
+
+    #[tokio::test]
+    async fn broadcast_if_changed_skips_identical_snapshot() {
+        let (tx, mut rx) = tokio::sync::broadcast::channel::<String>(16);
+        let svc = HueService::new(crate::events::WsSender(tx));
+        svc.is_enabled.store(true, Ordering::Relaxed);
+        assert!(svc.broadcast_if_changed().await);
+        let first = rx.try_recv().expect("first HUE_STATE");
+        assert!(first.contains("HUE_STATE"));
+        assert!(!svc.broadcast_if_changed().await);
+        assert!(rx.try_recv().is_err());
+        {
+            let mut st = svc.state.write().await;
+            if let Some(g) = st.groups.get_mut(0) {
+                g.on = !g.on;
+            }
+        }
+        assert!(svc.broadcast_if_changed().await);
+        let second = rx.try_recv().expect("second HUE_STATE");
+        assert!(second.contains("HUE_STATE"));
     }
 }

@@ -379,11 +379,20 @@ export default function HomeTab() {
                                         return `${sc?.name || 'Aucune scène'}${mock}`;
                                     })()}
                                 </span>
+                                {hueState?.error && (
+                                    <span className="text-amber-500/70 text-[9px] truncate mt-0.5" title={hueState.error}>
+                                        {hueState.error}
+                                    </span>
+                                )}
                             </div>
                             <button
                                 type="button"
                                 onClick={() => hueCommand('toggle')}
-                                className="p-2.5 bg-amber-600/10 hover:bg-amber-600/20 text-amber-400 rounded-xl border border-amber-500/20 transition-all"
+                                className={`p-2.5 rounded-xl border transition-all ${
+                                    hueState?.groups?.[hueState?.selected_group_index || 0]?.on
+                                        ? 'bg-amber-600/25 hover:bg-amber-600/35 text-amber-300 border-amber-500/30'
+                                        : 'bg-amber-600/10 hover:bg-amber-600/20 text-amber-400 border-amber-500/20'
+                                }`}
                                 title="On/Off"
                             >
                                 <Lightbulb className="w-4 h-4" />
@@ -419,6 +428,24 @@ export default function HomeTab() {
                                 title="Pièce suivante"
                             >
                                 <ChevronRight className="w-4 h-4" />
+                            </button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                            <button
+                                type="button"
+                                onClick={() => hueCommand('scene_prev')}
+                                className="flex items-center justify-center gap-1 py-2.5 bg-white/5 hover:bg-white/10 text-white/70 rounded-xl border border-white/5 text-[9px] font-black uppercase tracking-wider transition-all"
+                                title="Scène précédente"
+                            >
+                                <ChevronLeft className="w-3.5 h-3.5" /> Scène
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => hueCommand('scene_next')}
+                                className="flex items-center justify-center gap-1 py-2.5 bg-white/5 hover:bg-white/10 text-white/70 rounded-xl border border-white/5 text-[9px] font-black uppercase tracking-wider transition-all"
+                                title="Scène suivante"
+                            >
+                                Scène <ChevronRight className="w-3.5 h-3.5" />
                             </button>
                         </div>
                         <a

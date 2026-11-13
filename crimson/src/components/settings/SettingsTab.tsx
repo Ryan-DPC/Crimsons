@@ -790,7 +790,10 @@ const SettingsTab = () => {
                                                 description={plugin.desc}
                                                 value={isEnabled}
                                                 onChange={(v) => {
-                                                    if (!isDisabled) togglePlugin(plugin.key, v);
+                                                    if (isDisabled) return;
+                                                    // Optimistic UI — entitlement + WS may lag behind data.json.
+                                                    setPluginsState((prev) => ({ ...prev, [plugin.key]: v }));
+                                                    void togglePlugin(plugin.key, v);
                                                 }}
                                                 disabled={isDisabled}
                                             />
@@ -848,14 +851,31 @@ const SettingsTab = () => {
                                                                     : (hueState?.mock ? 'Mock (HUE_BRIDGE_IP / HUE_USERNAME)' : 'Bridge')}
                                                             </p>
                                                         </div>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => hueCommand('refresh')}
-                                                            className="shrink-0 px-3 py-2 bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 text-[9px] font-black uppercase tracking-widest rounded-xl border border-amber-500/20 transition-all"
-                                                        >
-                                                            Refresh
-                                                        </button>
+                                                        <div className="flex shrink-0 gap-2">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => hueCommand('toggle')}
+                                                                className="px-3 py-2 bg-amber-600/10 hover:bg-amber-600/20 text-amber-400 text-[9px] font-black uppercase tracking-widest rounded-xl border border-amber-500/20 transition-all"
+                                                            >
+                                                                On/Off
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => hueCommand('refresh')}
+                                                                className="px-3 py-2 bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 text-[9px] font-black uppercase tracking-widest rounded-xl border border-amber-500/20 transition-all"
+                                                            >
+                                                                Refresh
+                                                            </button>
+                                                        </div>
                                                     </div>
+                                                    <p className="text-[9px] text-white/25 uppercase font-bold tracking-widest leading-relaxed">
+                                                        Bridge local : définir <span className="text-white/45">HUE_BRIDGE_IP</span> + <span className="text-white/45">HUE_USERNAME</span> (bouton link → POST /api). Sans credentials → mock.
+                                                    </p>
+                                                    {hueState?.error && (
+                                                        <p className="text-[9px] text-amber-500/60 font-bold tracking-wide truncate" title={hueState.error}>
+                                                            {hueState.error}
+                                                        </p>
+                                                    )}
                                                     <a
                                                         href="https://store.crimsons.app/plugins/philips-hue"
                                                         target="_blank"

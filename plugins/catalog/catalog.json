@@ -27,8 +27,8 @@
       "description": "Plugin StreamDock : on/off pièce/groupe, luminosité ±, scroll scènes, preset température couleur (stub). Bridge local via HUE_BRIDGE_IP / HUE_USERNAME ; mock déterministe sinon. Premium.",
       "packageId": "com.laoy.streamdock.hue.sdPlugin",
       "packagePath": "com.laoy.streamdock.hue.sdPlugin",
-      "version": "0.1.0",
-      "status": "coming_soon",
+      "version": "0.1.1",
+      "status": "beta",
       "pricing": "5.99 CHF/mois",
       "categories": [
         "streamdeck",

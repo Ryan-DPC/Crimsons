@@ -6,7 +6,7 @@
   "Description": "Philips Hue rooms, brightness and scenes via Crimsons sidecar (local bridge or mock).",
   "Icon": "static/icon/hue.png",
   "Name": "Philips Hue",
-  "Version": "0.1.0",
+  "Version": "0.1.1",
   "SDKVersion": 2,
   "Software": {
     "MinimumVersion": "2.0.0"
