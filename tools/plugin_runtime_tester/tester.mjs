@@ -208,7 +208,7 @@ async function main() {
     record('AUTH_SESSION accepted', 'PASSED', 'sent (no ack by design)');
   }
 
-  // Hue / Twitch must stay gated
+  // Hue must stay gated (coming soon)
   app.clear();
   app.send({ type: 'TOGGLE_PLUGIN', plugin: 'hue', enabled: true });
   try {
@@ -222,17 +222,37 @@ async function main() {
     record('Hue gated (coming soon)', 'FAILED', String(e.message || e));
   }
 
+  // Twitch: premium-gated; mock TWITCH_STATE when enabled
   app.clear();
   app.send({ type: 'TOGGLE_PLUGIN', plugin: 'twitch', enabled: true });
   try {
-    const denied = await app.waitFor(
-      (m) => m.type === 'FEATURE_UNAVAILABLE' && m.plugin === 'twitch',
-      4000,
-      'FEATURE_UNAVAILABLE twitch'
+    const msg = await app.waitFor(
+      (m) =>
+        (m.type === 'AUTH_ERROR') ||
+        (m.type === 'TWITCH_STATE') ||
+        (m.type === 'PLUGIN_PREFS' && m.plugins && m.plugins.twitch === true),
+      5000,
+      'Twitch toggle ack'
     );
-    record('Twitch gated (coming soon)', 'PASSED', denied.message || '');
+    if (msg.type === 'AUTH_ERROR') {
+      record('Twitch premium gate', 'PASSED', msg.message || 'AUTH_ERROR');
+    } else {
+      record('Twitch TOGGLE_PLUGIN', 'PASSED', msg.type);
+      app.clear();
+      app.send({ type: 'TWITCH_COMMAND', endpoint: 'refresh' });
+      try {
+        const st = await app.waitFor((m) => m.type === 'TWITCH_STATE', 4000, 'TWITCH_STATE');
+        record(
+          'Twitch refresh (mock/Helix)',
+          'PASSED',
+          `viewers=${st.data?.viewers ?? '?'} mock=${st.data?.mock}`
+        );
+      } catch (e2) {
+        record('Twitch refresh (mock/Helix)', 'FAILED', String(e2.message || e2));
+      }
+    }
   } catch (e) {
-    record('Twitch gated (coming soon)', 'FAILED', String(e.message || e));
+    record('Twitch TOGGLE_PLUGIN', 'FAILED', String(e.message || e));
   }
 
   // --- League of Legends (Crimsons plugin protocol) ---

@@ -1,0 +1,148 @@
+{
+  "Author": "Laoy",
+  "Category": "Twitch",
+  "CategoryIcon": "static/icon/twitch.png",
+  "CodePath": "plugin/index.html",
+  "Description": "Twitch streamer tools via Crimsons sidecar (viewers, clip, marker) — Helix MVP + mock.",
+  "Icon": "static/icon/twitch.png",
+  "Name": "Twitch",
+  "Version": "0.1.0",
+  "SDKVersion": 2,
+  "Software": {
+    "MinimumVersion": "2.0.0"
+  },
+  "OS": [
+    {
+      "Platform": "windows",
+      "MinimumVersion": "10"
+    }
+  ],
+  "Actions": [
+    {
+      "Name": "Viewer Count",
+      "UUID": "com.laoy.streamdock.twitch.viewers",
+      "Icon": "static/icon/viewers.png",
+      "States": [
+        {
+          "Image": "static/icon/viewers.png",
+          "TitleAlignment": "bottom",
+          "FontSize": "10"
+        }
+      ],
+      "Tooltip": "Live viewer count (refresh on press)",
+      "Context": "GLOBAL"
+    },
+    {
+      "Name": "Create Clip",
+      "UUID": "com.laoy.streamdock.twitch.clip",
+      "Icon": "static/icon/clip.png",
+      "States": [
+        {
+          "Image": "static/icon/clip.png",
+          "TitleAlignment": "middle",
+          "FontSize": "10"
+        }
+      ],
+      "Tooltip": "Create a Helix clip of the current broadcast",
+      "Context": "GLOBAL"
+    },
+    {
+      "Name": "Stream Marker",
+      "UUID": "com.laoy.streamdock.twitch.marker",
+      "Icon": "static/icon/marker.png",
+      "States": [
+        {
+          "Image": "static/icon/marker.png",
+          "TitleAlignment": "middle",
+          "FontSize": "10"
+        }
+      ],
+      "Tooltip": "Drop a stream marker (Helix)",
+      "Context": "GLOBAL"
+    },
+    {
+      "Name": "Refresh",
+      "UUID": "com.laoy.streamdock.twitch.refresh",
+      "Icon": "static/icon/refresh.png",
+      "States": [
+        {
+          "Image": "static/icon/refresh.png",
+          "TitleAlignment": "middle",
+          "FontSize": "10"
+        }
+      ],
+      "Tooltip": "Refresh stream state from Crimsons sidecar",
+      "Context": "GLOBAL"
+    },
+    {
+      "Name": "Open Twitch",
+      "UUID": "com.laoy.streamdock.twitch.opentwitch",
+      "Icon": "static/icon/opentwitch.png",
+      "States": [
+        {
+          "Image": "static/icon/opentwitch.png",
+          "TitleAlignment": "middle",
+          "FontSize": "10"
+        }
+      ],
+      "Tooltip": "Open twitch.tv channel / dashboard",
+      "Context": "GLOBAL"
+    },
+    {
+      "Name": "Open Hub / Store",
+      "UUID": "com.laoy.streamdock.twitch.openhub",
+      "Icon": "static/icon/openhub.png",
+      "States": [
+        {
+          "Image": "static/icon/openhub.png",
+          "TitleAlignment": "middle",
+          "FontSize": "10"
+        }
+      ],
+      "Tooltip": "Open Crimsons Hub / Store plugin page",
+      "Context": "GLOBAL"
+    },
+    {
+      "Name": "Mute Alerts (stub)",
+      "UUID": "com.laoy.streamdock.twitch.mute_alerts",
+      "Icon": "static/icon/mute_alerts.png",
+      "States": [
+        {
+          "Image": "static/icon/mute_alerts.png",
+          "TitleAlignment": "middle",
+          "FontSize": "9"
+        }
+      ],
+      "Tooltip": "Stub — toggle alerts muted flag (no Helix chat alerts API)",
+      "Context": "GLOBAL"
+    },
+    {
+      "Name": "Follower Goal (stub)",
+      "UUID": "com.laoy.streamdock.twitch.follower_goal",
+      "Icon": "static/icon/follower_goal.png",
+      "States": [
+        {
+          "Image": "static/icon/follower_goal.png",
+          "TitleAlignment": "bottom",
+          "FontSize": "9"
+        }
+      ],
+      "Tooltip": "Stub follower goal display",
+      "Context": "GLOBAL"
+    },
+    {
+      "Name": "Clear Chat (stub)",
+      "UUID": "com.laoy.streamdock.twitch.clear_chat",
+      "Icon": "static/icon/clear_chat.png",
+      "States": [
+        {
+          "Image": "static/icon/clear_chat.png",
+          "TitleAlignment": "middle",
+          "FontSize": "9"
+        }
+      ],
+      "Tooltip": "Stub — needs IRC/mod scopes (not Helix MVP)",
+      "Context": "GLOBAL"
+    }
+  ]
+}

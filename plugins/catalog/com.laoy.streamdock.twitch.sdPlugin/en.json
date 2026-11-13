@@ -1,0 +1,40 @@
+{
+  "Description": "Twitch streamer tools via Crimsons (viewers, clip, marker).",
+  "Name": "Twitch",
+  "com.laoy.streamdock.twitch.viewers": {
+    "Name": "Viewer Count",
+    "Tooltip": "Live viewer count"
+  },
+  "com.laoy.streamdock.twitch.clip": {
+    "Name": "Create Clip",
+    "Tooltip": "Create a Helix clip"
+  },
+  "com.laoy.streamdock.twitch.marker": {
+    "Name": "Stream Marker",
+    "Tooltip": "Drop a stream marker"
+  },
+  "com.laoy.streamdock.twitch.refresh": {
+    "Name": "Refresh",
+    "Tooltip": "Refresh from Crimsons sidecar"
+  },
+  "com.laoy.streamdock.twitch.opentwitch": {
+    "Name": "Open Twitch",
+    "Tooltip": "Open Twitch channel / dashboard"
+  },
+  "com.laoy.streamdock.twitch.openhub": {
+    "Name": "Open Hub / Store",
+    "Tooltip": "Open store page /plugins/twitch"
+  },
+  "com.laoy.streamdock.twitch.mute_alerts": {
+    "Name": "Mute Alerts (stub)",
+    "Tooltip": "Stub alerts mute"
+  },
+  "com.laoy.streamdock.twitch.follower_goal": {
+    "Name": "Follower Goal (stub)",
+    "Tooltip": "Stub follower goal"
+  },
+  "com.laoy.streamdock.twitch.clear_chat": {
+    "Name": "Clear Chat (stub)",
+    "Tooltip": "Stub clear chat (IRC)"
+  }
+}

@@ -20,7 +20,7 @@ http = "1.0"
 base64 = "0.21"
 clap = { version = "4", features = ["derive"] }
 single-instance = "0.3"
-ureq = { version = "2.9", features = ["native-tls"] }
+ureq = { version = "2.9", features = ["native-tls", "json"] }
 native-tls = "0.2"
 reqwest = { version = "0.12", features = ["json"] }
 chrono = "0.4.44"

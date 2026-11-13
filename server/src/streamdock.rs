@@ -320,9 +320,24 @@ pub async fn process_streamdeck_event(value: serde_json::Value, spotify: Arc<Spo
                 tokio::spawn(async move { let _ = h.handle_command(&endpoint, None).await; });
             }
             a if a.starts_with("com.laoy.streamdock.twitch.") => {
-                tracing::warn!("[TWITCH] StreamDock key rejected: {}", crate::twitch::UNAVAILABLE_MSG);
+                if !_t.is_enabled.load(Ordering::Relaxed) {
+                    tracing::info!("[TWITCH] Key action ignored: service disabled");
+                    return;
+                }
                 let t = _t.clone();
-                let endpoint = a.rsplit('.').next().unwrap_or("").to_string();
+                let endpoint = match a.rsplit('.').next().unwrap_or("") {
+                    "viewers" => "viewers",
+                    "clip" | "create_clip" => "create_clip",
+                    "marker" | "create_marker" => "create_marker",
+                    "refresh" => "refresh",
+                    "mute_alerts" => "mute_alerts",
+                    "follower_goal" => "follower_goal",
+                    "clear_chat" => "clear_chat",
+                    "opentwitch" | "open_twitch" => "open_twitch",
+                    "openhub" => "openhub",
+                    other => other,
+                }
+                .to_string();
                 tokio::spawn(async move { let _ = t.handle_command(&endpoint, None).await; });
             }
             _ => {}
@@ -398,8 +413,14 @@ pub async fn process_streamdeck_event(value: serde_json::Value, spotify: Arc<Spo
         let _ = _h.handle_command(value["endpoint"].as_str().unwrap_or(""), Some(value.clone())).await;
     }
     if value["type"] == "TWITCH_COMMAND" {
-        tracing::warn!("[TWITCH] StreamDock command rejected: {}", crate::twitch::UNAVAILABLE_MSG);
-        let _ = _t.handle_command(value["endpoint"].as_str().unwrap_or(""), Some(value.clone())).await;
+        if _t.is_enabled.load(Ordering::Relaxed) {
+            let t = _t.clone();
+            let endpoint_str = value["endpoint"].as_str().unwrap_or("").to_string();
+            let val_clone = value.clone();
+            tokio::spawn(async move {
+                let _ = t.handle_command(&endpoint_str, Some(val_clone)).await;
+            });
+        }
     }
     if value["type"] == "ADJUST_AUDIO" {
         if _d.is_enabled.load(Ordering::Relaxed) {

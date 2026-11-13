@@ -24,7 +24,8 @@ Version actuelle : **3.1.4**.
 | `server/` (crate `crimson-server`, binary `crimsons-server`) | Sidecar : WebSocket local, intégrations, bridge StreamDock |
 | `crimson/src-tauri/crates/lcu_commands` | Logique LCU / draft partagée |
 | `plugins/streamdeck/` | **Base :** Crimsons (LoL) + Spotify. Discord optionnel. |
-| `plugins/streamdeck/optional/` | Stubs / futurs plugins externes (Hue, Twitch, …) |
+| `plugins/streamdeck/optional/` | Stubs / futurs plugins externes (Hue, …) |
+| `plugins/catalog/` | Packs catalogue téléchargeables (Twitch, …) |
 
 Auth / droits premium : Supabase (client + vérif côté serveur).
 
@@ -41,7 +42,7 @@ These are the names that must stay aligned. Do **not** “fix” frozen IDs.
 | Sidecar executable | **`crimsons-server.exe`** | Task Manager / autostart. Crate name stays `crimson-server` (Rust `use crimson_server::`) |
 | Sidecar ProductName | Crimsons / Crimsons Server | winres FileDescription |
 | GitHub | `Ryan-DPC/Crimsons` | Frozen (renaming the remote would break updater + clones) |
-| StreamDock plugin UUIDs | `com.laoy.streamdock.crimson.*`, `com.laoy.streamdock.spotify.*`, `com.laoy.streamdock.discord.*` | **Frozen** — changing them breaks existing decks |
+| StreamDock plugin UUIDs | `com.laoy.streamdock.crimson.*`, `com.laoy.streamdock.spotify.*`, `com.laoy.streamdock.discord.*`, `com.laoy.streamdock.twitch.*` | **Frozen** — changing them breaks existing decks |
 | Env vars / mutex | `CRIMSON_DEV`, `CRIMSON_STRICT_AUTH`, `Global\crimson_server_v2_lock` | Internal; keep |
 | Tauri invoke names | `crimson_quit_app`, `crimson_start_server`, … | Internal IPC; keep |
 
@@ -57,7 +58,8 @@ Voir [`docs/GUIDE_UTILISATEUR.md`](docs/GUIDE_UTILISATEUR.md) : connexion sans P
 | --- | --- |
 | **Base** (injecté par défaut) | LoL + Spotify |
 | **Optionnel** | Discord — `.\scripts\inject_plugins.ps1 -IncludeDiscord` (Premium) |
-| **Externes (plus tard)** | Hue, Twitch, … téléchargeables ; gratuits ou payants selon le catalogue / la communauté |
+| **Catalogue** | Twitch — `.\scripts\inject_plugins.ps1 -Extra com.laoy.streamdock.twitch.sdPlugin` (Premium, 5.99 CHF/mois) |
+| **Externes (plus tard)** | Hue, … téléchargeables ; gratuits ou payants selon le catalogue / la communauté |
 
 ## App native vs localhost (important)
 

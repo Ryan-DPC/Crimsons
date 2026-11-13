@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "updatedAt": "2026-11-13",
+  "categories": [
+    {
+      "id": "streamdeck",
+      "label": "StreamDock",
+      "description": "Pack installable dans Stream Dock / StreamDeck (boutons physiques)."
+    },
+    {
+      "id": "utility",
+      "label": "Utilitaire",
+      "description": "Outils transverses hors jeu."
+    },
+    {
+      "id": "media",
+      "label": "Médias",
+      "description": "Lecture audio / vidéo et contrôles associés."
+    },
+    {
+      "id": "communication",
+      "label": "Communication",
+      "description": "Voix, chat, présence (Discord, Twitch, etc.)."
+    }
+  ],
+  "plugins": [
+    {
+      "id": "twitch",
+      "slug": "twitch",
+      "name": "Twitch",
+      "summary": "Viewers, clips, markers et raccourcis streamer sur StreamDock.",
+      "description": "Plugin StreamDock Twitch via Helix + sidecar Crimsons : compteur de viewers, création de clip, stream marker, ouverture Twitch / Hub / Store. OAuth stub (TWITCH_CLIENT_ID + token) ; mock sans credentials. Premium. Hardware StreamDock oui, Elgato non.",
+      "packageId": "com.laoy.streamdock.twitch.sdPlugin",
+      "packagePath": "com.laoy.streamdock.twitch.sdPlugin",
+      "version": "0.1.0",
+      "status": "coming_soon",
+      "pricing": "5.99 CHF/mois",
+      "categories": [
+        "streamdeck",
+        "communication",
+        "media"
+      ],
+      "surfaces": [
+        "streamdock",
+        "crimsons-hub"
+      ],
+      "requiresPremium": true,
+      "requiresCrimsons": true,
+      "icon": null,
+      "targetApp": "Crimsons & StreamDock",
+      "hardware": {
+        "streamdock": true,
+        "elgato": false
+      }
+    }
+  ]
+}

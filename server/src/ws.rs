@@ -607,6 +607,13 @@ async fn handle_connection(
             )).await;
         }
 
+        if let Some(t) = &twitch {
+            let snap = t.snapshot().await;
+            let _ = ws_stream.send(tokio_tungstenite::tungstenite::Message::Text(
+                json!({ "type": "TWITCH_STATE", "data": snap }).to_string().into()
+            )).await;
+        }
+
         // Push plugin prefs + live entitlement so Hub matches disk/server truth.
         {
             let plugins = data.other.get("plugins").cloned().unwrap_or(json!({}));
@@ -618,6 +625,7 @@ async fn handle_connection(
                     "premium": premium,
                     "spotify_enabled": spotify.as_ref().map(|s| s.is_enabled.load(std::sync::atomic::Ordering::Relaxed)).unwrap_or(false),
                     "discord_enabled": discord.as_ref().map(|d| d.is_enabled.load(std::sync::atomic::Ordering::Relaxed)).unwrap_or(false),
+                    "twitch_enabled": twitch.as_ref().map(|t| t.is_enabled.load(std::sync::atomic::Ordering::Relaxed)).unwrap_or(false),
                     "lol_enabled": is_lol_enabled.load(std::sync::atomic::Ordering::Relaxed),
                 }).to_string().into()
             )).await;
@@ -798,15 +806,10 @@ async fn handle_connection(
                                         if let (Some(plugin), Some(enabled)) = (value["plugin"].as_str(), value["enabled"].as_bool()) {
                                             // Sans ce controle, n'importe quel client WebSocket
                                             // local activait un service premium d'un seul message.
-                                            // Hue / Twitch APIs are not implemented — never enable them.
-                                            if plugin == "hue" || plugin == "twitch" {
-                                                let msg = if plugin == "hue" {
-                                                    crate::hue::UNAVAILABLE_MSG
-                                                } else {
-                                                    crate::twitch::UNAVAILABLE_MSG
-                                                };
+                                            // Hue API is not implemented — never enable it.
+                                            if plugin == "hue" {
+                                                let msg = crate::hue::UNAVAILABLE_MSG;
                                                 if let Some(h) = &hue { h.is_enabled.store(false, std::sync::atomic::Ordering::Relaxed); }
-                                                if let Some(t) = &twitch { t.is_enabled.store(false, std::sync::atomic::Ordering::Relaxed); }
                                                 tracing::warn!("[AUTH] Blocked TOGGLE_PLUGIN {}: {}", plugin, msg);
                                                 let _ = sender.0.send(json!({
                                                     "type": "FEATURE_UNAVAILABLE",
@@ -816,7 +819,7 @@ async fn handle_connection(
                                                 continue;
                                             }
                                             if enabled
-                                                && ["spotify", "discord"].contains(&plugin)
+                                                && ["spotify", "discord", "twitch"].contains(&plugin)
                                                 && !crate::entitlement::is_premium().await
                                             {
                                                 tracing::warn!("[AUTH] Blocked TOGGLE_PLUGIN {} for free user", plugin);
@@ -861,6 +864,22 @@ async fn handle_connection(
                                                         let _ = sender.0.send(json!({ "type": "GAME_PHASE", "phase": "None" }).to_string());
                                                         let _ = sender.0.send(json!({ "type": "CHAMP_SELECT", "championId": 0, "championName": "" }).to_string());
                                                         let _ = sender.0.send(json!({ "type": "SUMMONER_INFO", "gameName": "", "profileIconId": 0 }).to_string());
+                                                    }
+                                                }
+                                                "twitch" => {
+                                                    if let Some(t) = &twitch {
+                                                        t.is_enabled.store(enabled, std::sync::atomic::Ordering::Relaxed);
+                                                        if enabled {
+                                                            let t_clone = t.clone();
+                                                            tokio::spawn(async move { t_clone.refresh().await; });
+                                                        } else {
+                                                            let idle = crate::twitch::TwitchState {
+                                                                connected: false,
+                                                                mock: true,
+                                                                ..Default::default()
+                                                            };
+                                                            let _ = sender.0.send(json!({ "type": "TWITCH_STATE", "data": idle }).to_string());
+                                                        }
                                                     }
                                                 }
                                                 _ => {}
@@ -951,6 +970,10 @@ async fn handle_connection(
                                             let snap = s.auth_snapshot_state().await;
                                             let _ = sender.0.send(json!({ "type": "SPOTIFY_STATE", "data": snap }).to_string());
                                         }
+                                        if let Some(t) = &twitch {
+                                            let snap = t.snapshot().await;
+                                            let _ = sender.0.send(json!({ "type": "TWITCH_STATE", "data": snap }).to_string());
+                                        }
                                         let data_path = storage::get_data_path_from_env();
                                         let data = storage::load_data_from_path(data_path);
                                         let plugins = data.other.get("plugins").cloned().unwrap_or(json!({}));
@@ -961,6 +984,7 @@ async fn handle_connection(
                                             "premium": premium,
                                             "spotify_enabled": spotify.as_ref().map(|s| s.is_enabled.load(std::sync::atomic::Ordering::Relaxed)).unwrap_or(false),
                                             "discord_enabled": discord.as_ref().map(|d| d.is_enabled.load(std::sync::atomic::Ordering::Relaxed)).unwrap_or(false),
+                                            "twitch_enabled": twitch.as_ref().map(|t| t.is_enabled.load(std::sync::atomic::Ordering::Relaxed)).unwrap_or(false),
                                             "lol_enabled": is_lol_enabled.load(std::sync::atomic::Ordering::Relaxed),
                                         }).to_string());
                                         continue;
@@ -1097,12 +1121,20 @@ async fn handle_connection(
                                     }
 
                                     if value["type"] == "TWITCH_COMMAND" {
-                                        tracing::warn!("[TWITCH] {}", crate::twitch::UNAVAILABLE_MSG);
-                                        let _ = sender.0.send(json!({
-                                            "type": "FEATURE_UNAVAILABLE",
-                                            "plugin": "twitch",
-                                            "message": crate::twitch::UNAVAILABLE_MSG
-                                        }).to_string());
+                                        if let Some(t) = &twitch {
+                                            if !t.is_enabled.load(std::sync::atomic::Ordering::Relaxed) {
+                                                tracing::info!("[TWITCH] Command ignored: service disabled");
+                                                continue;
+                                            }
+                                            if let Some(endpoint) = value["endpoint"].as_str() {
+                                                let t_clone = t.clone();
+                                                let endpoint_str = endpoint.to_string();
+                                                let payload = value.get("payload").cloned();
+                                                tokio::spawn(async move {
+                                                    let _ = t_clone.handle_command(&endpoint_str, payload).await;
+                                                });
+                                            }
+                                        }
                                         continue;
                                     }
 

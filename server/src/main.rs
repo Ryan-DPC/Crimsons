@@ -180,7 +180,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     crimson_server::entitlement::start_guard(vec![
         ("spotify", s.is_enabled.clone()),
         ("discord", d.is_enabled.clone()),
-        // Hue / Twitch stay out of the entitlement guard until their APIs exist.
+        ("twitch", t.is_enabled.clone()),
+        // Hue stays out of the entitlement guard until its API exists.
     ]);
 
     let hotkey_manager = crimson_server::hotkeys::HotkeyManager::new(sender.clone(), s.clone(), d.clone());
@@ -196,11 +197,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let d_poll = d.clone();
     tokio::spawn(async move { d_poll.start_background_polling().await; });
     
-    // Hue / Twitch stubs register for WS dispatch but stay unavailable.
-    tracing::info!("Twitch Service stub loaded (coming soon)");
+    tracing::info!("Starting Twitch Service (Helix MVP, mock without TWITCH_CLIENT_ID/TOKEN)");
     let t_poll = t.clone();
     tokio::spawn(async move { t_poll.start_background_polling().await; });
     
+    // Hue stub registers for WS dispatch but stays unavailable.
     tracing::info!("Hue Service stub loaded (coming soon)");
     
     updater::start_background_updater().await;

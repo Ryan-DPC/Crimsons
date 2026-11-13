@@ -61,6 +61,23 @@ interface LCUContextType {
         error?: string | null;
     } | null;
     discordConnected: boolean;
+
+    // Twitch State
+    twitchState: {
+        connected: boolean;
+        mock: boolean;
+        live: boolean;
+        viewers: number;
+        username?: string | null;
+        title?: string | null;
+        game_name?: string | null;
+        last_clip_id?: string | null;
+        last_marker_id?: string | null;
+        follower_goal_current?: number;
+        follower_goal_target?: number;
+        alerts_muted?: boolean;
+        error?: string | null;
+    } | null;
     
     // Connection Status
     serverConnected: boolean;
@@ -83,6 +100,7 @@ interface LCUContextType {
     loginSpotify: (clientId: string, clientSecret: string) => Promise<void>;
     spotifyCommand: (endpoint: string) => void;
     discordCommand: (endpoint: string, params?: any) => void;
+    twitchCommand: (endpoint: string, params?: any) => void;
     togglePlugin: (plugin: string, enabled: boolean) => Promise<void>;
     resyncAuthSession: () => void;
     seasonStats: { wins: number, losses: number } | null;
@@ -135,6 +153,7 @@ export const LCUProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [spotifyState, setSpotifyState] = useState<any>(null);
     const [discordConnected, setDiscordConnected] = useState(false);
     const [discordState, setDiscordState] = useState<any>(null);
+    const [twitchState, setTwitchState] = useState<any>(null);
     const buildsRef = useRef<(RuneBuild | null)[]>([]);
 
     const scannedLobbyId = useRef<string>('');
@@ -690,6 +709,8 @@ export const LCUProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         } else if (msg.type === 'DISCORD_STATE') {
             setDiscordState(msg.data);
             setDiscordConnected(msg.data?.connected || false);
+        } else if (msg.type === 'TWITCH_STATE') {
+            setTwitchState(msg.data || null);
         } else if (msg.type === 'AUTO_ACCEPT_STATE') {
             // Sidecar already mutated disk — refresh UI only (do not re-toggle).
             const d = await invoke<any>('get_app_data');
@@ -1105,6 +1126,17 @@ export const LCUProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
     };
 
+    const twitchCommand = (endpoint: string, params?: any) => {
+        const ws = socketsRef.current[40510];
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({
+                type: 'TWITCH_COMMAND',
+                endpoint,
+                payload: params || {},
+            }));
+        }
+    };
+
     const togglePlugin = async (plugin: string, enabled: boolean) => {
         const d = await invoke<any>('get_app_data');
         if (!d.plugins) d.plugins = {};
@@ -1139,10 +1171,12 @@ export const LCUProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             serverConnected, lolConnected,
             spotifyConnected, spotifyState,
             discordConnected, discordState,
+            twitchState,
             setTab, toggleSimMode, simMode, tab, toggleAutoBan, toggleAutoPick, updateGeminiKey, updateSetting, doImport, handleSecondaryClick, handleShardClick,
             loginSpotify,
             spotifyCommand,
             discordCommand,
+            twitchCommand,
             togglePlugin,
             resyncAuthSession,
             seasonStats,
