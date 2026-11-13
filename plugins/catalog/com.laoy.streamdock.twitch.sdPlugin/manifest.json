@@ -3,7 +3,6 @@
     {
       "Icon": "static/icon/twitch_chat.png",
       "Name": "Message Chat",
-      "Controllers": ["Keypad"],
       "States": [
         {
           "Image": "static/icon/twitch_chat.png",
@@ -11,13 +10,14 @@
           "FontSize": "10"
         }
       ],
+      "DisableAutomaticStates": false,
       "UUID": "com.laoy.streamdock.twitch.chat",
-      "Tooltip": "Envoyer un message prédéfini dans votre chat Twitch"
+      "Tooltip": "Envoyer un message prédéfini dans votre chat Twitch",
+      "Context": "GLOBAL"
     },
     {
       "Icon": "static/icon/twitch_ad.png",
       "Name": "Lancer Publicité (30s)",
-      "Controllers": ["Keypad"],
       "States": [
         {
           "Image": "static/icon/twitch_ad.png",
@@ -25,13 +25,14 @@
           "FontSize": "10"
         }
       ],
+      "DisableAutomaticStates": false,
       "UUID": "com.laoy.streamdock.twitch.ad",
-      "Tooltip": "Lancer une pause publicitaire de 30 secondes"
+      "Tooltip": "Lancer une pause publicitaire de 30 secondes",
+      "Context": "GLOBAL"
     },
     {
       "Icon": "static/icon/twitch_viewers.png",
       "Name": "Compteur Viewers",
-      "Controllers": ["Keypad", "Information"],
       "States": [
         {
           "Image": "static/icon/twitch_viewers.png",
@@ -40,8 +41,10 @@
           "FontSize": "11"
         }
       ],
+      "DisableAutomaticStates": false,
       "UUID": "com.laoy.streamdock.twitch.viewers",
-      "Tooltip": "Afficher le nombre de spectateurs en direct sur votre chaîne"
+      "Tooltip": "Afficher le nombre de spectateurs en direct sur votre chaîne",
+      "Context": "GLOBAL"
     }
   ],
   "Author": "Laoy",
@@ -50,8 +53,8 @@
   "Name": "Twitch",
   "Category": "Twitch",
   "CategoryIcon": "static/icon/twitch_chat.png",
-  "Version": "3.1.0",
-  "SDKVersion": 1,
+  "Version": "3.1.1",
+  "SDKVersion": 2,
   "OS": [
     {
       "Platform": "windows",

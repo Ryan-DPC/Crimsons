@@ -97,9 +97,16 @@ const ciderAPI = {
                 const vol = typeof d.volume === "number" ? d.volume : 0.5;
                 if (vol > 0) this.lastVolume = vol;
 
-                const artwork = (now.artwork && now.artwork.url)
-                    ? now.artwork.url.replace("{w}", "300").replace("{h}", "300")
-                    : "";
+                let artwork = (now.artwork && now.artwork.url) ? now.artwork.url : "";
+                if (artwork) {
+                    artwork = artwork
+                        .replace(/\{w\}x\{h\}bb/g, "144x144bb")
+                        .replace("{w}", "144")
+                        .replace("{h}", "144")
+                        .replace(/\/600x600bb\.(png|jpg)/g, "/144x144bb.jpg")
+                        .replace(/\/1200x1200bb\.(png|jpg)/g, "/144x144bb.jpg")
+                        .replace(/\/300x300bb\.(png|jpg)/g, "/144x144bb.jpg");
+                }
 
                 this.cachedState = {
                     is_playing: d.state === "playing" || d.state === "play",
@@ -283,6 +290,9 @@ function handleHardwareEvent(jsonObj) {
     if (!event) return;
 
     if (event === "willAppear") {
+        delete lastSentTitles[context];
+        delete lastSentImages[context];
+        delete lastSentStates[context];
         if (actionContexts[action] && !actionContexts[action].includes(context)) {
             actionContexts[action].push(context);
         }
@@ -293,6 +303,9 @@ function handleHardwareEvent(jsonObj) {
     }
 
     if (event === "willDisappear") {
+        delete lastSentTitles[context];
+        delete lastSentImages[context];
+        delete lastSentStates[context];
         if (actionContexts[action]) {
             actionContexts[action] = actionContexts[action].filter(c => c !== context);
         }
@@ -362,11 +375,12 @@ const crimsonAPI = {
             img.crossOrigin = "Anonymous";
             img.onload = () => {
                 const canvas = document.createElement("canvas");
-                canvas.width = img.width;
-                canvas.height = img.height;
+                canvas.width = 144;
+                canvas.height = 144;
                 const ctx = canvas.getContext("2d");
-                ctx.drawImage(img, 0, 0);
-                resolve(canvas.toDataURL("image/png"));
+                ctx.drawImage(img, 0, 0, 144, 144);
+                // Compressed JPEG (quality 0.85) ~6KB for ultra-fast StreamDock rendering
+                resolve(canvas.toDataURL("image/jpeg", 0.85));
             };
             img.onerror = () => resolve(null);
             img.src = url;
@@ -615,9 +629,15 @@ function applyNowPlaying(state) {
     }
 }
 
+const lastSentTitles = {};
+const lastSentImages = {};
+const lastSentStates = {};
+
 function setTitleForAction(action, title) {
     const contexts = actionContexts[action] || [];
     contexts.forEach(context => {
+        if (lastSentTitles[context] === title) return;
+        lastSentTitles[context] = title;
         const json = { "event": "setTitle", "context": context, "payload": { "title": title, "target": 0 } };
         if (streamDeckSocket && streamDeckSocket.readyState === WebSocket.OPEN) {
             streamDeckSocket.send(JSON.stringify(json));
@@ -630,6 +650,8 @@ function setTitleForAction(action, title) {
 function setImageForAction(action, image) {
     const contexts = actionContexts[action] || [];
     contexts.forEach(context => {
+        if (lastSentImages[context] === image) return;
+        lastSentImages[context] = image;
         const json = { "event": "setImage", "context": context, "payload": { "image": image, "target": 0 } };
         if (streamDeckSocket && streamDeckSocket.readyState === WebSocket.OPEN) {
             streamDeckSocket.send(JSON.stringify(json));
@@ -642,6 +664,8 @@ function setImageForAction(action, image) {
 function updateActionState(action, state) {
     const contexts = actionContexts[action] || [];
     contexts.forEach(context => {
+        if (lastSentStates[context] === state) return;
+        lastSentStates[context] = state;
         const json = { "event": "setState", "context": context, "payload": { "state": state } };
         if (streamDeckSocket && streamDeckSocket.readyState === WebSocket.OPEN) {
             streamDeckSocket.send(JSON.stringify(json));
@@ -651,12 +675,12 @@ function updateActionState(action, state) {
     });
 }
 
-// Background autonomous state polling from Cider (updates UI every 900ms)
+// Background autonomous state polling from Cider (ultra-responsive 350ms with dirty-checking)
 setInterval(async () => {
     const st = await ciderAPI.fetchState();
     if (st) {
         applyNowPlaying(st);
     }
-}, 900);
+}, 350);
 
 window.connectElgatoStreamDeckSocket = connectElgatoStreamDeckSocket;
