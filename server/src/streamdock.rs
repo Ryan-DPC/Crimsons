@@ -155,7 +155,8 @@ pub async fn process_streamdeck_event(value: serde_json::Value, spotify: Arc<Spo
     if action.starts_with("com.laoy.streamdock.spotify") || 
        action.starts_with("com.laoy.streamdock.discord") || 
        action.starts_with("com.laoy.streamdock.hue") || 
-       action.starts_with("com.laoy.streamdock.twitch") {
+       action.starts_with("com.laoy.streamdock.twitch") ||
+       action.starts_with("com.laoy.streamdock.obs") {
         // Meme regle que pour les commandes WebSocket : le verdict vient de
         // Supabase, jamais de data.json.
         if !crate::entitlement::is_premium().await {
@@ -325,6 +326,28 @@ pub async fn process_streamdeck_event(value: serde_json::Value, spotify: Arc<Spo
                 let endpoint = a.rsplit('.').next().unwrap_or("").to_string();
                 tokio::spawn(async move { let _ = t.handle_command(&endpoint, None).await; });
             }
+            a if a.starts_with("com.laoy.streamdock.obs.") => {
+                if let Some(o) = crate::obs::global() {
+                    if !o.is_enabled.load(Ordering::Relaxed) {
+                        tracing::info!("[OBS] Key action ignored: service disabled");
+                        return;
+                    }
+                    let endpoint = match a.rsplit('.').next().unwrap_or("") {
+                        "start" => "start",
+                        "pause" => "pause",
+                        "live" => "live",
+                        "end" => "end",
+                        "status" | "refresh" => "refresh",
+                        "openhub" => "openhub",
+                        other => other,
+                    }
+                    .to_string();
+                    let settings = value["payload"]["settings"].clone();
+                    tokio::spawn(async move {
+                        let _ = o.handle_command(&endpoint, Some(settings)).await;
+                    });
+                }
+            }
             _ => {}
         }
     }
@@ -400,6 +423,17 @@ pub async fn process_streamdeck_event(value: serde_json::Value, spotify: Arc<Spo
     if value["type"] == "TWITCH_COMMAND" {
         tracing::warn!("[TWITCH] StreamDock command rejected: {}", crate::twitch::UNAVAILABLE_MSG);
         let _ = _t.handle_command(value["endpoint"].as_str().unwrap_or(""), Some(value.clone())).await;
+    }
+    if value["type"] == "OBS_COMMAND" {
+        if let Some(o) = crate::obs::global() {
+            if o.is_enabled.load(Ordering::Relaxed) {
+                let endpoint_str = value["endpoint"].as_str().unwrap_or("").to_string();
+                let val_clone = value.clone();
+                tokio::spawn(async move {
+                    let _ = o.handle_command(&endpoint_str, Some(val_clone)).await;
+                });
+            }
+        }
     }
     if value["type"] == "ADJUST_AUDIO" {
         if _d.is_enabled.load(Ordering::Relaxed) {

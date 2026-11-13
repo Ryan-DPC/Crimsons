@@ -17,6 +17,7 @@ pub mod hotkeys;
 pub mod updater;
 pub mod hue;
 pub mod twitch;
+pub mod obs;
 pub mod process_scanner;
 pub mod auth;
 pub mod entitlement;

@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "updatedAt": "2026-11-13",
+  "categories": [
+    {
+      "id": "streamdeck",
+      "label": "StreamDock",
+      "description": "Pack installable dans Stream Dock / StreamDeck (boutons physiques)."
+    },
+    {
+      "id": "utility",
+      "label": "Utilitaire",
+      "description": "Outils transverses hors jeu."
+    },
+    {
+      "id": "media",
+      "label": "Médias",
+      "description": "Lecture audio / vidéo et contrôles associés."
+    },
+    {
+      "id": "broadcast",
+      "label": "Broadcast",
+      "description": "OBS, scènes live, outils streamer."
+    }
+  ],
+  "plugins": [
+    {
+      "id": "obs",
+      "slug": "obs",
+      "name": "OBS Studio",
+      "summary": "Scènes HoopsLive Start/Pause/Live/End sur StreamDock via obs-websocket v5.",
+      "description": "Plugin StreamDock OBS via le sidecar Crimsons (obs-websocket v5) : bascule Start / Pause / Live / End (noms configurables), statut et refresh. Mock sans OBS. Le chrono et les overlays HTML restent sur l’API VPS. Premium. Hardware StreamDock oui, Elgato non.",
+      "packageId": "com.laoy.streamdock.obs.sdPlugin",
+      "packagePath": "com.laoy.streamdock.obs.sdPlugin",
+      "version": "0.1.0",
+      "status": "coming_soon",
+      "pricing": "5.99 CHF/mois",
+      "categories": [
+        "streamdeck",
+        "broadcast",
+        "media"
+      ],
+      "surfaces": [
+        "streamdock",
+        "crimsons-hub"
+      ],
+      "requiresPremium": true,
+      "requiresCrimsons": true,
+      "icon": null,
+      "targetApp": "Crimsons & StreamDock",
+      "hardware": {
+        "streamdock": true,
+        "elgato": false
+      }
+    }
+  ]
+}

@@ -3,7 +3,7 @@
 use tokio::sync::broadcast;
 use std::sync::Arc;
 use crimson_server::events::WsSender;
-use crimson_server::{ws, lcu_ws, service, spotify, discord, lcu, hue, twitch, updater, auth};
+use crimson_server::{ws, lcu_ws, service, spotify, discord, lcu, hue, twitch, obs, updater, auth};
 use serde_json::json;
 use tracing_subscriber::EnvFilter;
 use tracing_appender::rolling;
@@ -176,10 +176,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let d = Arc::new(discord::DiscordService::new(sender.clone()));
     let h = Arc::new(hue::HueService::new(sender.clone()));
     let t = Arc::new(twitch::TwitchService::new(sender.clone()));
+    let o = Arc::new(obs::ObsService::new(sender.clone()));
+    obs::set_global(o.clone());
 
     crimson_server::entitlement::start_guard(vec![
         ("spotify", s.is_enabled.clone()),
         ("discord", d.is_enabled.clone()),
+        ("obs", o.is_enabled.clone()),
         // Hue / Twitch stay out of the entitlement guard until their APIs exist.
     ]);
 
@@ -202,6 +205,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tokio::spawn(async move { t_poll.start_background_polling().await; });
     
     tracing::info!("Hue Service stub loaded (coming soon)");
+
+    tracing::info!("Starting OBS Service (obs-websocket v5, mock when OBS absent)");
+    let o_poll = o.clone();
+    tokio::spawn(async move { o_poll.start_background_polling().await; });
     
     updater::start_background_updater().await;
 
@@ -225,6 +232,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let discord_service = Some(d.clone());
     let hue_service = Some(h.clone());
     let twitch_service = Some(t.clone());
+    let obs_service = Some(o.clone());
 
     // If we were ALSO started with StreamDock flags, start the bridge too
     if is_streamdock_plugin {
@@ -238,7 +246,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // 8. Start External WebSocket Server
     tracing::info!("WebSocket server listening on 127.0.0.1:{}", listen_port);
-    ws::start_ws_server_modular(listen_port, sender, spotify_service, discord_service, hue_service, twitch_service, db, is_lol_enabled.clone(), is_auto_accept_enabled.clone()).await;
+    ws::start_ws_server_modular(listen_port, sender, spotify_service, discord_service, hue_service, twitch_service, obs_service, db, is_lol_enabled.clone(), is_auto_accept_enabled.clone()).await;
 
     Ok(())
 }

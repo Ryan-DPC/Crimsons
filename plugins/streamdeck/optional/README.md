@@ -10,3 +10,5 @@ Ces plugins **ne font pas partie du pack de base** (LoL + Spotify).
 Ils ne sont **pas** injectés par `scripts/inject_plugins.ps1` sans `-Extra`.
 
 Le plugin Discord maintenu reste dans `plugins/streamdeck/` mais n’est injecté qu’avec `-IncludeDiscord`.
+
+Les packs catalogue (OBS, …) vivent sous `plugins/catalog/` — voir `plugins/catalog/README.md`.

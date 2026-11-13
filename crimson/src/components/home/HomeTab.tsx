@@ -1,7 +1,7 @@
 import { useLCU } from '../../contexts/LCUContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { getChampIcon } from '../../utils/lolDisplay';
-import { Disc3, MessageSquare, Laptop, Music, MicOff, Mic, Headphones, MonitorPlay } from 'lucide-react';
+import { Disc3, MessageSquare, Laptop, Music, MicOff, Mic, Headphones, MonitorPlay, Clapperboard, RefreshCw } from 'lucide-react';
 
 
 // Reusable animated toggle component
@@ -24,7 +24,7 @@ const Toggle = ({ value, onChange, label, disabled }: {
 );
 
 export default function HomeTab() {
-    const { appData, updateSetting, sum, v, hist, champs, seasonStats, spotifyState, discordState, spotifyCommand, discordCommand, discordConnected } = useLCU();
+    const { appData, updateSetting, sum, v, hist, champs, seasonStats, spotifyState, discordState, spotifyCommand, discordCommand, discordConnected, obsState, obsCommand } = useLCU();
     const { isPremium } = useAuth();
     
     const openLyricsWindow = async () => {
@@ -351,6 +351,45 @@ export default function HomeTab() {
                                 <span className="text-[9px] font-black uppercase tracking-wider">{discordState?.is_camera_on ? 'Cam ON' : 'Cam OFF'}</span>
                             </button>
                         </div>
+                    </div>
+                )}
+
+                {isPremium && appData?.plugins?.obs && (
+                    <div className="flex flex-col gap-3 mt-4">
+                        <span className="text-[10px] font-black text-white/40 uppercase tracking-widest border-b border-white/5 pb-2">OBS</span>
+                        <div className="bg-[#0a0a0c] border border-white/5 rounded-xl p-4 flex items-center gap-4 transition-colors hover:border-red-500/30">
+                            <div className="w-10 h-10 bg-red-500/10 rounded-lg flex items-center justify-center relative">
+                                <Clapperboard className="w-5 h-5 text-red-500" />
+                                {(obsState?.connected || obsState?.mock) && (
+                                    <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]" title={obsState?.mock ? 'Mock' : 'OBS'} />
+                                )}
+                            </div>
+                            <div className="flex flex-col flex-1 min-w-0">
+                                <span className="text-white font-bold text-xs truncate">
+                                    {obsState?.current_scene || '—'}
+                                    {obsState?.mock ? ' · mock' : obsState?.connected ? ' · OBS' : ''}
+                                </span>
+                                <span className="text-white/50 text-[10px] truncate uppercase font-bold tracking-widest">
+                                    HL Start/Pause/Live/End
+                                </span>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => obsCommand('refresh')}
+                                className="p-2.5 bg-red-600/10 hover:bg-red-600/20 text-red-400 rounded-xl border border-red-500/20 transition-all"
+                                title="Refresh"
+                            >
+                                <RefreshCw className="w-4 h-4" />
+                            </button>
+                        </div>
+                        <a
+                            href="https://store.crimsons.app/plugins/obs"
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-[9px] text-red-400/70 hover:text-red-300 font-black uppercase tracking-widest transition-colors"
+                        >
+                            Store → /plugins/obs
+                        </a>
                     </div>
                 )}
 

@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>OBS Scene</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #1a1a1e; color: #eee; margin: 12px; font-size: 12px; }
+    label { display: block; margin-bottom: 4px; opacity: 0.7; text-transform: uppercase; letter-spacing: 0.08em; font-size: 10px; }
+    input { width: 100%; box-sizing: border-box; padding: 8px; border-radius: 8px; border: 1px solid #333; background: #0d0d10; color: #fff; margin-bottom: 12px; }
+    p { opacity: 0.5; line-height: 1.4; }
+  </style>
+</head>
+<body>
+  <label for="sceneName">Scene name (override)</label>
+  <input id="sceneName" type="text" placeholder="Leave empty = HL default (Start/Pause/Live/End)" />
+  <p>Defaults come from the sidecar env <code>OBS_SCENE_*</code> or Start / Pause / Live / End. Countdown overlays stay on the VPS — this only switches the local OBS scene.</p>
+  <script>
+    let websocket = null;
+    let uuid = null;
+    let actionInfo = {};
+
+    function connectElgatoStreamDeckSocket(inPort, inPropertyInspectorUUID, inRegisterEvent, inInfo, inActionInfo) {
+      uuid = inPropertyInspectorUUID;
+      try { actionInfo = JSON.parse(inActionInfo || '{}'); } catch (e) { actionInfo = {}; }
+      websocket = new WebSocket('ws://127.0.0.1:' + inPort);
+      websocket.onopen = function () {
+        websocket.send(JSON.stringify({ event: inRegisterEvent, uuid: inPropertyInspectorUUID }));
+        const settings = (actionInfo.payload && actionInfo.payload.settings) || {};
+        document.getElementById('sceneName').value = settings.sceneName || settings.scene || '';
+      };
+    }
+
+    document.getElementById('sceneName').addEventListener('change', function () {
+      if (!websocket || websocket.readyState !== WebSocket.OPEN) return;
+      const sceneName = document.getElementById('sceneName').value.trim();
+      websocket.send(JSON.stringify({
+        event: 'setSettings',
+        context: actionInfo.context,
+        payload: { sceneName: sceneName }
+      }));
+    });
+
+    window.connectElgatoStreamDeckSocket = connectElgatoStreamDeckSocket;
+  </script>
+</body>
+</html>

@@ -1279,6 +1279,7 @@ dependencies = [
  "rustls 0.22.4",
  "serde",
  "serde_json",
+ "sha2",
  "single-instance",
  "sysinfo",
  "tokio",

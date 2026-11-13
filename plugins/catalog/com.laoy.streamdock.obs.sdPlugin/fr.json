@@ -1,0 +1,10 @@
+{
+  "Description": "Contrôle de scènes OBS pour HoopsLive (Start/Pause/Live/End) via Crimsons",
+  "com.laoy.streamdock.obs.start": { "Name": "HL Start", "Tooltip": "Basculer vers la scène Start" },
+  "com.laoy.streamdock.obs.pause": { "Name": "HL Pause", "Tooltip": "Basculer vers la scène Pause" },
+  "com.laoy.streamdock.obs.live": { "Name": "HL Live", "Tooltip": "Basculer vers la scène Live" },
+  "com.laoy.streamdock.obs.end": { "Name": "HL End", "Tooltip": "Basculer vers la scène End" },
+  "com.laoy.streamdock.obs.status": { "Name": "Statut OBS", "Tooltip": "Scène courante" },
+  "com.laoy.streamdock.obs.refresh": { "Name": "Actualiser", "Tooltip": "Rafraîchir l'état OBS" },
+  "com.laoy.streamdock.obs.openhub": { "Name": "Ouvrir Hub", "Tooltip": "Ouvrir la page store" }
+}

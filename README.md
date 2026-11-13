@@ -25,6 +25,7 @@ Version actuelle : **3.1.4**.
 | `crimson/src-tauri/crates/lcu_commands` | Logique LCU / draft partagée |
 | `plugins/streamdeck/` | **Base :** Crimsons (LoL) + Spotify. Discord optionnel. |
 | `plugins/streamdeck/optional/` | Stubs / futurs plugins externes (Hue, Twitch, …) |
+| `plugins/catalog/` | Packs catalogue téléchargeables (OBS, …) |
 
 Auth / droits premium : Supabase (client + vérif côté serveur).
 
@@ -41,7 +42,7 @@ These are the names that must stay aligned. Do **not** “fix” frozen IDs.
 | Sidecar executable | **`crimsons-server.exe`** | Task Manager / autostart. Crate name stays `crimson-server` (Rust `use crimson_server::`) |
 | Sidecar ProductName | Crimsons / Crimsons Server | winres FileDescription |
 | GitHub | `Ryan-DPC/Crimsons` | Frozen (renaming the remote would break updater + clones) |
-| StreamDock plugin UUIDs | `com.laoy.streamdock.crimson.*`, `com.laoy.streamdock.spotify.*`, `com.laoy.streamdock.discord.*` | **Frozen** — changing them breaks existing decks |
+| StreamDock plugin UUIDs | `com.laoy.streamdock.crimson.*`, `com.laoy.streamdock.spotify.*`, `com.laoy.streamdock.discord.*`, `com.laoy.streamdock.obs.*` | **Frozen** — changing them breaks existing decks |
 | Env vars / mutex | `CRIMSON_DEV`, `CRIMSON_STRICT_AUTH`, `Global\crimson_server_v2_lock` | Internal; keep |
 | Tauri invoke names | `crimson_quit_app`, `crimson_start_server`, … | Internal IPC; keep |
 
@@ -51,12 +52,17 @@ The frontend folder `crimson/` and the Rust crate `crimson-server` stay as-is to
 
 Voir [`docs/GUIDE_UTILISATEUR.md`](docs/GUIDE_UTILISATEUR.md) : connexion sans Premium, LoL automatique, setup unique Spotify / Discord, Actualiser après achat Premium, injection StreamDock.
 
+## OBS / HoopsLive
+
+Scène OBS locale via obs-websocket v5 (`server/src/obs.rs`, pack `plugins/catalog/com.laoy.streamdock.obs.sdPlugin`). Le **chrono et les overlays HTML** restent sur l’API VPS ; seul le **changement de scène** est local. Setup : [`docs/OBS_STUDIO.md`](docs/OBS_STUDIO.md).
+
 ## Plugins StreamDock
 
 | Pack | Contenu |
 | --- | --- |
 | **Base** (injecté par défaut) | LoL + Spotify |
 | **Optionnel** | Discord — `.\scripts\inject_plugins.ps1 -IncludeDiscord` (Premium) |
+| **Catalogue** | OBS — `.\scripts\inject_plugins.ps1 -Extra com.laoy.streamdock.obs.sdPlugin` (Premium, 5.99 CHF/mois) |
 | **Externes (plus tard)** | Hue, Twitch, … téléchargeables ; gratuits ou payants selon le catalogue / la communauté |
 
 ## App native vs localhost (important)
@@ -107,6 +113,10 @@ Créer `crimson/.env` (non versionné) :
 | `VITE_SUPABASE_URL` | URL projet Supabase (inlinée par Vite ; aussi lue par `server/build.rs`) |
 | `VITE_SUPABASE_ANON_KEY` | Clé anon Supabase |
 | `CRIMSON_STRICT_AUTH` | Si `1`, le sidecar refuse les connexions WS sans jeton local (sinon log seulement) |
+| `OBS_WEBSOCKET_URL` | obs-websocket v5 (défaut `ws://127.0.0.1:4455`) |
+| `OBS_WEBSOCKET_PASSWORD` | Mot de passe WebSocket OBS |
+| `OBS_SCENE_START` / `_PAUSE` / `_LIVE` / `_END` | Noms de scènes HoopsLive (défaut Start/Pause/Live/End) |
+| `OBS_MOCK` | `1` force le mock (CI / sans OBS) |
 
 Sans `VITE_SUPABASE_*`, le client peut afficher un écran noir (voir le workflow Release).
 

@@ -10,6 +10,7 @@ use crate::spotify::SpotifyService;
 use crate::discord::DiscordService;
 use crate::hue::HueService;
 use crate::twitch::TwitchService;
+use crate::obs::ObsService;
 
 pub async fn start_ws_server(
     sender: WsSender, 
@@ -17,11 +18,12 @@ pub async fn start_ws_server(
     discord_service: Arc<DiscordService>, 
     hue_service: Arc<HueService>,
     twitch_service: Arc<TwitchService>,
+    obs_service: Arc<ObsService>,
     db: Arc<crate::db::StreamDockDB>,
     is_lol_enabled: Arc<std::sync::atomic::AtomicBool>
 ) {
     let is_auto_accept_enabled = Arc::new(std::sync::atomic::AtomicBool::new(true));
-    start_ws_server_modular(40510, sender, Some(spotify_service), Some(discord_service), Some(hue_service), Some(twitch_service), db, is_lol_enabled, is_auto_accept_enabled).await;
+    start_ws_server_modular(40510, sender, Some(spotify_service), Some(discord_service), Some(hue_service), Some(twitch_service), Some(obs_service), db, is_lol_enabled, is_auto_accept_enabled).await;
 }
 
 pub async fn start_ws_server_modular(
@@ -31,6 +33,7 @@ pub async fn start_ws_server_modular(
     discord_service: Option<Arc<DiscordService>>, 
     hue_service: Option<Arc<HueService>>,
     twitch_service: Option<Arc<TwitchService>>,
+    obs_service: Option<Arc<ObsService>>,
     db: Arc<crate::db::StreamDockDB>,
     is_lol_enabled: Arc<std::sync::atomic::AtomicBool>,
     is_auto_accept_enabled: Arc<std::sync::atomic::AtomicBool>
@@ -67,18 +70,19 @@ pub async fn start_ws_server_modular(
                 let di = discord_service.clone();
                 let hu = hue_service.clone();
                 let tw = twitch_service.clone();
+                let ob = obs_service.clone();
                 let db6 = db.clone();
                 let lol6 = is_lol_enabled.clone();
                 let aa6 = is_auto_accept_enabled.clone();
                 tokio::spawn(async move {
-                    accept_loop(l6, s, sp, di, hu, tw, db6, lol6, aa6).await;
+                    accept_loop(l6, s, sp, di, hu, tw, ob, db6, lol6, aa6).await;
                 });
             }
 
             tracing::info!("WebSocket server listening on {}", addr);
             accept_loop(
                 listener, sender, spotify_service, discord_service, hue_service,
-                twitch_service, db, is_lol_enabled, is_auto_accept_enabled,
+                twitch_service, obs_service, db, is_lol_enabled, is_auto_accept_enabled,
             ).await;
             tracing::error!("WebSocket listener accept loop exited!");
         },
@@ -140,6 +144,7 @@ async fn accept_loop(
     discord_service: Option<Arc<DiscordService>>,
     hue_service: Option<Arc<HueService>>,
     twitch_service: Option<Arc<TwitchService>>,
+    obs_service: Option<Arc<ObsService>>,
     db: Arc<crate::db::StreamDockDB>,
     is_lol_enabled: Arc<std::sync::atomic::AtomicBool>,
     is_auto_accept_enabled: Arc<std::sync::atomic::AtomicBool>,
@@ -150,6 +155,7 @@ async fn accept_loop(
         let discord_clone = discord_service.clone();
         let hue_clone = hue_service.clone();
         let twitch_clone = twitch_service.clone();
+        let obs_clone = obs_service.clone();
         let db_clone = db.clone();
         let is_lol_enabled_clone = is_lol_enabled.clone();
         let is_auto_accept_enabled_clone = is_auto_accept_enabled.clone();
@@ -188,6 +194,67 @@ async fn accept_loop(
                                 token.len(),
                                 token
                             )
+                        }
+                    };
+                    let _ = stream.write_all(response.as_bytes()).await;
+                    let _ = stream.shutdown().await;
+                    return;
+                }
+
+                // HoopsLive chrono pack stub: POST /local/obs/scene { "scene": "Live" }
+                if request.starts_with("POST /local/obs/scene") || request.starts_with("OPTIONS /local/obs/scene") {
+                    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+                    let is_options = request.starts_with("OPTIONS ");
+                    let mut stream = stream;
+                    let mut drop_buf = [0; 8192];
+                    let n = stream.read(&mut drop_buf).await.unwrap_or(0);
+                    let raw = String::from_utf8_lossy(&drop_buf[..n]);
+                    let cors = cors_headers(&request);
+                    let response = if reject_remote_web(&request) {
+                        http_forbidden(&request)
+                    } else if is_options {
+                        format!("HTTP/1.1 204 No Content\r\n{cors}Access-Control-Allow-Methods: POST, OPTIONS\r\nAccess-Control-Allow-Headers: Content-Type\r\nConnection: close\r\nContent-Length: 0\r\n\r\n")
+                    } else {
+                        let body = raw.split("\r\n\r\n").nth(1).unwrap_or("").trim();
+                        let scene = serde_json::from_str::<serde_json::Value>(body)
+                            .ok()
+                            .and_then(|j| {
+                                j.get("scene")
+                                    .or_else(|| j.get("sceneName"))
+                                    .and_then(|v| v.as_str())
+                                    .map(|s| s.trim().to_string())
+                            })
+                            .filter(|s| !s.is_empty());
+                        match (scene, obs_clone.clone()) {
+                            (Some(name), Some(obs)) => {
+                                if !obs.is_enabled.load(std::sync::atomic::Ordering::Relaxed) {
+                                    obs.is_enabled.store(true, std::sync::atomic::Ordering::Relaxed);
+                                }
+                                let _ = obs.handle_command("set_scene", Some(json!({ "sceneName": name }))).await;
+                                let snap = obs.snapshot().await;
+                                let payload = json!({ "ok": true, "scene": snap.current_scene, "mock": snap.mock }).to_string();
+                                format!(
+                                    "HTTP/1.1 200 OK\r\n{cors}Content-Type: application/json\r\nCache-Control: no-store\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                                    payload.len(),
+                                    payload
+                                )
+                            }
+                            (None, _) => {
+                                let payload = r#"{"ok":false,"error":"missing scene"}"#;
+                                format!(
+                                    "HTTP/1.1 400 Bad Request\r\n{cors}Content-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                                    payload.len(),
+                                    payload
+                                )
+                            }
+                            (_, None) => {
+                                let payload = r#"{"ok":false,"error":"obs_unavailable"}"#;
+                                format!(
+                                    "HTTP/1.1 503 Service Unavailable\r\n{cors}Content-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                                    payload.len(),
+                                    payload
+                                )
+                            }
                         }
                     };
                     let _ = stream.write_all(response.as_bytes()).await;
@@ -352,7 +419,7 @@ async fn accept_loop(
                     tracing::warn!("[SPOTIFY] Callback recu sans parametre code");
                 }
             }
-            handle_connection(stream, sender_clone, spotify_clone, discord_clone, hue_clone, twitch_clone, db_clone, is_lol_enabled_clone, is_auto_accept_enabled_clone).await;
+            handle_connection(stream, sender_clone, spotify_clone, discord_clone, hue_clone, twitch_clone, obs_clone, db_clone, is_lol_enabled_clone, is_auto_accept_enabled_clone).await;
         });
     }
 }
@@ -506,6 +573,7 @@ async fn handle_connection(
     discord: Option<Arc<DiscordService>>, 
     hue: Option<Arc<HueService>>,
     twitch: Option<Arc<TwitchService>>,
+    obs: Option<Arc<ObsService>>,
     db: Arc<crate::db::StreamDockDB>,
     is_lol_enabled: Arc<std::sync::atomic::AtomicBool>,
     is_auto_accept_enabled: Arc<std::sync::atomic::AtomicBool>
@@ -607,6 +675,13 @@ async fn handle_connection(
             )).await;
         }
 
+        if let Some(o) = &obs {
+            let snap = o.snapshot().await;
+            let _ = ws_stream.send(tokio_tungstenite::tungstenite::Message::Text(
+                json!({ "type": "OBS_STATE", "data": snap }).to_string().into()
+            )).await;
+        }
+
         // Push plugin prefs + live entitlement so Hub matches disk/server truth.
         {
             let plugins = data.other.get("plugins").cloned().unwrap_or(json!({}));
@@ -618,6 +693,7 @@ async fn handle_connection(
                     "premium": premium,
                     "spotify_enabled": spotify.as_ref().map(|s| s.is_enabled.load(std::sync::atomic::Ordering::Relaxed)).unwrap_or(false),
                     "discord_enabled": discord.as_ref().map(|d| d.is_enabled.load(std::sync::atomic::Ordering::Relaxed)).unwrap_or(false),
+                    "obs_enabled": obs.as_ref().map(|o| o.is_enabled.load(std::sync::atomic::Ordering::Relaxed)).unwrap_or(false),
                     "lol_enabled": is_lol_enabled.load(std::sync::atomic::Ordering::Relaxed),
                 }).to_string().into()
             )).await;
@@ -816,7 +892,7 @@ async fn handle_connection(
                                                 continue;
                                             }
                                             if enabled
-                                                && ["spotify", "discord"].contains(&plugin)
+                                                && ["spotify", "discord", "obs"].contains(&plugin)
                                                 && !crate::entitlement::is_premium().await
                                             {
                                                 tracing::warn!("[AUTH] Blocked TOGGLE_PLUGIN {} for free user", plugin);
@@ -861,6 +937,22 @@ async fn handle_connection(
                                                         let _ = sender.0.send(json!({ "type": "GAME_PHASE", "phase": "None" }).to_string());
                                                         let _ = sender.0.send(json!({ "type": "CHAMP_SELECT", "championId": 0, "championName": "" }).to_string());
                                                         let _ = sender.0.send(json!({ "type": "SUMMONER_INFO", "gameName": "", "profileIconId": 0 }).to_string());
+                                                    }
+                                                }
+                                                "obs" => {
+                                                    if let Some(o) = &obs {
+                                                        o.is_enabled.store(enabled, std::sync::atomic::Ordering::Relaxed);
+                                                        if enabled {
+                                                            let o_clone = o.clone();
+                                                            tokio::spawn(async move { o_clone.refresh().await; });
+                                                        } else {
+                                                            let idle = crate::obs::ObsState {
+                                                                connected: false,
+                                                                mock: true,
+                                                                ..Default::default()
+                                                            };
+                                                            let _ = sender.0.send(json!({ "type": "OBS_STATE", "data": idle }).to_string());
+                                                        }
                                                     }
                                                 }
                                                 _ => {}
@@ -951,6 +1043,10 @@ async fn handle_connection(
                                             let snap = s.auth_snapshot_state().await;
                                             let _ = sender.0.send(json!({ "type": "SPOTIFY_STATE", "data": snap }).to_string());
                                         }
+                                        if let Some(o) = &obs {
+                                            let snap = o.snapshot().await;
+                                            let _ = sender.0.send(json!({ "type": "OBS_STATE", "data": snap }).to_string());
+                                        }
                                         let data_path = storage::get_data_path_from_env();
                                         let data = storage::load_data_from_path(data_path);
                                         let plugins = data.other.get("plugins").cloned().unwrap_or(json!({}));
@@ -961,6 +1057,7 @@ async fn handle_connection(
                                             "premium": premium,
                                             "spotify_enabled": spotify.as_ref().map(|s| s.is_enabled.load(std::sync::atomic::Ordering::Relaxed)).unwrap_or(false),
                                             "discord_enabled": discord.as_ref().map(|d| d.is_enabled.load(std::sync::atomic::Ordering::Relaxed)).unwrap_or(false),
+                                            "obs_enabled": obs.as_ref().map(|o| o.is_enabled.load(std::sync::atomic::Ordering::Relaxed)).unwrap_or(false),
                                             "lol_enabled": is_lol_enabled.load(std::sync::atomic::Ordering::Relaxed),
                                         }).to_string());
                                         continue;
@@ -1014,7 +1111,7 @@ async fn handle_connection(
                                     }
 
                                     let cmd_type = value["type"].as_str().unwrap_or("");
-                                    if ["SPOTIFY_COMMAND", "DISCORD_COMMAND", "HUE_COMMAND", "TWITCH_COMMAND"].contains(&cmd_type) {
+                                    if ["SPOTIFY_COMMAND", "DISCORD_COMMAND", "HUE_COMMAND", "TWITCH_COMMAND", "OBS_COMMAND"].contains(&cmd_type) {
                                         // Le verdict vient de Supabase, plus de data.json : ce
                                         // fichier est ecrit par le client et modifiable a la main.
                                         if !crate::entitlement::is_premium().await {
@@ -1103,6 +1200,24 @@ async fn handle_connection(
                                             "plugin": "twitch",
                                             "message": crate::twitch::UNAVAILABLE_MSG
                                         }).to_string());
+                                        continue;
+                                    }
+
+                                    if value["type"] == "OBS_COMMAND" {
+                                        if let Some(o) = &obs {
+                                            if !o.is_enabled.load(std::sync::atomic::Ordering::Relaxed) {
+                                                tracing::info!("[OBS] Command ignored: service disabled");
+                                                continue;
+                                            }
+                                            if let Some(endpoint) = value["endpoint"].as_str() {
+                                                let o_clone = o.clone();
+                                                let endpoint_str = endpoint.to_string();
+                                                let payload = value.get("payload").cloned();
+                                                tokio::spawn(async move {
+                                                    let _ = o_clone.handle_command(&endpoint_str, payload).await;
+                                                });
+                                            }
+                                        }
                                         continue;
                                     }
 

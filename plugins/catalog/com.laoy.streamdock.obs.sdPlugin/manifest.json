@@ -1,0 +1,92 @@
+{
+  "Author": "Laoy / Crimsons",
+  "Category": "OBS Studio",
+  "CategoryIcon": "static/icon/plugin.png",
+  "CodePath": "plugin/index.html",
+  "Description": "OBS Studio (obs-websocket v5) — HoopsLive scene switch Start/Pause/Live/End via Crimsons sidecar. Countdown/overlays stay on the VPS API.",
+  "Icon": "static/icon/plugin.png",
+  "Name": "OBS Studio (HoopsLive)",
+  "Version": "0.1.0",
+  "SDKVersion": 2,
+  "Software": {
+    "MinimumVersion": "2.0.0"
+  },
+  "OS": [
+    {
+      "Platform": "windows",
+      "MinimumVersion": "10"
+    }
+  ],
+  "Actions": [
+    {
+      "Name": "HL Start",
+      "UUID": "com.laoy.streamdock.obs.start",
+      "Icon": "static/icon/start.png",
+      "States": [
+        { "Image": "static/icon/start.png", "TitleAlignment": "bottom", "FontSize": "10" }
+      ],
+      "Tooltip": "Switch OBS to Start scene (configurable name)",
+      "PropertyInspectorPath": "propertyInspector/index.html"
+    },
+    {
+      "Name": "HL Pause",
+      "UUID": "com.laoy.streamdock.obs.pause",
+      "Icon": "static/icon/pause.png",
+      "States": [
+        { "Image": "static/icon/pause.png", "TitleAlignment": "bottom", "FontSize": "10" }
+      ],
+      "Tooltip": "Switch OBS to Pause scene",
+      "PropertyInspectorPath": "propertyInspector/index.html"
+    },
+    {
+      "Name": "HL Live",
+      "UUID": "com.laoy.streamdock.obs.live",
+      "Icon": "static/icon/live.png",
+      "States": [
+        { "Image": "static/icon/live.png", "TitleAlignment": "bottom", "FontSize": "10" }
+      ],
+      "Tooltip": "Switch OBS to Live scene",
+      "PropertyInspectorPath": "propertyInspector/index.html"
+    },
+    {
+      "Name": "HL End",
+      "UUID": "com.laoy.streamdock.obs.end",
+      "Icon": "static/icon/end.png",
+      "States": [
+        { "Image": "static/icon/end.png", "TitleAlignment": "bottom", "FontSize": "10" }
+      ],
+      "Tooltip": "Switch OBS to End scene",
+      "PropertyInspectorPath": "propertyInspector/index.html"
+    },
+    {
+      "Name": "OBS Status",
+      "UUID": "com.laoy.streamdock.obs.status",
+      "Icon": "static/icon/status.png",
+      "States": [
+        { "Image": "static/icon/status.png", "TitleAlignment": "middle", "FontSize": "11" }
+      ],
+      "Tooltip": "Shows current OBS scene (mock when OBS absent)",
+      "PropertyInspectorPath": "propertyInspector/index.html"
+    },
+    {
+      "Name": "Refresh",
+      "UUID": "com.laoy.streamdock.obs.refresh",
+      "Icon": "static/icon/refresh.png",
+      "States": [
+        { "Image": "static/icon/refresh.png" }
+      ],
+      "Tooltip": "Refresh OBS scene list / current scene",
+      "PropertyInspectorPath": "propertyInspector/index.html"
+    },
+    {
+      "Name": "Open Hub / Store",
+      "UUID": "com.laoy.streamdock.obs.openhub",
+      "Icon": "static/icon/openhub.png",
+      "States": [
+        { "Image": "static/icon/openhub.png" }
+      ],
+      "Tooltip": "Open Crimsons store plugin page",
+      "PropertyInspectorPath": "propertyInspector/index.html"
+    }
+  ]
+}
