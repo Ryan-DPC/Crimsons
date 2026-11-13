@@ -6,6 +6,21 @@ let hueUser = localStorage.getItem("hue_username") || "";
 let isPairing = false;
 let pairingInterval = null;
 
+async function loadTokenFromFile() {
+    try {
+        const resp = await fetch("hue_token.json");
+        if (resp.ok) {
+            const data = await resp.json();
+            if (data && data.username) {
+                hueUser = data.username;
+                localStorage.setItem("hue_username", hueUser);
+                syncRealHueState();
+            }
+        }
+    } catch(e) {}
+}
+loadTokenFromFile();
+
 const actionContexts = {
     "com.laoy.streamdock.hue.toggle": [],
     "com.laoy.streamdock.hue.scene": []
