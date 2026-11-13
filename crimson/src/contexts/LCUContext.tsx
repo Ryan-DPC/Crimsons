@@ -717,6 +717,17 @@ export const LCUProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 if (typeof msg.discord_enabled === 'boolean') plugins.discord = msg.discord_enabled;
                 if (typeof msg.lol_enabled === 'boolean') plugins.leagueOfLegends = msg.lol_enabled;
                 if (typeof msg.apple_music_enabled === 'boolean') plugins.apple_music = msg.apple_music_enabled;
+                // Avoid a Hub re-render when SYNC_STATE / reconnect echoes the same prefs.
+                const prevPlugins = prev?.plugins || {};
+                const keys = new Set([...Object.keys(prevPlugins), ...Object.keys(plugins)]);
+                let changed = false;
+                for (const k of keys) {
+                    if (prevPlugins[k] !== plugins[k]) {
+                        changed = true;
+                        break;
+                    }
+                }
+                if (!changed) return prev;
                 next.plugins = plugins;
                 return next;
             });

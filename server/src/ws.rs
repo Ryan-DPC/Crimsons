@@ -435,6 +435,45 @@ fn is_remote_web_origin(origin: &str) -> bool {
     !is_local_origin(t)
 }
 
+/// WS command types that require a live Supabase premium verdict.
+/// Keep in sync when adding a new premium plugin (`*_COMMAND`).
+const PREMIUM_COMMAND_TYPES: &[&str] = &[
+    "SPOTIFY_COMMAND",
+    "DISCORD_COMMAND",
+    "HUE_COMMAND",
+    "TWITCH_COMMAND",
+    "APPLE_MUSIC_COMMAND",
+];
+
+/// Single source for Hub `PLUGIN_PREFS` (connect handshake + `SYNC_STATE`).
+fn plugin_prefs_payload(
+    plugins: serde_json::Value,
+    premium: bool,
+    spotify: &Option<Arc<SpotifyService>>,
+    discord: &Option<Arc<DiscordService>>,
+    apple_music: &Option<Arc<AppleMusicService>>,
+    is_lol_enabled: &std::sync::atomic::AtomicBool,
+) -> serde_json::Value {
+    json!({
+        "type": "PLUGIN_PREFS",
+        "plugins": plugins,
+        "premium": premium,
+        "spotify_enabled": spotify
+            .as_ref()
+            .map(|s| s.is_enabled.load(std::sync::atomic::Ordering::Relaxed))
+            .unwrap_or(false),
+        "discord_enabled": discord
+            .as_ref()
+            .map(|d| d.is_enabled.load(std::sync::atomic::Ordering::Relaxed))
+            .unwrap_or(false),
+        "apple_music_enabled": apple_music
+            .as_ref()
+            .map(|am| am.is_enabled.load(std::sync::atomic::Ordering::Relaxed))
+            .unwrap_or(false),
+        "lol_enabled": is_lol_enabled.load(std::sync::atomic::Ordering::Relaxed),
+    })
+}
+
 #[cfg(test)]
 mod origin_tests {
     use super::{is_local_origin, is_remote_web_origin, redact_ws_payload_for_log, reject_remote_web};
@@ -626,17 +665,19 @@ async fn handle_connection(
         {
             let plugins = data.other.get("plugins").cloned().unwrap_or(json!({}));
             let premium = crate::entitlement::is_premium().await;
-            let _ = ws_stream.send(tokio_tungstenite::tungstenite::Message::Text(
-                json!({
-                    "type": "PLUGIN_PREFS",
-                    "plugins": plugins,
-                    "premium": premium,
-                    "spotify_enabled": spotify.as_ref().map(|s| s.is_enabled.load(std::sync::atomic::Ordering::Relaxed)).unwrap_or(false),
-                    "discord_enabled": discord.as_ref().map(|d| d.is_enabled.load(std::sync::atomic::Ordering::Relaxed)).unwrap_or(false),
-                    "apple_music_enabled": apple_music.as_ref().map(|am| am.is_enabled.load(std::sync::atomic::Ordering::Relaxed)).unwrap_or(false),
-                    "lol_enabled": is_lol_enabled.load(std::sync::atomic::Ordering::Relaxed),
-                }).to_string().into()
-            )).await;
+            let prefs = plugin_prefs_payload(
+                plugins,
+                premium,
+                &spotify,
+                &discord,
+                &apple_music,
+                &is_lol_enabled,
+            );
+            let _ = ws_stream
+                .send(tokio_tungstenite::tungstenite::Message::Text(
+                    prefs.to_string().into(),
+                ))
+                .await;
         }
 
         // Si le sidecar a deja une session (autostart), l'UI l'adopte avant
@@ -1000,15 +1041,15 @@ async fn handle_connection(
                                         let data = storage::load_data_from_path(data_path);
                                         let plugins = data.other.get("plugins").cloned().unwrap_or(json!({}));
                                         let premium = crate::entitlement::is_premium().await;
-                                        let _ = sender.0.send(json!({
-                                            "type": "PLUGIN_PREFS",
-                                            "plugins": plugins,
-                                            "premium": premium,
-                                            "spotify_enabled": spotify.as_ref().map(|s| s.is_enabled.load(std::sync::atomic::Ordering::Relaxed)).unwrap_or(false),
-                                            "discord_enabled": discord.as_ref().map(|d| d.is_enabled.load(std::sync::atomic::Ordering::Relaxed)).unwrap_or(false),
-                                            "apple_music_enabled": apple_music.as_ref().map(|am| am.is_enabled.load(std::sync::atomic::Ordering::Relaxed)).unwrap_or(false),
-                                            "lol_enabled": is_lol_enabled.load(std::sync::atomic::Ordering::Relaxed),
-                                        }).to_string());
+                                        let prefs = plugin_prefs_payload(
+                                            plugins,
+                                            premium,
+                                            &spotify,
+                                            &discord,
+                                            &apple_music,
+                                            &is_lol_enabled,
+                                        );
+                                        let _ = sender.0.send(prefs.to_string());
                                         continue;
                                     }
 
@@ -1060,7 +1101,7 @@ async fn handle_connection(
                                     }
 
                                     let cmd_type = value["type"].as_str().unwrap_or("");
-                                    if ["SPOTIFY_COMMAND", "DISCORD_COMMAND", "HUE_COMMAND", "TWITCH_COMMAND", "APPLE_MUSIC_COMMAND"].contains(&cmd_type) {
+                                    if PREMIUM_COMMAND_TYPES.contains(&cmd_type) {
                                         // Le verdict vient de Supabase, plus de data.json : ce
                                         // fichier est ecrit par le client et modifiable a la main.
                                         if !crate::entitlement::is_premium().await {

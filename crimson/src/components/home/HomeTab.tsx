@@ -108,51 +108,66 @@ export default function HomeTab() {
         }
     };
 
-    // Calcul des statistiques LoL (si actif)
-    const validMatches = hist.filter(m => m.gameDuration > 300);
-    const recentWins = validMatches.filter(m => m.stats?.win).length;
-    const totalMatches = seasonStats ? (seasonStats.wins + seasonStats.losses) : validMatches.length;
-    const wins = seasonStats ? seasonStats.wins : recentWins;
-    const losses = seasonStats ? seasonStats.losses : (validMatches.length - recentWins);
-    
-    let totalKills = 0, totalDeaths = 0, totalAssists = 0;
-    validMatches.forEach(m => {
-        if (m.stats) {
-            totalKills += m.stats.kills || 0;
-            totalDeaths += m.stats.deaths || 0;
-            totalAssists += m.stats.assists || 0;
+    // LoL match/KDA math only when the LoL module is on (Hub re-renders often on WS).
+    let totalMatches = 0;
+    let wins = 0;
+    let losses = 0;
+    let avgKills = '0';
+    let avgDeaths = '0';
+    let avgAssists = '0';
+    let reversedHist: typeof hist = [];
+    let maxKills = 1;
+    let kdaPoints: number[] = [];
+    let kdaSvgPath = 'M0,30 L100,30';
+    let lastCx = '100';
+    let lastCy = '5';
+    let winPercent = 0;
+
+    if (isLolEnabled) {
+        const validMatches = hist.filter(m => m.gameDuration > 300);
+        const recentWins = validMatches.filter(m => m.stats?.win).length;
+        totalMatches = seasonStats ? (seasonStats.wins + seasonStats.losses) : validMatches.length;
+        wins = seasonStats ? seasonStats.wins : recentWins;
+        losses = seasonStats ? seasonStats.losses : (validMatches.length - recentWins);
+
+        let totalKills = 0, totalDeaths = 0, totalAssists = 0;
+        validMatches.forEach(m => {
+            if (m.stats) {
+                totalKills += m.stats.kills || 0;
+                totalDeaths += m.stats.deaths || 0;
+                totalAssists += m.stats.assists || 0;
+            }
+        });
+
+        avgKills = validMatches.length ? (totalKills / validMatches.length).toFixed(1) : '0';
+        avgDeaths = validMatches.length ? (totalDeaths / validMatches.length).toFixed(1) : '0';
+        avgAssists = validMatches.length ? (totalAssists / validMatches.length).toFixed(1) : '0';
+
+        reversedHist = [...validMatches].slice(0, 15).reverse();
+        maxKills = Math.max(1, ...reversedHist.map(m => m.stats?.kills || 0));
+
+        kdaPoints = reversedHist.map(m => {
+            const k = m.stats?.kills || 0;
+            const d = Math.max(1, m.stats?.deaths || 1);
+            const a = m.stats?.assists || 0;
+            return (k + a) / d;
+        });
+        const maxKda = Math.max(1, ...kdaPoints);
+
+        const kdaSvgPoints = kdaPoints.map((kda, i) => {
+            const x = (i / Math.max(1, kdaPoints.length - 1)) * 100;
+            const y = 35 - ((kda / maxKda) * 30);
+            return `${x},${y}`;
+        }).join(' L');
+        kdaSvgPath = kdaPoints.length > 0 ? `M${kdaSvgPoints}` : `M0,30 L100,30`;
+
+        if (kdaPoints.length > 0) {
+            const lastP = kdaSvgPoints.split(' L').pop()?.split(',') || ['100', '5'];
+            lastCx = lastP[0]; lastCy = lastP[1];
         }
-    });
-    
-    const avgKills = validMatches.length ? (totalKills / validMatches.length).toFixed(1) : '0';
-    const avgDeaths = validMatches.length ? (totalDeaths / validMatches.length).toFixed(1) : '0';
-    const avgAssists = validMatches.length ? (totalAssists / validMatches.length).toFixed(1) : '0';
 
-    const reversedHist = [...validMatches].slice(0, 15).reverse();
-    const maxKills = Math.max(1, ...reversedHist.map(m => m.stats?.kills || 0));
-    
-    const kdaPoints = reversedHist.map(m => {
-        const k = m.stats?.kills || 0;
-        const d = Math.max(1, m.stats?.deaths || 1);
-        const a = m.stats?.assists || 0;
-        return (k + a) / d;
-    });
-    const maxKda = Math.max(1, ...kdaPoints);
-    
-    const kdaSvgPoints = kdaPoints.map((kda, i) => {
-        const x = (i / Math.max(1, kdaPoints.length - 1)) * 100;
-        const y = 35 - ((kda / maxKda) * 30);
-        return `${x},${y}`;
-    }).join(' L');
-    const kdaSvgPath = kdaPoints.length > 0 ? `M${kdaSvgPoints}` : `M0,30 L100,30`;
-    
-    let lastCx = '100', lastCy = '5';
-    if (kdaPoints.length > 0) {
-        const lastP = kdaSvgPoints.split(' L').pop()?.split(',') || ['100', '5'];
-        lastCx = lastP[0]; lastCy = lastP[1];
+        winPercent = totalMatches > 0 ? Math.round((wins / totalMatches) * 100) : 0;
     }
-
-    const winPercent = totalMatches > 0 ? Math.round((wins / totalMatches) * 100) : 0;
 
     return (
         <div className="w-full h-full flex justify-center items-start pt-12 pb-12 overflow-y-auto scrollbar-hide gap-12">

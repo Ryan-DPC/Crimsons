@@ -8,6 +8,10 @@ use crate::events::WsSender;
 
 const CIDER_BASE: &str = "http://127.0.0.1:10767";
 const DEFAULT_VOLUME_STEP: f64 = 0.05;
+/// Background poll while Hub toggle is ON. Documented for alignment with other
+/// plugin poll loops (Hue ~5s, Twitch ~30s, Valorant ~60s, Volume ~2s).
+const POLL_INTERVAL: Duration = Duration::from_millis(900);
+const POLL_DISABLED_INTERVAL: Duration = Duration::from_secs(2);
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct AppleMusicState {
@@ -315,22 +319,23 @@ impl AppleMusicService {
             let mut last_json = String::new();
             loop {
                 if !self_arc.is_enabled.load(Ordering::Relaxed) {
-                    tokio::time::sleep(Duration::from_secs(2)).await;
+                    tokio::time::sleep(POLL_DISABLED_INTERVAL).await;
                     continue;
                 }
 
                 let state = self_arc.fetch_state().await;
-                {
-                    let mut cache = self_arc.cached_state.write().await;
-                    *cache = state.clone();
-                }
-                let payload = json!({ "type": "APPLE_MUSIC_STATE", "data": state });
+                let payload = json!({ "type": "APPLE_MUSIC_STATE", "data": &state });
                 let encoded = payload.to_string();
+                // Skip cache write + WS fan-out when the serialized snapshot is unchanged.
                 if encoded != last_json {
+                    {
+                        let mut cache = self_arc.cached_state.write().await;
+                        *cache = state;
+                    }
                     let _ = self_arc.sender.0.send(encoded.clone());
                     last_json = encoded;
                 }
-                tokio::time::sleep(Duration::from_millis(900)).await;
+                tokio::time::sleep(POLL_INTERVAL).await;
             }
         });
     }
