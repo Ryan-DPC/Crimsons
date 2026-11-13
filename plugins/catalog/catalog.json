@@ -29,10 +29,10 @@
       "slug": "twitch",
       "name": "Twitch",
       "summary": "Viewers, clips, markers et raccourcis streamer sur StreamDock.",
-      "description": "Plugin StreamDock Twitch via Helix + sidecar Crimsons : compteur de viewers, création de clip, stream marker, ouverture Twitch / Hub / Store. OAuth stub (TWITCH_CLIENT_ID + token) ; mock sans credentials. Premium. Hardware StreamDock oui, Elgato non.",
+      "description": "Plugin StreamDock Twitch via Helix + sidecar Crimsons : viewers + badge live, clip, marker, refresh (feedback erreur sur les touches). Credentials Hub ou env ; scopes clips:edit + channel:manage:broadcast ; mock sans token. Premium. Hardware StreamDock oui, Elgato non.",
       "packageId": "com.laoy.streamdock.twitch.sdPlugin",
       "packagePath": "com.laoy.streamdock.twitch.sdPlugin",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "status": "coming_soon",
       "pricing": "5.99 CHF/mois",
       "categories": [

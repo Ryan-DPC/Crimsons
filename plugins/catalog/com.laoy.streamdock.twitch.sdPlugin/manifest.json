@@ -6,7 +6,7 @@
   "Description": "Twitch streamer tools via Crimsons sidecar (viewers, clip, marker) — Helix MVP + mock.",
   "Icon": "static/icon/twitch.png",
   "Name": "Twitch",
-  "Version": "0.1.0",
+  "Version": "0.1.1",
   "SDKVersion": 2,
   "Software": {
     "MinimumVersion": "2.0.0"

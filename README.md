@@ -109,6 +109,12 @@ Créer `crimson/.env` (non versionné) :
 | `VITE_SUPABASE_URL` | URL projet Supabase (inlinée par Vite ; aussi lue par `server/build.rs`) |
 | `VITE_SUPABASE_ANON_KEY` | Clé anon Supabase |
 | `CRIMSON_STRICT_AUTH` | Si `1`, le sidecar refuse les connexions WS sans jeton local (sinon log seulement) |
+| `TWITCH_CLIENT_ID` | (Plugin Twitch) Client-Id Helix — sinon Hub Paramètres / `data.json` |
+| `TWITCH_ACCESS_TOKEN` | (Plugin Twitch) User access token ; alias `TWITCH_OAUTH_TOKEN` |
+| `TWITCH_BROADCASTER_ID` | Optionnel |
+| `TWITCH_USER_LOGIN` | Optionnel |
+
+**Twitch scopes** (token utilisateur) : `clips:edit`, `channel:manage:broadcast`. Sans credentials → mock. Détail : [`plugins/catalog/com.laoy.streamdock.twitch.sdPlugin/README.md`](plugins/catalog/com.laoy.streamdock.twitch.sdPlugin/README.md).
 
 Sans `VITE_SUPABASE_*`, le client peut afficher un écran noir (voir le workflow Release).
 

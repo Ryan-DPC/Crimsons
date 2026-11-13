@@ -3,7 +3,7 @@
 UUID / dossier : `com.laoy.streamdock.twitch.sdPlugin`
 
 Outils streamer via le sidecar Crimsons (`ws://127.0.0.1:40510`) et l’API **Helix**.  
-Sans `TWITCH_CLIENT_ID` + token → données **mock** pour peindre les touches / le Hub.
+Sans credentials → données **mock** (42 viewers, LIVE) pour peindre les touches / le Hub.
 
 ## Actions MVP
 
@@ -19,23 +19,40 @@ Sans `TWITCH_CLIENT_ID` + token → données **mock** pour peindre les touches /
 | Follower Goal | `…twitch.follower_goal` | **Stub** compteur local |
 | Clear Chat | `…twitch.clear_chat` | **Stub** (IRC/mod hors MVP) |
 
+Feedback erreur : `showAlert` + titre `ERR` sur la touche concernée quand `TWITCH_STATE.error` est posé (`clip_failed`, `marker_failed`, `refresh_failed`, …).
+
 ## Protocol WS
 
 - État : `{ "type": "TWITCH_STATE", "data": { … } }`
-- Commandes : `{ "type": "TWITCH_COMMAND", "endpoint": "refresh" \| "create_clip" \| "create_marker" \| … }`
+- Commandes : `{ "type": "TWITCH_COMMAND", "endpoint": "refresh" \| "create_clip" \| "create_marker" \| "set_credentials" \| … }`
 
 Prefs Hub : clé `plugins.twitch` (premium). Catalogue : `requiresPremium: true`, pricing **5.99 CHF/mois**. Hardware : StreamDock ✓, Elgato ✗.
 
-## Env / OAuth (stub)
+## OAuth / token — scopes requis
+
+Token **utilisateur** (pas app-only) + Client-Id de votre app Twitch.
+
+| Scope | Usage MVP |
+| --- | --- |
+| `clips:edit` | Create Clip |
+| `channel:manage:broadcast` | Create Stream Marker |
+
+Viewers / live (`GET /helix/streams`) : même user token, pas de scope supplémentaire pour un flux public.
+
+### Où coller les credentials
+
+1. **Hub → Paramètres → Plugins → Twitch** : Client ID + Access Token (persistés dans `data.json`).
+2. **Env** (prioritaire sur le disque) :
 
 | Variable | Rôle |
 | --- | --- |
 | `TWITCH_CLIENT_ID` | Client-Id Helix |
-| `TWITCH_ACCESS_TOKEN` ou `TWITCH_OAUTH_TOKEN` | Bearer user access token |
+| `TWITCH_ACCESS_TOKEN` ou `TWITCH_OAUTH_TOKEN` | Bearer user access token (`oauth:` accepté) |
 | `TWITCH_BROADCASTER_ID` | Optionnel (sinon `GET /users`) |
 | `TWITCH_USER_LOGIN` | Optionnel (streams by login) |
 
-Pas de flow OAuth bout-en-bout dans le MVP : coller un token d’app Twitch / Dev Console.
+Générer un token : [Twitch Console](https://dev.twitch.tv/console/apps) / Token Generator avec les scopes ci-dessus.  
+Pas de flow OAuth interactif bout-en-bout dans le MVP.
 
 ## Tester
 
@@ -45,11 +62,13 @@ Pas de flow OAuth bout-en-bout dans le MVP : coller un token d’app Twitch / De
    ```powershell
    .\scripts\inject_plugins.ps1 -Extra com.laoy.streamdock.twitch.sdPlugin
    ```
-4. Hub Crimsons → activer **Twitch** (Premium requis).
+4. Hub Crimsons → activer **Twitch** (Premium requis) → coller Client ID + token.
 
 ## Limites MVP
 
-- OAuth interactif non branché (env token only).
+- OAuth interactif non branché (token collé / env only).
 - Mute alerts / follower goal / clear chat = stubs.
-- Clear chat réel nécessiterait IRC + scopes mod.
+- Clear chat réel : IRC + scopes mod (hors ship).
+- Clip / marker Helix exigent un **stream live**.
 - Icônes géométriques placeholders.
+- Hardware Elgato non supporté (catalogue).

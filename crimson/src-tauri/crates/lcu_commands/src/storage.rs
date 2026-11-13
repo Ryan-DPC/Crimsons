@@ -74,6 +74,13 @@ pub struct AppData {
     #[serde(default)]
     pub discord_client_id: Option<String>,
 
+    /// Twitch Helix Client-Id (user-owned). Env overrides on the sidecar.
+    #[serde(default)]
+    pub twitch_client_id: Option<String>,
+    /// Twitch user access token (masked in Settings once saved).
+    #[serde(default)]
+    pub twitch_access_token: Option<String>,
+
     // Spotify OAuth app credentials (user-owned). Typed so Tauri ↔ server
     // round-trips cannot drop them into a mismatched flatten bucket.
     #[serde(default)]
@@ -115,6 +122,8 @@ impl Default for AppData {
             premium_token: None,
             custom_server_path: None,
             discord_client_id: None,
+            twitch_client_id: None,
+            twitch_access_token: None,
             spotify_client_id: String::new(),
             spotify_client_secret: String::new(),
             other: HashMap::new(),
@@ -283,6 +292,37 @@ pub fn set_app_data(app: AppHandle, data: AppData) {
         }
         if merged.spotify_client_secret.is_empty() && !existing.spotify_client_secret.is_empty() {
             merged.spotify_client_secret = existing.spotify_client_secret;
+        }
+        // Preserve Twitch token if the UI left the masked field blank.
+        let incoming_twitch_token = merged
+            .twitch_access_token
+            .as_ref()
+            .map(|s| s.trim())
+            .filter(|s| !s.is_empty());
+        if incoming_twitch_token.is_none() {
+            if let Some(existing_token) = existing
+                .twitch_access_token
+                .as_ref()
+                .map(|s| s.trim())
+                .filter(|s| !s.is_empty())
+            {
+                merged.twitch_access_token = Some(existing_token.to_string());
+            }
+        }
+        let incoming_twitch_id = merged
+            .twitch_client_id
+            .as_ref()
+            .map(|s| s.trim())
+            .filter(|s| !s.is_empty());
+        if incoming_twitch_id.is_none() {
+            if let Some(existing_id) = existing
+                .twitch_client_id
+                .as_ref()
+                .map(|s| s.trim())
+                .filter(|s| !s.is_empty())
+            {
+                merged.twitch_client_id = Some(existing_id.to_string());
+            }
         }
         // Preserve plugins map if incoming omits it or sends an empty object over a real one.
         let incoming_plugins = merged.other.get("plugins").cloned();

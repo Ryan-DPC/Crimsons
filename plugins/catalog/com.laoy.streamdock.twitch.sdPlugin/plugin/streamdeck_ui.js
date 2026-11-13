@@ -19,6 +19,21 @@ class StreamDeckUI {
         });
     }
 
+    /** Brief red flash on the key (StreamDock / Elgato SDK). */
+    showAlert(context) {
+        this.send({
+            event: "showAlert",
+            context: context,
+        });
+    }
+
+    showOk(context) {
+        this.send({
+            event: "showOk",
+            context: context,
+        });
+    }
+
     setPayload(context, title, value, image) {
         this.send({ 
             "event": "setPayload", "context": context, "payload": { "title": title, "value": value, "image": image } 

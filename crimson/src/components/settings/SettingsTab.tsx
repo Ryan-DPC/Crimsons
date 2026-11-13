@@ -62,11 +62,27 @@ const SettingsTab = () => {
     const [spotifyReplacingSecret, setSpotifyReplacingSecret] = useState(false);
     const [spotifyError, setSpotifyError] = useState<string | null>(null);
     const [discordClientIdInput, setDiscordClientIdInput] = useState(appData?.discordClientId || '');
+    const [twitchClientIdInput, setTwitchClientIdInput] = useState(appData?.twitchClientId || '');
+    const [twitchTokenInput, setTwitchTokenInput] = useState('');
+    const [twitchEditing, setTwitchEditing] = useState(!(appData?.twitchClientId && appData?.twitchAccessToken));
+    const [twitchReplacingToken, setTwitchReplacingToken] = useState(false);
+    const [twitchSaveMsg, setTwitchSaveMsg] = useState<string | null>(null);
 
     useEffect(() => {
         if (appData) {
             setPremiumTokenInput(appData.premiumToken || '');
             setDiscordClientIdInput(appData.discordClientId || '');
+            const hasTwitchCreds = !!(appData.twitchClientId && appData.twitchAccessToken);
+            if (!hasTwitchCreds) {
+                setTwitchEditing(true);
+            }
+            if (!twitchEditing) {
+                setTwitchClientIdInput(appData.twitchClientId || '');
+                setTwitchTokenInput('');
+                setTwitchReplacingToken(false);
+            } else if (!twitchClientIdInput && appData.twitchClientId) {
+                setTwitchClientIdInput(appData.twitchClientId);
+            }
             const hasGemini = !!appData.geminiApiKey;
             const savedId = appData.spotifyClientId || spotifyState?.saved_client_id || '';
             const hasSpotifyCreds = !!(savedId && (appData.spotifyClientSecret || spotifyState?.has_credentials));
@@ -149,6 +165,61 @@ const SettingsTab = () => {
 
     const savedSpotifyId = appData?.spotifyClientId || spotifyState?.saved_client_id || '';
     const hasSavedSecret = !!(appData?.spotifyClientSecret || spotifyState?.has_credentials);
+    const savedTwitchId = appData?.twitchClientId || '';
+    const hasSavedTwitchToken = !!appData?.twitchAccessToken;
+
+    const handleSaveTwitchCredentials = async () => {
+        const clientId = twitchClientIdInput.trim() || savedTwitchId;
+        const token = twitchTokenInput.trim() || (appData?.twitchAccessToken || '');
+        if (!clientId || !token) {
+            setTwitchSaveMsg('Client ID et Access Token requis (ou token déjà enregistré).');
+            setTwitchEditing(true);
+            return;
+        }
+        setTwitchSaveMsg(null);
+        try {
+            const d = await invoke<any>('get_app_data');
+            d.twitchClientId = clientId;
+            if (twitchTokenInput.trim()) {
+                d.twitchAccessToken = twitchTokenInput.trim();
+            }
+            await invoke('set_app_data', { data: d });
+            twitchCommand('set_credentials', {
+                client_id: clientId,
+                access_token: twitchTokenInput.trim() || token,
+            });
+            setTwitchClientIdInput(clientId);
+            setTwitchTokenInput('');
+            setTwitchReplacingToken(false);
+            setTwitchEditing(false);
+            setTwitchSaveMsg('Identifiants enregistrés — refresh Helix…');
+            setTimeout(() => twitchCommand('refresh'), 200);
+        } catch (e) {
+            console.error('Twitch credentials save failed', e);
+            twitchCommand('set_credentials', {
+                client_id: clientId,
+                access_token: token,
+            });
+            setTwitchSaveMsg('Envoyé au sidecar (persist local indisponible en mode navigateur).');
+        }
+    };
+
+    const handleClearTwitchCredentials = async () => {
+        try {
+            const d = await invoke<any>('get_app_data');
+            d.twitchClientId = null;
+            d.twitchAccessToken = null;
+            await invoke('set_app_data', { data: d });
+        } catch {
+            /* ignore — sidecar clear still runs */
+        }
+        twitchCommand('clear_credentials');
+        setTwitchClientIdInput('');
+        setTwitchTokenInput('');
+        setTwitchEditing(true);
+        setTwitchReplacingToken(false);
+        setTwitchSaveMsg('Credentials effacés — mode mock.');
+    };
 
     const resolveSpotifyCredentials = () => {
         const clientId = spotifyIdInput.trim() || savedSpotifyId;
@@ -798,14 +869,22 @@ const SettingsTab = () => {
                                             {plugin.key === 'twitch' && isEnabled && (
                                                 <div className="mt-4 space-y-3 border-t border-white/5 pt-4">
                                                     <div className="flex items-center justify-between gap-3">
-                                                        <div className="min-w-0">
+                                                        <div className="min-w-0 flex items-center gap-2 flex-wrap">
                                                             <p className="text-[10px] font-black text-white uppercase tracking-widest truncate">
                                                                 {typeof twitchState?.viewers === 'number' ? `${twitchState.viewers} viewers` : '—'}
-                                                                {twitchState?.live ? ' · LIVE' : twitchState?.mock ? ' · mock' : ' · offline'}
                                                             </p>
-                                                            <p className="text-[9px] text-white/40 uppercase font-bold tracking-widest mt-1 truncate">
-                                                                {twitchState?.username || 'Twitch'}{twitchState?.error ? ` · ${twitchState.error}` : ''}
-                                                            </p>
+                                                            {twitchState?.live ? (
+                                                                <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-red-600 text-white">Live</span>
+                                                            ) : twitchState?.mock ? (
+                                                                <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-white/10 text-white/50">Mock</span>
+                                                            ) : (
+                                                                <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-white/5 text-white/30">Offline</span>
+                                                            )}
+                                                            {(twitchState?.has_credentials || hasSavedTwitchToken) ? (
+                                                                <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-green-500/15 text-green-400 border border-green-500/20">Token</span>
+                                                            ) : (
+                                                                <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-orange-500/10 text-orange-400/80 border border-orange-500/20">Sans token</span>
+                                                            )}
                                                         </div>
                                                         <button
                                                             type="button"
@@ -815,6 +894,127 @@ const SettingsTab = () => {
                                                             Refresh
                                                         </button>
                                                     </div>
+                                                    <p className="text-[9px] text-white/40 uppercase font-bold tracking-widest truncate">
+                                                        {twitchState?.username || 'Twitch'}
+                                                        {twitchState?.title ? ` · ${twitchState.title}` : ''}
+                                                    </p>
+                                                    {(twitchState?.error_detail || twitchState?.error) && (
+                                                        <p className="text-[9px] text-orange-400/90 font-bold leading-relaxed">
+                                                            {twitchState.error_detail || twitchState.error}
+                                                        </p>
+                                                    )}
+
+                                                    {!twitchEditing && (savedTwitchId || hasSavedTwitchToken) ? (
+                                                        <div className="space-y-2">
+                                                            <p className="text-[9px] text-white/35 uppercase font-bold tracking-widest leading-relaxed">
+                                                                Identifiants enregistrés (Client ID + token). Sans token → mock 42 viewers.
+                                                            </p>
+                                                            <div className="flex flex-wrap gap-2">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        setTwitchEditing(true);
+                                                                        setTwitchClientIdInput(savedTwitchId);
+                                                                        setTwitchTokenInput('');
+                                                                        setTwitchReplacingToken(false);
+                                                                        setTwitchSaveMsg(null);
+                                                                    }}
+                                                                    className="px-3 py-2 bg-white/5 hover:bg-white/10 text-white text-[9px] font-black uppercase tracking-widest rounded-xl border border-white/10 transition-all"
+                                                                >
+                                                                    Modifier
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={handleClearTwitchCredentials}
+                                                                    className="px-3 py-2 bg-white/5 hover:bg-red-600/20 text-white/50 hover:text-red-300 text-[9px] font-black uppercase tracking-widest rounded-xl border border-white/5 transition-all"
+                                                                >
+                                                                    Effacer → mock
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="space-y-3">
+                                                            <p className="text-[9px] text-white/35 uppercase font-bold tracking-widest leading-relaxed">
+                                                                1) App sur{' '}
+                                                                <a
+                                                                    href="https://dev.twitch.tv/console/apps"
+                                                                    target="_blank"
+                                                                    rel="noreferrer"
+                                                                    className="text-red-400 hover:text-red-300 inline-flex items-center gap-0.5"
+                                                                >
+                                                                    Twitch Console <Compass size={9} />
+                                                                </a>
+                                                                {' '}· 2) User token avec scopes · 3) Coller Client ID + token · 4) Sauver.
+                                                            </p>
+                                                            <div className="space-y-1.5">
+                                                                <div className="flex justify-between items-center">
+                                                                    <label className="text-[9px] font-black text-white/40 uppercase tracking-widest">Client ID</label>
+                                                                </div>
+                                                                <input
+                                                                    type="text"
+                                                                    value={twitchClientIdInput}
+                                                                    onChange={(e) => setTwitchClientIdInput(e.target.value)}
+                                                                    placeholder="Client-Id de votre application Twitch…"
+                                                                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-[10px] font-mono text-white outline-none focus:border-red-500 transition-colors"
+                                                                />
+                                                            </div>
+                                                            <div className="space-y-1.5">
+                                                                <label className="text-[9px] font-black text-white/40 uppercase tracking-widest">Access Token</label>
+                                                                {hasSavedTwitchToken && !twitchReplacingToken ? (
+                                                                    <div className="flex gap-2 items-center">
+                                                                        <div className="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-[10px] font-mono text-white/30">
+                                                                            •••••••• (enregistré)
+                                                                        </div>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => setTwitchReplacingToken(true)}
+                                                                            className="px-3 py-2 bg-white/5 hover:bg-white/10 text-white text-[9px] font-black uppercase tracking-widest rounded-xl border border-white/5"
+                                                                        >
+                                                                            Remplacer
+                                                                        </button>
+                                                                    </div>
+                                                                ) : (
+                                                                    <input
+                                                                        type="password"
+                                                                        value={twitchTokenInput}
+                                                                        onChange={(e) => setTwitchTokenInput(e.target.value)}
+                                                                        placeholder="oauth:… ou Bearer user token"
+                                                                        className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-[10px] font-mono text-white outline-none focus:border-red-500 transition-colors"
+                                                                    />
+                                                                )}
+                                                            </div>
+                                                            <p className="text-[8px] text-white/25 font-bold leading-relaxed">
+                                                                Scopes requis : <span className="text-white/45">clips:edit</span> · <span className="text-white/45">channel:manage:broadcast</span>
+                                                                {' '}(token utilisateur). Env alternatif : TWITCH_CLIENT_ID + TWITCH_ACCESS_TOKEN.
+                                                            </p>
+                                                            <div className="flex flex-wrap gap-2">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={handleSaveTwitchCredentials}
+                                                                    className="px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-300 text-[9px] font-black uppercase tracking-widest rounded-xl border border-red-500/20 transition-all"
+                                                                >
+                                                                    Sauver & tester
+                                                                </button>
+                                                                {(savedTwitchId || hasSavedTwitchToken) && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            setTwitchEditing(false);
+                                                                            setTwitchTokenInput('');
+                                                                            setTwitchReplacingToken(false);
+                                                                            setTwitchSaveMsg(null);
+                                                                        }}
+                                                                        className="px-3 py-2 bg-white/5 text-white/40 text-[9px] font-black uppercase tracking-widest rounded-xl border border-white/5"
+                                                                    >
+                                                                        Annuler
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                    {twitchSaveMsg && (
+                                                        <p className="text-[9px] text-white/40 font-bold">{twitchSaveMsg}</p>
+                                                    )}
                                                     <a
                                                         href="https://store.crimsons.app/plugins/twitch"
                                                         target="_blank"
@@ -823,9 +1023,6 @@ const SettingsTab = () => {
                                                     >
                                                         <Compass size={10} /> Store /plugins/twitch
                                                     </a>
-                                                    <p className="text-[9px] text-white/25 uppercase font-bold tracking-widest leading-relaxed">
-                                                        OAuth stub : TWITCH_CLIENT_ID + TWITCH_ACCESS_TOKEN (mock sans credentials).
-                                                    </p>
                                                 </div>
                                             )}
 

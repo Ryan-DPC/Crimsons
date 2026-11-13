@@ -66,6 +66,7 @@ interface LCUContextType {
     twitchState: {
         connected: boolean;
         mock: boolean;
+        has_credentials?: boolean;
         live: boolean;
         viewers: number;
         username?: string | null;
@@ -77,6 +78,7 @@ interface LCUContextType {
         follower_goal_target?: number;
         alerts_muted?: boolean;
         error?: string | null;
+        error_detail?: string | null;
     } | null;
     
     // Connection Status

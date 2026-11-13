@@ -1,8 +1,16 @@
 //! Twitch Helix integration (MVP).
 //!
-//! Env-driven OAuth stub: `TWITCH_CLIENT_ID` + `TWITCH_ACCESS_TOKEN` (alias
-//! `TWITCH_OAUTH_TOKEN`). Optional `TWITCH_BROADCASTER_ID` / `TWITCH_USER_LOGIN`.
-//! Without credentials, serves deterministic mock state for Hub / StreamDock.
+//! Credentials (first match wins):
+//! 1. Env `TWITCH_CLIENT_ID` + `TWITCH_ACCESS_TOKEN` (alias `TWITCH_OAUTH_TOKEN`)
+//! 2. `data.json` fields `twitchClientId` / `twitchAccessToken` (Hub Settings)
+//!
+//! Optional: `TWITCH_BROADCASTER_ID` / `TWITCH_USER_LOGIN`.
+//! Without credentials → deterministic mock for Hub / StreamDock.
+//!
+//! Required user-token scopes (Helix MVP):
+//! - `clips:edit` — Create Clip
+//! - `channel:manage:broadcast` — Create Stream Marker
+//! Viewers / live status use the same user token (no extra scope for public streams).
 
 use crate::events::WsSender;
 use serde::{Deserialize, Serialize};
@@ -12,11 +20,16 @@ use tokio::sync::RwLock;
 
 const HELIX_BASE: &str = "https://api.twitch.tv/helix";
 
+/// Documented OAuth scopes for the shippable Helix MVP.
+pub const REQUIRED_SCOPES: &[&str] = &["clips:edit", "channel:manage:broadcast"];
+
 #[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq, Eq)]
 pub struct TwitchState {
     pub connected: bool,
     /// True when serving mock / fallback data (no token or API failure).
     pub mock: bool,
+    /// True when Client-Id + token are available (env or data.json).
+    pub has_credentials: bool,
     pub live: bool,
     pub viewers: u32,
     pub username: Option<String>,
@@ -29,13 +42,17 @@ pub struct TwitchState {
     pub follower_goal_current: u32,
     pub follower_goal_target: u32,
     pub alerts_muted: bool,
+    /// Short machine-ish code for StreamDock titles (e.g. `clip_failed`).
     pub error: Option<String>,
+    /// Human-readable detail for Hub Settings (optional).
+    pub error_detail: Option<String>,
 }
 
 pub fn mock_state() -> TwitchState {
     TwitchState {
         connected: true,
         mock: true,
+        has_credentials: false,
         live: true,
         viewers: 42,
         username: Some("MockStreamer".into()),
@@ -49,6 +66,7 @@ pub fn mock_state() -> TwitchState {
         follower_goal_target: 200,
         alerts_muted: false,
         error: None,
+        error_detail: None,
     }
 }
 
@@ -101,19 +119,73 @@ pub fn parse_marker_from_json(value: &serde_json::Value) -> Option<String> {
         .map(|s| s.to_string())
 }
 
-fn credentials() -> Option<(String, String)> {
+fn normalize_token(raw: &str) -> String {
+    raw.trim().trim_start_matches("oauth:").trim().to_string()
+}
+
+fn credentials_from_env() -> Option<(String, String)> {
     let client_id = std::env::var("TWITCH_CLIENT_ID").ok()?;
-    if client_id.trim().is_empty() {
+    let client_id = client_id.trim().to_string();
+    if client_id.is_empty() {
         return None;
     }
     let token = std::env::var("TWITCH_ACCESS_TOKEN")
         .or_else(|_| std::env::var("TWITCH_OAUTH_TOKEN"))
         .ok()?;
-    let token = token.trim().trim_start_matches("oauth:").to_string();
+    let token = normalize_token(&token);
     if token.is_empty() {
         return None;
     }
     Some((client_id, token))
+}
+
+fn credentials_from_disk() -> Option<(String, String)> {
+    let app = crate::storage::load_data_from_path(crate::storage::get_data_path_from_env());
+    let client_id = app
+        .twitch_client_id
+        .as_ref()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())?;
+    let token = app
+        .twitch_access_token
+        .as_ref()
+        .map(|s| normalize_token(s))
+        .filter(|s| !s.is_empty())?;
+    Some((client_id, token))
+}
+
+/// Env overrides data.json. Used by Helix calls and Hub status.
+pub fn credentials() -> Option<(String, String)> {
+    credentials_from_env().or_else(credentials_from_disk)
+}
+
+pub fn has_credentials() -> bool {
+    credentials().is_some()
+}
+
+/// Persist Hub-entered credentials into data.json (does not clear env overrides).
+pub fn save_credentials_to_disk(client_id: &str, access_token: &str) -> Result<(), String> {
+    let path = crate::storage::get_data_path_from_env();
+    let mut app = crate::storage::load_data_from_path(path.clone());
+    let id = client_id.trim();
+    let token = normalize_token(access_token);
+    if id.is_empty() || token.is_empty() {
+        return Err("client_id and access_token required".into());
+    }
+    app.twitch_client_id = Some(id.to_string());
+    app.twitch_access_token = Some(token);
+    crate::storage::save_data_to_path(path, &app);
+    crate::storage::invalidate_cache();
+    Ok(())
+}
+
+pub fn clear_credentials_on_disk() {
+    let path = crate::storage::get_data_path_from_env();
+    let mut app = crate::storage::load_data_from_path(path.clone());
+    app.twitch_client_id = None;
+    app.twitch_access_token = None;
+    crate::storage::save_data_to_path(path, &app);
+    crate::storage::invalidate_cache();
 }
 
 pub struct TwitchService {
@@ -171,6 +243,49 @@ impl TwitchService {
                     .to_string();
                 self.create_marker(&desc).await;
             }
+            "set_credentials" => {
+                let client_id = params
+                    .as_ref()
+                    .and_then(|p| {
+                        p.get("client_id")
+                            .or_else(|| p.get("clientId"))
+                            .or_else(|| p.get("payload").and_then(|x| x.get("client_id")))
+                            .or_else(|| p.get("payload").and_then(|x| x.get("clientId")))
+                            .and_then(|v| v.as_str())
+                    })
+                    .unwrap_or("")
+                    .to_string();
+                let token = params
+                    .as_ref()
+                    .and_then(|p| {
+                        p.get("access_token")
+                            .or_else(|| p.get("accessToken"))
+                            .or_else(|| p.get("token"))
+                            .or_else(|| p.get("payload").and_then(|x| x.get("access_token")))
+                            .or_else(|| p.get("payload").and_then(|x| x.get("accessToken")))
+                            .and_then(|v| v.as_str())
+                    })
+                    .unwrap_or("")
+                    .to_string();
+                match save_credentials_to_disk(&client_id, &token) {
+                    Ok(()) => {
+                        tracing::info!("[TWITCH] credentials saved to data.json");
+                        self.refresh().await;
+                    }
+                    Err(e) => {
+                        let mut st = self.state.write().await;
+                        st.error = Some("creds_invalid".into());
+                        st.error_detail = Some(e);
+                        drop(st);
+                        self.broadcast().await;
+                    }
+                }
+            }
+            "clear_credentials" => {
+                clear_credentials_on_disk();
+                tracing::info!("[TWITCH] credentials cleared from data.json");
+                self.refresh().await;
+            }
             "mute_alerts" | "toggle_alerts" => {
                 let mut st = self.state.write().await;
                 st.alerts_muted = !st.alerts_muted;
@@ -192,6 +307,9 @@ impl TwitchService {
                 tracing::warn!("[TWITCH] clear_chat stub — requires IRC/mod scopes (not Helix MVP)");
                 let mut st = self.state.write().await;
                 st.error = Some("clear_chat_stub".into());
+                st.error_detail = Some(
+                    "Clear chat n’est pas dans le MVP Helix (IRC + scopes mod requis).".into(),
+                );
                 drop(st);
                 self.broadcast().await;
             }
@@ -236,7 +354,9 @@ impl TwitchService {
                 let mut st = self.state.write().await;
                 st.last_clip_id = Some(id);
                 st.last_clip_url = Some(url);
+                st.has_credentials = true;
                 st.error = None;
+                st.error_detail = None;
                 drop(st);
                 self.broadcast().await;
             }
@@ -249,12 +369,18 @@ impl TwitchService {
                     st.last_clip_id = Some(id.clone());
                     st.last_clip_url = Some(format!("https://clips.twitch.tv/{}", id));
                     st.mock = true;
+                    st.has_credentials = false;
                     st.error = None;
+                    st.error_detail = None;
                     drop(st);
                     self.broadcast().await;
                 } else {
                     let mut st = self.state.write().await;
-                    st.error = Some(format!("create_clip: {}", e));
+                    st.has_credentials = true;
+                    st.error = Some("clip_failed".into());
+                    st.error_detail = Some(format!(
+                        "Création clip échouée ({e}). Scope requis : clips:edit. Stream live ?"
+                    ));
                     drop(st);
                     self.broadcast().await;
                 }
@@ -267,7 +393,9 @@ impl TwitchService {
             Ok(id) => {
                 let mut st = self.state.write().await;
                 st.last_marker_id = Some(id);
+                st.has_credentials = true;
                 st.error = None;
+                st.error_detail = None;
                 drop(st);
                 self.broadcast().await;
             }
@@ -278,12 +406,18 @@ impl TwitchService {
                     let id = format!("mock-marker-{}", chrono::Utc::now().timestamp());
                     st.last_marker_id = Some(id);
                     st.mock = true;
+                    st.has_credentials = false;
                     st.error = None;
+                    st.error_detail = None;
                     drop(st);
                     self.broadcast().await;
                 } else {
                     let mut st = self.state.write().await;
-                    st.error = Some(format!("create_marker: {}", e));
+                    st.has_credentials = true;
+                    st.error = Some("marker_failed".into());
+                    st.error_detail = Some(format!(
+                        "Marker échoué ({e}). Scope requis : channel:manage:broadcast. Stream live ?"
+                    ));
                     drop(st);
                     self.broadcast().await;
                 }
@@ -342,12 +476,16 @@ async fn fetch_or_mock() -> TwitchState {
             Err(e) => {
                 tracing::warn!("[TWITCH] Helix fetch failed ({}), using mock", e);
                 let mut m = mock_state();
-                m.error = Some(format!("helix_fetch_failed: {}", e));
+                m.has_credentials = true;
+                m.error = Some("refresh_failed".into());
+                m.error_detail = Some(format!(
+                    "Helix indisponible ({e}). Vérifiez Client-Id, token et scopes."
+                ));
                 m
             }
         },
         None => {
-            tracing::info!("[TWITCH] No TWITCH_CLIENT_ID/TOKEN — mock state");
+            tracing::info!("[TWITCH] No credentials (env/data.json) — mock state");
             mock_state()
         }
     }
@@ -385,6 +523,7 @@ async fn fetch_helix(client_id: &str, token: &str) -> Result<TwitchState, String
     Ok(TwitchState {
         connected: true,
         mock: false,
+        has_credentials: true,
         live,
         viewers,
         username: Some(login),
@@ -398,6 +537,7 @@ async fn fetch_helix(client_id: &str, token: &str) -> Result<TwitchState, String
         follower_goal_target: 0,
         alerts_muted: false,
         error: None,
+        error_detail: None,
     })
 }
 
@@ -484,9 +624,22 @@ mod tests {
     fn mock_state_is_live_with_viewers() {
         let st = mock_state();
         assert!(st.mock);
+        assert!(!st.has_credentials);
         assert!(st.live);
         assert_eq!(st.viewers, 42);
         assert_eq!(st.username.as_deref(), Some("MockStreamer"));
+    }
+
+    #[test]
+    fn required_scopes_documented() {
+        assert!(REQUIRED_SCOPES.contains(&"clips:edit"));
+        assert!(REQUIRED_SCOPES.contains(&"channel:manage:broadcast"));
+    }
+
+    #[test]
+    fn normalize_token_strips_oauth_prefix() {
+        assert_eq!(normalize_token("oauth:abc"), "abc");
+        assert_eq!(normalize_token("  xyz  "), "xyz");
     }
 
     #[test]

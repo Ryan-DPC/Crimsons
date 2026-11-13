@@ -38,6 +38,13 @@ pub struct AppData {
     #[serde(default)]
     pub discord_client_id: Option<String>,
 
+    /// Twitch Helix Client-Id (user-owned app). Env `TWITCH_CLIENT_ID` overrides.
+    #[serde(default)]
+    pub twitch_client_id: Option<String>,
+    /// Twitch user access token. Env `TWITCH_ACCESS_TOKEN` / `TWITCH_OAUTH_TOKEN` overrides.
+    #[serde(default)]
+    pub twitch_access_token: Option<String>,
+
     #[serde(flatten)]
     pub other: HashMap<String, serde_json::Value>,
 }
@@ -58,6 +65,8 @@ impl Default for AppData {
             premium_token: None,
             custom_server_path: None,
             discord_client_id: None,
+            twitch_client_id: None,
+            twitch_access_token: None,
             other: HashMap::new(),
         }
     }

@@ -358,25 +358,38 @@ export default function HomeTab() {
                     <div className="flex flex-col gap-3 mt-4">
                         <span className="text-[10px] font-black text-white/40 uppercase tracking-widest border-b border-white/5 pb-2">Twitch</span>
                         <div className="bg-[#0a0a0c] border border-white/5 rounded-xl p-4 flex items-center gap-4 transition-colors hover:border-red-500/30">
-                            <div className="w-10 h-10 bg-red-500/10 rounded-lg flex items-center justify-center relative">
+                            <div className="w-10 h-10 bg-red-500/10 rounded-lg flex items-center justify-center relative shrink-0">
                                 <Tv className="w-5 h-5 text-red-500" />
-                                {(twitchState?.live || twitchState?.mock) && (
-                                    <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]" title={twitchState?.live ? 'Live' : 'Mock'} />
+                                {twitchState?.live && (
+                                    <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" title="Live" />
                                 )}
                             </div>
-                            <div className="flex flex-col flex-1 min-w-0">
-                                <span className="text-white font-bold text-xs truncate">
-                                    {typeof twitchState?.viewers === 'number' ? `${twitchState.viewers} viewers` : '—'}
-                                    {twitchState?.live ? ' · LIVE' : twitchState?.mock ? ' · mock' : ' · offline'}
-                                </span>
+                            <div className="flex flex-col flex-1 min-w-0 gap-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="text-white font-bold text-xs">
+                                        {typeof twitchState?.viewers === 'number' ? `${twitchState.viewers} viewers` : '—'}
+                                    </span>
+                                    {twitchState?.live ? (
+                                        <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-red-600 text-white">Live</span>
+                                    ) : twitchState?.mock ? (
+                                        <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-white/10 text-white/50">Mock</span>
+                                    ) : (
+                                        <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-white/5 text-white/30">Offline</span>
+                                    )}
+                                </div>
                                 <span className="text-white/50 text-[10px] truncate uppercase font-bold tracking-widest">
                                     {twitchState?.username || 'Twitch'}{twitchState?.title ? ` · ${twitchState.title}` : ''}
                                 </span>
+                                {twitchState?.error && (
+                                    <span className="text-orange-400/80 text-[9px] font-bold truncate" title={twitchState.error_detail || twitchState.error}>
+                                        {twitchState.error_detail || twitchState.error}
+                                    </span>
+                                )}
                             </div>
                             <button
                                 type="button"
                                 onClick={() => twitchCommand('refresh')}
-                                className="p-2.5 bg-red-600/10 hover:bg-red-600/20 text-red-400 rounded-xl border border-red-500/20 transition-all"
+                                className="p-2.5 bg-red-600/10 hover:bg-red-600/20 text-red-400 rounded-xl border border-red-500/20 transition-all shrink-0"
                                 title="Refresh"
                             >
                                 <RefreshCw className="w-4 h-4" />

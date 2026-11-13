@@ -1,6 +1,7 @@
 /**
  * Twitch StreamDock plugin (MVP).
  * Talks to crimson-server WS on 127.0.0.1:40510 — Helix via sidecar, mock without creds.
+ * Error feedback: showAlert + ERR title on viewers/clip/marker/refresh when TWITCH_STATE.error is set.
  */
 const UUID = {
     viewers: "com.laoy.streamdock.twitch.viewers",
@@ -29,6 +30,7 @@ const actionContexts = {
 let twitchState = {
     connected: false,
     mock: true,
+    has_credentials: false,
     live: false,
     viewers: 0,
     username: null,
@@ -39,7 +41,12 @@ let twitchState = {
     follower_goal_target: 0,
     alerts_muted: false,
     error: null,
+    error_detail: null,
 };
+
+/** Last pressed action UUID — used to flash the right key on error. */
+let lastActionUuid = null;
+let lastErrorCode = null;
 
 const STORE_URL = "https://store.crimsons.app/plugins/twitch";
 const HUB_FALLBACK = "http://127.0.0.1:5173/";
@@ -55,7 +62,17 @@ function trackContext(uuid, context, appear) {
     if (!appear && i >= 0) list.splice(i, 1);
 }
 
+function shortError(code) {
+    if (!code) return "ERR";
+    const c = String(code);
+    if (c.length <= 10) return c.toUpperCase();
+    return c.slice(0, 10).toUpperCase();
+}
+
 function formatViewersTitle() {
+    if (twitchState.error === "refresh_failed") {
+        return `ERR\n${shortError(twitchState.error)}`;
+    }
     if (!twitchState.live && !twitchState.mock) return "OFF\n—";
     const n = typeof twitchState.viewers === "number" ? twitchState.viewers : 0;
     const badge = twitchState.live ? "LIVE" : "MOCK";
@@ -63,6 +80,9 @@ function formatViewersTitle() {
 }
 
 function formatClipTitle() {
+    if (twitchState.error === "clip_failed") {
+        return `ERR\nCLIP`;
+    }
     if (twitchState.last_clip_id) {
         const id = String(twitchState.last_clip_id);
         return `CLIP\n${id.slice(0, 8)}`;
@@ -71,6 +91,9 @@ function formatClipTitle() {
 }
 
 function formatMarkerTitle() {
+    if (twitchState.error === "marker_failed") {
+        return `ERR\nMARK`;
+    }
     if (twitchState.last_marker_id) {
         const id = String(twitchState.last_marker_id);
         return `MARK\n${id.slice(0, 8)}`;
@@ -78,10 +101,39 @@ function formatMarkerTitle() {
     return "MARK";
 }
 
+function formatRefreshTitle() {
+    if (twitchState.error === "refresh_failed" || twitchState.error === "creds_invalid") {
+        return `ERR\n${shortError(twitchState.error)}`;
+    }
+    return "REFRESH";
+}
+
 function formatGoalTitle() {
     const cur = twitchState.follower_goal_current || 0;
     const tgt = twitchState.follower_goal_target || 0;
     return `${cur}/${tgt}`;
+}
+
+function flashErrorOn(uuids) {
+    for (const uuid of uuids) {
+        const list = actionContexts[uuid] || [];
+        for (const ctx of list) {
+            try {
+                ui.showAlert(ctx);
+            } catch (e) {}
+        }
+    }
+}
+
+function flashOkOn(uuids) {
+    for (const uuid of uuids) {
+        const list = actionContexts[uuid] || [];
+        for (const ctx of list) {
+            try {
+                ui.showOk(ctx);
+            } catch (e) {}
+        }
+    }
 }
 
 function paintAll() {
@@ -94,11 +146,34 @@ function paintAll() {
     for (const ctx of actionContexts[UUID.marker]) {
         ui.setTitle(ctx, formatMarkerTitle());
     }
+    for (const ctx of actionContexts[UUID.refresh]) {
+        ui.setTitle(ctx, formatRefreshTitle());
+    }
     for (const ctx of actionContexts[UUID.mute_alerts]) {
         ui.setTitle(ctx, twitchState.alerts_muted ? "MUTED" : "ALERTS");
     }
     for (const ctx of actionContexts[UUID.follower_goal]) {
         ui.setTitle(ctx, formatGoalTitle());
+    }
+    for (const ctx of actionContexts[UUID.clear_chat]) {
+        ui.setTitle(ctx, twitchState.error === "clear_chat_stub" ? "STUB" : "CHAT");
+    }
+}
+
+function errorTargetsForCode(code) {
+    switch (code) {
+        case "clip_failed":
+            return [UUID.clip];
+        case "marker_failed":
+            return [UUID.marker];
+        case "refresh_failed":
+        case "creds_invalid":
+            return [UUID.refresh, UUID.viewers];
+        case "clear_chat_stub":
+            return [UUID.clear_chat];
+        default:
+            if (lastActionUuid) return [lastActionUuid];
+            return [UUID.refresh];
     }
 }
 
@@ -143,15 +218,35 @@ function openHubOrStore() {
 window.handleCrimsonMessage = function (data) {
     if (!data || !data.type) return;
     if (data.type === "TWITCH_STATE" && data.data) {
+        const prevClip = twitchState.last_clip_id;
+        const prevMarker = twitchState.last_marker_id;
         twitchState = Object.assign({}, twitchState, data.data);
         paintAll();
+
+        const err = twitchState.error || null;
+        if (err && err !== lastErrorCode) {
+            flashErrorOn(errorTargetsForCode(err));
+            lastErrorCode = err;
+        } else if (!err) {
+            if (lastErrorCode) lastErrorCode = null;
+            // Success feedback for clip / marker after a press
+            if (lastActionUuid === UUID.clip && twitchState.last_clip_id && twitchState.last_clip_id !== prevClip) {
+                flashOkOn([UUID.clip]);
+            }
+            if (lastActionUuid === UUID.marker && twitchState.last_marker_id && twitchState.last_marker_id !== prevMarker) {
+                flashOkOn([UUID.marker]);
+            }
+        }
     }
     if (data.type === "AUTH_ERROR" || data.type === "FEATURE_UNAVAILABLE") {
         console.warn("[Twitch]", data.message || data.type);
+        if (lastActionUuid) flashErrorOn([lastActionUuid]);
+        else flashErrorOn([UUID.refresh]);
     }
 };
 
 function handleActionClick(uuid) {
+    lastActionUuid = uuid;
     switch (uuid) {
         case UUID.refresh:
         case UUID.viewers:
