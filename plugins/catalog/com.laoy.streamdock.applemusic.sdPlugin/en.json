@@ -33,5 +33,9 @@
   "com.laoy.streamdock.applemusic.songinfo": {
     "Name": "Now Playing",
     "Tooltip": "Current track"
+  },
+  "com.laoy.streamdock.applemusic.playplaylist": {
+    "Name": "Play Playlist",
+    "Tooltip": "Launch a specific playlist by id or Apple Music URL"
   }
 }

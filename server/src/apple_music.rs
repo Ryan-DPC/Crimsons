@@ -686,6 +686,9 @@ impl AppleMusicService {
                         .await?;
                 }
             }
+            "playplaylist" | "playlist" | "play_playlist" => {
+                self.play_playlist(&client, params.as_ref()).await?;
+            }
             "songinfo" | "nowplaying" => {
                 let state = self.fetch_state().await;
                 let _ = self.sender.0.send(
@@ -702,6 +705,394 @@ impl AppleMusicService {
             }
         }
         Ok(())
+    }
+
+    /// Resolve settings and start a playlist via Cider play-url / play-collection.
+    async fn play_playlist(
+        &self,
+        client: &CiderClient,
+        params: Option<&serde_json::Value>,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let shuffle = extract_playlist_shuffle(params);
+        let raw = extract_playlist_raw(params).unwrap_or_default();
+        let parsed = parse_playlist_ref(&raw);
+        match parsed {
+            PlaylistRef::Empty => {
+                return Err("Play Playlist: missing playlist id, URL, or name".into());
+            }
+            PlaylistRef::Url { url, id } => {
+                // Prefer play-url (Cider resolves song/album/playlist from the share link).
+                if client
+                    .post_json("/api/v2/playback/play-url", Some(json!({ "url": url })))
+                    .await
+                    .is_ok()
+                {
+                    return Ok(());
+                }
+                if client
+                    .post_json("/api/v1/playback/play-url", Some(json!({ "url": url })))
+                    .await
+                    .is_ok()
+                {
+                    return Ok(());
+                }
+                // Fallback: extracted id → play-collection
+                if let Some(pid) = id {
+                    return self
+                        .play_collection_playlist(client, &pid, shuffle)
+                        .await;
+                }
+                return Err(format!("Cider rejected play-url for {}", url).into());
+            }
+            PlaylistRef::Id(id) => {
+                self.play_collection_playlist(client, &id, shuffle).await?;
+            }
+            PlaylistRef::Name(name) => {
+                let id = self.resolve_playlist_name(client, &name).await?;
+                self.play_collection_playlist(client, &id, shuffle).await?;
+            }
+        }
+        Ok(())
+    }
+
+    async fn play_collection_playlist(
+        &self,
+        client: &CiderClient,
+        id: &str,
+        shuffle: bool,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let body = json!({ "type": "playlists", "id": id, "shuffle": shuffle });
+        if client
+            .post_json("/api/v2/playback/play-collection", Some(body.clone()))
+            .await
+            .is_ok()
+        {
+            return Ok(());
+        }
+        // Older Cider builds exposed play-url only; synthesize an Apple Music URL.
+        let url = format!("https://music.apple.com/playlist/{}", id);
+        if client
+            .post_json("/api/v2/playback/play-url", Some(json!({ "url": url.clone() })))
+            .await
+            .is_ok()
+        {
+            return Ok(());
+        }
+        client
+            .post_json("/api/v1/playback/play-url", Some(json!({ "url": url })))
+            .await
+    }
+
+    async fn resolve_playlist_name(
+        &self,
+        client: &CiderClient,
+        name: &str,
+    ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+        let needle = name.trim().to_lowercase();
+        // 1) Library playlists (requires Library scope)
+        if let Ok(raw) = client.get_json("/api/v2/library/playlists?limit=100").await {
+            if let Some(id) = find_playlist_id_in_list(&raw, &needle) {
+                return Ok(id);
+            }
+        }
+        // 2) Catalog search via Cider amapi proxy
+        let q = urlencoding_lite(&needle);
+        let path = format!(
+            "/api/v2/amapi/search?term={}&types=playlists&limit=10",
+            q
+        );
+        if let Ok(raw) = client.get_json(&path).await {
+            if let Some(id) = find_playlist_id_in_search(&raw, &needle) {
+                return Ok(id);
+            }
+        }
+        Err(format!(
+            "No playlist named '{}' found in library or Apple Music search",
+            name
+        )
+        .into())
+    }
+}
+
+/// Minimal query escaping for Cider search paths (spaces + reserved chars).
+fn urlencoding_lite(s: &str) -> String {
+    let mut out = String::with_capacity(s.len() * 2);
+    for b in s.bytes() {
+        match b {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                out.push(b as char)
+            }
+            b' ' => out.push_str("%20"),
+            _ => out.push_str(&format!("%{:02X}", b)),
+        }
+    }
+    out
+}
+
+fn find_playlist_id_in_list(raw: &serde_json::Value, needle_lc: &str) -> Option<String> {
+    let items = raw
+        .get("data")
+        .and_then(|d| d.as_array())
+        .or_else(|| raw.get("data").and_then(|d| d.get("data")).and_then(|a| a.as_array()))
+        .or_else(|| raw.as_array())?;
+    let mut exact: Option<String> = None;
+    let mut partial: Option<String> = None;
+    for item in items {
+        let id = item
+            .get("id")
+            .and_then(|v| v.as_str())
+            .or_else(|| item.get("attributes").and_then(|a| a.get("playParams")).and_then(|p| p.get("id")).and_then(|v| v.as_str()))
+            .unwrap_or("");
+        if id.is_empty() {
+            continue;
+        }
+        let name = item
+            .get("attributes")
+            .and_then(|a| a.get("name"))
+            .and_then(|v| v.as_str())
+            .or_else(|| item.get("name").and_then(|v| v.as_str()))
+            .unwrap_or("")
+            .to_lowercase();
+        if name == needle_lc {
+            exact = Some(id.to_string());
+            break;
+        }
+        if partial.is_none() && name.contains(needle_lc) {
+            partial = Some(id.to_string());
+        }
+    }
+    exact.or(partial)
+}
+
+fn find_playlist_id_in_search(raw: &serde_json::Value, needle_lc: &str) -> Option<String> {
+    let playlists = raw
+        .pointer("/data/results/playlists/data")
+        .or_else(|| raw.pointer("/results/playlists/data"))
+        .and_then(|v| v.as_array())?;
+    let mut exact: Option<String> = None;
+    let mut partial: Option<String> = None;
+    for item in playlists {
+        let id = item.get("id").and_then(|v| v.as_str()).unwrap_or("");
+        if id.is_empty() {
+            continue;
+        }
+        let name = item
+            .pointer("/attributes/name")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_lowercase();
+        if name == needle_lc {
+            exact = Some(id.to_string());
+            break;
+        }
+        if partial.is_none() && name.contains(needle_lc) {
+            partial = Some(id.to_string());
+        }
+    }
+    exact.or(partial)
+}
+
+fn extract_playlist_shuffle(params: Option<&serde_json::Value>) -> bool {
+    let p = match params {
+        Some(v) => v,
+        None => return false,
+    };
+    p.get("shuffle")
+        .or_else(|| p.pointer("/payload/shuffle"))
+        .or_else(|| p.pointer("/payload/settings/shuffle"))
+        .or_else(|| p.pointer("/settings/shuffle"))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false)
+}
+
+fn extract_playlist_raw(params: Option<&serde_json::Value>) -> Option<String> {
+    let p = params?;
+    const KEYS: &[&str] = &[
+        "playlist",
+        "playlistId",
+        "playlist_id",
+        "url",
+        "id",
+        "name",
+        "uri",
+    ];
+    for key in KEYS {
+        if let Some(s) = p.get(*key).and_then(|v| v.as_str()) {
+            let t = s.trim();
+            if !t.is_empty() {
+                return Some(t.to_string());
+            }
+        }
+    }
+    // Nested: payload.settings.* / payload.* / settings.*
+    for path in [
+        "/payload/settings/playlist",
+        "/payload/settings/playlistId",
+        "/payload/settings/playlist_id",
+        "/payload/settings/url",
+        "/payload/settings/id",
+        "/payload/settings/name",
+        "/payload/settings/uri",
+        "/payload/playlist",
+        "/payload/playlistId",
+        "/payload/url",
+        "/payload/id",
+        "/payload/name",
+        "/settings/playlist",
+        "/settings/playlistId",
+        "/settings/url",
+        "/settings/id",
+        "/settings/name",
+    ] {
+        if let Some(s) = p.pointer(path).and_then(|v| v.as_str()) {
+            let t = s.trim();
+            if !t.is_empty() {
+                return Some(t.to_string());
+            }
+        }
+    }
+    None
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum PlaylistRef {
+    Empty,
+    Url { url: String, id: Option<String> },
+    Id(String),
+    Name(String),
+}
+
+fn extract_id_from_apple_url(url: &str) -> Option<String> {
+    // …/playlist/<name>/<id> or …/playlist/<id>
+    let lower = url;
+    if let Some(idx) = lower.find("/playlist/") {
+        let rest = &lower[idx + "/playlist/".len()..];
+        let rest = rest.split(['?', '#']).next().unwrap_or(rest);
+        let parts: Vec<&str> = rest.split('/').filter(|p| !p.is_empty()).collect();
+        for part in parts.iter().rev() {
+            if part.starts_with("pl.") || part.starts_with("p.") {
+                return Some((*part).to_string());
+            }
+        }
+        // Numeric catalog id as last segment
+        if let Some(last) = parts.last() {
+            if !last.is_empty() && last.chars().all(|c| c.is_ascii_digit()) {
+                return Some((*last).to_string());
+            }
+        }
+    }
+    // Loose fallback anywhere in the string
+    for token in url.split(|c: char| !c.is_ascii_alphanumeric() && c != '.' && c != '-' && c != '_') {
+        if token.starts_with("pl.") || token.starts_with("p.") {
+            return Some(token.to_string());
+        }
+    }
+    None
+}
+
+fn parse_playlist_ref(raw: &str) -> PlaylistRef {
+    let s = raw.trim();
+    if s.is_empty() {
+        return PlaylistRef::Empty;
+    }
+    let lower = s.to_lowercase();
+    if lower.contains("music.apple.com")
+        || lower.starts_with("http://")
+        || lower.starts_with("https://")
+    {
+        return PlaylistRef::Url {
+            url: s.to_string(),
+            id: extract_id_from_apple_url(s),
+        };
+    }
+    if s.starts_with("pl.") || s.starts_with("p.") || s.chars().all(|c| c.is_ascii_digit()) {
+        return PlaylistRef::Id(s.to_string());
+    }
+    PlaylistRef::Name(s.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_url_with_name_and_id() {
+        let r = parse_playlist_ref(
+            "https://music.apple.com/fr/playlist/favoris/pl.u-aZb123?i=1",
+        );
+        match r {
+            PlaylistRef::Url { url, id } => {
+                assert!(url.contains("music.apple.com"));
+                assert_eq!(id.as_deref(), Some("pl.u-aZb123"));
+            }
+            other => panic!("unexpected {:?}", other),
+        }
+    }
+
+    #[test]
+    fn parse_url_id_only_segment() {
+        let r = parse_playlist_ref("https://music.apple.com/us/playlist/pl.u-xxx");
+        match r {
+            PlaylistRef::Url { id, .. } => assert_eq!(id.as_deref(), Some("pl.u-xxx")),
+            other => panic!("unexpected {:?}", other),
+        }
+    }
+
+    #[test]
+    fn parse_bare_ids() {
+        assert_eq!(
+            parse_playlist_ref("pl.u-aZb123"),
+            PlaylistRef::Id("pl.u-aZb123".into())
+        );
+        assert_eq!(parse_playlist_ref("p.xxx"), PlaylistRef::Id("p.xxx".into()));
+        assert_eq!(
+            parse_playlist_ref("1440833098"),
+            PlaylistRef::Id("1440833098".into())
+        );
+    }
+
+    #[test]
+    fn parse_name_and_empty() {
+        assert_eq!(
+            parse_playlist_ref("Late Night"),
+            PlaylistRef::Name("Late Night".into())
+        );
+        assert_eq!(parse_playlist_ref("  "), PlaylistRef::Empty);
+    }
+
+    #[test]
+    fn extract_from_nested_settings() {
+        let v = json!({
+            "payload": {
+                "settings": {
+                    "playlist": "pl.u-nested",
+                    "shuffle": true
+                }
+            }
+        });
+        assert_eq!(
+            extract_playlist_raw(Some(&v)).as_deref(),
+            Some("pl.u-nested")
+        );
+        assert!(extract_playlist_shuffle(Some(&v)));
+    }
+
+    #[test]
+    fn find_playlist_in_library_list() {
+        let raw = json!({
+            "data": [
+                { "id": "p.1", "attributes": { "name": "Workout" } },
+                { "id": "p.2", "attributes": { "name": "Late Night Coding" } }
+            ]
+        });
+        assert_eq!(
+            find_playlist_id_in_list(&raw, "late night coding").as_deref(),
+            Some("p.2")
+        );
+        assert_eq!(
+            find_playlist_id_in_list(&raw, "night").as_deref(),
+            Some("p.2")
+        );
     }
 }
 

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-11-13",
+  "updatedAt": "2026-11-14",
   "categories": [
     {
       "id": "streamdeck",
@@ -98,11 +98,11 @@
       "id": "apple-music",
       "slug": "apple-music",
       "name": "Apple Music",
-      "summary": "Contrôle Apple Music via Cider (play/pause, volume, shuffle) sur StreamDock.",
-      "description": "Plugin StreamDock branché sur l’API locale Cider (127.0.0.1:10767). Nécessite Cider + un apptoken (Settings → Connectivity).",
+      "summary": "Contrôle Apple Music via Cider (play/pause, volume, shuffle, playlists) sur StreamDock.",
+      "description": "Plugin StreamDock branché sur l’API locale Cider (127.0.0.1:10767). Inclut Play Playlist (ID ou URL music.apple.com). Nécessite Cider + un apptoken (Settings → Connectivity).",
       "packageId": "com.laoy.streamdock.applemusic.sdPlugin",
       "packagePath": "com.laoy.streamdock.applemusic.sdPlugin",
-      "version": "0.1.0",
+      "version": "0.4.0",
       "status": "published",
       "pricing": "5.99 CHF/mois",
       "categories": [

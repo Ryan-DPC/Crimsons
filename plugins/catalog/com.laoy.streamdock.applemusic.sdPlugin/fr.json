@@ -33,5 +33,9 @@
   "com.laoy.streamdock.applemusic.songinfo": {
     "Name": "En cours",
     "Tooltip": "Piste en cours"
+  },
+  "com.laoy.streamdock.applemusic.playplaylist": {
+    "Name": "Lancer une playlist",
+    "Tooltip": "Lancer une playlist précise (ID ou URL Apple Music)"
   }
 }

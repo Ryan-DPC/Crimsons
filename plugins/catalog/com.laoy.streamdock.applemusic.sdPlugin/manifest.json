@@ -6,7 +6,7 @@
   "Description": "Apple Music controls for StreamDock via Cider (local API on port 10767)",
   "Icon": "static/icon/applemusic.png",
   "Name": "Apple Music (Cider)",
-  "Version": "0.3.0",
+  "Version": "0.4.0",
   "SDKVersion": 2,
   "Software": {
     "MinimumVersion": "2.0.0"
@@ -219,6 +219,21 @@
         }
       ],
       "Tooltip": "Clear the Apple Music queue",
+      "Context": "GLOBAL"
+    },
+    {
+      "Name": "Play Playlist",
+      "UUID": "com.laoy.streamdock.applemusic.playplaylist",
+      "Icon": "static/icon/play_playlist.png",
+      "PropertyInspector": "propertyInspector/playplaylist/index.html",
+      "States": [
+        {
+          "Image": "static/icon/play_playlist.png",
+          "TitleAlignment": "bottom",
+          "FontSize": "9"
+        }
+      ],
+      "Tooltip": "Launch a specific Apple Music playlist (paste id or music.apple.com URL)",
       "Context": "GLOBAL"
     },
     {

@@ -341,6 +341,20 @@ pub async fn process_streamdeck_event(value: serde_json::Value, spotify: Arc<Spo
                     tokio::spawn(async move { let _ = am.handle_command("playpause", None).await; });
                 }
             }
+            "com.laoy.streamdock.applemusic.playplaylist" => {
+                if _am.is_enabled.load(Ordering::Relaxed) {
+                    let am = _am.clone();
+                    let mut settings = value["payload"]["settings"].clone();
+                    if settings.is_null() || settings.as_object().map(|o| o.is_empty()).unwrap_or(true) {
+                        if let Some(cached) = _spc.lock().await.get(context) {
+                            settings = cached.clone();
+                        }
+                    }
+                    tokio::spawn(async move {
+                        let _ = am.handle_command("playplaylist", Some(settings)).await;
+                    });
+                }
+            }
             a if a.starts_with("com.laoy.streamdock.applemusic.") => {
                 if _am.is_enabled.load(Ordering::Relaxed) {
                     let am = _am.clone();

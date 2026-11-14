@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Apple Music — Play Playlist</title>
+</head>
+<body>
+    <div class="wrap">
+        <label for="playlist">Playlist (ID ou URL)</label>
+        <input id="playlist" type="text" placeholder="pl.u-… ou https://music.apple.com/…/playlist/…" autocomplete="off" />
+
+        <label for="playlistName" class="optional">Nom affiché (optionnel)</label>
+        <input id="playlistName" type="text" placeholder="ex. Favoris" autocomplete="off" />
+
+        <label class="check">
+            <input id="shuffle" type="checkbox" />
+            Lancer en mode aléatoire
+        </label>
+
+        <p class="hint">
+            Dans Apple Music / Cider&nbsp;: partagez la playlist →
+            <strong>Copier le lien</strong>, puis collez-le ici.
+            Vous pouvez aussi coller uniquement l’ID
+            (<code>pl.u-…</code> / <code>p.…</code>).
+            Un nom exact de playlist bibliothèque fonctionne aussi.
+        </p>
+    </div>
+    <script src="index.js"></script>
+</body>
+<style>
+    body {
+        margin: 0;
+        padding: 10px;
+        font-family: "Segoe UI", system-ui, sans-serif;
+        background: #1a1a1f;
+        color: #eee;
+    }
+    .wrap { display: flex; flex-direction: column; gap: 8px; }
+    label {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: #9a9ab0;
+    }
+    label.optional { margin-top: 4px; }
+    label.check {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        text-transform: none;
+        letter-spacing: 0;
+        font-weight: 500;
+        color: #ddd;
+        cursor: pointer;
+    }
+    input[type="text"] {
+        background: #2b2b36;
+        border: 1px solid #3b3b4a;
+        border-radius: 6px;
+        color: #fff;
+        padding: 8px 10px;
+        font-size: 13px;
+    }
+    input[type="text"]:focus {
+        outline: none;
+        border-color: #fc3c44;
+        box-shadow: 0 0 0 2px rgba(252, 60, 68, 0.25);
+    }
+    .hint {
+        margin: 4px 0 0;
+        font-size: 11px;
+        line-height: 1.45;
+        color: #8c8c9e;
+    }
+    .hint code {
+        font-size: 10px;
+        color: #fc9aa0;
+    }
+    .hint strong { color: #ddd; font-weight: 600; }
+</style>
+</html>

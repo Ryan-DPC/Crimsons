@@ -1,6 +1,7 @@
 let streamDeckSocket = null;
 let globalPluginUUID = "";
 let lastAlbumArt = null;
+let contextSettings = {};
 let actionContexts = {
     "com.laoy.streamdock.applemusic.playpause": [],
     "com.laoy.streamdock.applemusic.previous": [],
@@ -15,6 +16,7 @@ let actionContexts = {
     "com.laoy.streamdock.applemusic.seekforward": [],
     "com.laoy.streamdock.applemusic.seekbackward": [],
     "com.laoy.streamdock.applemusic.clearqueue": [],
+    "com.laoy.streamdock.applemusic.playplaylist": [],
     "com.laoy.streamdock.applemusic.volumecontrol": [],
     "com.laoy.streamdock.applemusic.previousornext": [],
     "com.laoy.streamdock.applemusic.seekcontrol": []
@@ -210,6 +212,10 @@ const ciderAPI = {
             case "togglelove":
                 await this.request("/api/v1/playback/set-rating", "POST", { rating: 1 });
                 break;
+            case "playplaylist": {
+                await this.playPlaylist(payload || {});
+                break;
+            }
         }
 
         // Fast update after command execution
@@ -217,6 +223,109 @@ const ciderAPI = {
             const st = await this.fetchState();
             if (st) applyNowPlaying(st);
         }, 120);
+    },
+
+    extractPlaylistRaw(settings) {
+        const s = settings || {};
+        const nested = s.settings || {};
+        const candidates = [
+            s.playlist, s.playlistId, s.playlist_id, s.url, s.id, s.uri, s.name,
+            nested.playlist, nested.playlistId, nested.playlist_id, nested.url, nested.id, nested.uri, nested.name
+        ];
+        for (const c of candidates) {
+            if (typeof c === "string" && c.trim()) return c.trim();
+        }
+        return "";
+    },
+
+    extractPlaylistIdFromUrl(url) {
+        const m = url.match(/\/playlist\/(?:[^/?#]+\/)?(pl\.[^/?#]+|p\.[^/?#]+)/i)
+            || url.match(/\b(pl\.[A-Za-z0-9._-]+|p\.[A-Za-z0-9._-]+)\b/);
+        return m ? m[1] : null;
+    },
+
+    async playPlaylist(settings) {
+        const raw = this.extractPlaylistRaw(settings);
+        if (!raw) {
+            console.warn("[AppleMusic:Cider] Play Playlist: no playlist id/URL configured");
+            return;
+        }
+        const shuffle = !!(settings.shuffle || (settings.settings && settings.settings.shuffle));
+        const lower = raw.toLowerCase();
+        const isUrl = lower.includes("music.apple.com") || lower.startsWith("http://") || lower.startsWith("https://");
+        const isId = raw.startsWith("pl.") || raw.startsWith("p.") || /^\d+$/.test(raw);
+
+        if (isUrl) {
+            let resp = await this.request("/api/v2/playback/play-url", "POST", { url: raw });
+            if (!resp || !resp.ok) {
+                resp = await this.request("/api/v1/playback/play-url", "POST", { url: raw });
+            }
+            if ((!resp || !resp.ok)) {
+                const id = this.extractPlaylistIdFromUrl(raw);
+                if (id) {
+                    await this.request("/api/v2/playback/play-collection", "POST", {
+                        type: "playlists", id, shuffle
+                    });
+                }
+            }
+            return;
+        }
+
+        if (isId) {
+            let resp = await this.request("/api/v2/playback/play-collection", "POST", {
+                type: "playlists", id: raw, shuffle
+            });
+            if (!resp || !resp.ok) {
+                const url = "https://music.apple.com/playlist/" + encodeURIComponent(raw);
+                resp = await this.request("/api/v2/playback/play-url", "POST", { url });
+                if (!resp || !resp.ok) {
+                    await this.request("/api/v1/playback/play-url", "POST", { url });
+                }
+            }
+            return;
+        }
+
+        // Name: try library list, then catalog search
+        let resolvedId = null;
+        try {
+            const libResp = await this.request("/api/v2/library/playlists?limit=100", "GET");
+            if (libResp && libResp.ok) {
+                const json = await libResp.json();
+                const items = (json && json.data) || [];
+                const list = Array.isArray(items) ? items : (items.data || []);
+                const needle = raw.toLowerCase();
+                const exact = list.find(p => ((p.attributes && p.attributes.name) || p.name || "").toLowerCase() === needle);
+                const partial = list.find(p => ((p.attributes && p.attributes.name) || p.name || "").toLowerCase().includes(needle));
+                const hit = exact || partial;
+                if (hit && hit.id) resolvedId = hit.id;
+            }
+        } catch (eLib) {}
+
+        if (!resolvedId) {
+            try {
+                const path = "/api/v2/amapi/search?term=" + encodeURIComponent(raw) + "&types=playlists&limit=10";
+                const searchResp = await this.request(path, "GET");
+                if (searchResp && searchResp.ok) {
+                    const json = await searchResp.json();
+                    const list = (((json || {}).data || {}).results || {}).playlists
+                        ? (((json.data || {}).results || {}).playlists.data || [])
+                        : ((((json || {}).results || {}).playlists || {}).data || []);
+                    const needle = raw.toLowerCase();
+                    const exact = list.find(p => ((p.attributes && p.attributes.name) || "").toLowerCase() === needle);
+                    const partial = list.find(p => ((p.attributes && p.attributes.name) || "").toLowerCase().includes(needle));
+                    const hit = exact || partial;
+                    if (hit && hit.id) resolvedId = hit.id;
+                }
+            } catch (eSearch) {}
+        }
+
+        if (!resolvedId) {
+            console.warn("[AppleMusic:Cider] Play Playlist: no match for name", raw);
+            return;
+        }
+        await this.request("/api/v2/playback/play-collection", "POST", {
+            type: "playlists", id: resolvedId, shuffle
+        });
     }
 };
 
@@ -275,6 +384,30 @@ function crimsonWsUrl(port) {
     return token ? (base + '/?token=' + encodeURIComponent(token)) : base;
 }
 
+function playlistButtonTitle(settings) {
+    const s = settings || {};
+    if (s.playlistName || s.name) {
+        return String(s.playlistName || s.name).slice(0, 14);
+    }
+    const raw = ciderAPI.extractPlaylistRaw(s);
+    if (!raw) return "Playlist";
+    if (raw.includes("music.apple.com")) {
+        const id = ciderAPI.extractPlaylistIdFromUrl(raw);
+        return (id || "Playlist").slice(0, 14);
+    }
+    return raw.slice(0, 14);
+}
+
+function applyPlaylistButtonTitle(context, settings) {
+    const title = playlistButtonTitle(settings);
+    const json = { event: "setTitle", context: context, payload: { title: title, target: 0 } };
+    if (streamDeckSocket && streamDeckSocket.readyState === WebSocket.OPEN) {
+        streamDeckSocket.send(JSON.stringify(json));
+    } else if (crimsonAPI.ws && crimsonAPI.ws.readyState === WebSocket.OPEN) {
+        crimsonAPI.send({ type: "FORWARD_TO_STREAMDOCK", payload: json });
+    }
+}
+
 function handleHardwareEvent(jsonObj) {
     const event = jsonObj['event'];
     const action = jsonObj['action'];
@@ -282,9 +415,18 @@ function handleHardwareEvent(jsonObj) {
 
     if (!event) return;
 
+    if (event === "willAppear" || event === "didReceiveSettings") {
+        if (jsonObj['payload']?.settings) {
+            contextSettings[context] = jsonObj['payload'].settings;
+        }
+    }
+
     if (event === "willAppear") {
         if (actionContexts[action] && !actionContexts[action].includes(context)) {
             actionContexts[action].push(context);
+        }
+        if (action === "com.laoy.streamdock.applemusic.playplaylist") {
+            applyPlaylistButtonTitle(context, contextSettings[context] || jsonObj['payload']?.settings || {});
         }
         // Immediately fetch state on appearance to display current song/volume
         ciderAPI.fetchState().then(st => {
@@ -292,14 +434,24 @@ function handleHardwareEvent(jsonObj) {
         });
     }
 
+    if (event === "didReceiveSettings") {
+        if (action === "com.laoy.streamdock.applemusic.playplaylist") {
+            applyPlaylistButtonTitle(context, contextSettings[context] || {});
+        }
+    }
+
     if (event === "willDisappear") {
         if (actionContexts[action]) {
             actionContexts[action] = actionContexts[action].filter(c => c !== context);
         }
+        delete contextSettings[context];
     }
 
     if (event === "keyDown" || (event === "dialPress" && jsonObj['payload']?.pressed)) {
-        handleKeyDown(action);
+        const settings = contextSettings[context]
+            || (jsonObj['payload'] && jsonObj['payload'].settings)
+            || {};
+        handleKeyDown(action, settings);
     }
 
     if (event === "dialRotate") {
@@ -431,8 +583,9 @@ function connectElgatoStreamDeckSocket(inPort, inPluginUUID, inRegisterEvent, in
     connectHw();
 }
 
-function handleKeyDown(action) {
+function handleKeyDown(action, settings) {
     let endpoint = null;
+    let payload = {};
     switch (action) {
         case "com.laoy.streamdock.applemusic.playpause":
             endpoint = "playpause";
@@ -473,6 +626,10 @@ function handleKeyDown(action) {
         case "com.laoy.streamdock.applemusic.clearqueue":
             endpoint = "clearqueue";
             break;
+        case "com.laoy.streamdock.applemusic.playplaylist":
+            endpoint = "playplaylist";
+            payload = settings || {};
+            break;
         case "com.laoy.streamdock.applemusic.volumecontrol":
             endpoint = "mute";
             break;
@@ -488,14 +645,14 @@ function handleKeyDown(action) {
     }
 
     // 1. Direct local execution against Cider API (always works, ultra-fast)
-    ciderAPI.executeCommand(endpoint, {});
+    ciderAPI.executeCommand(endpoint, payload);
 
     // 2. Also forward to Crimsons sidecar if connected
     if (crimsonAPI.ws && crimsonAPI.ws.readyState === WebSocket.OPEN) {
         crimsonAPI.send({
             type: "APPLE_MUSIC_COMMAND",
             endpoint: endpoint,
-            payload: {}
+            payload: payload
         });
     }
 }
