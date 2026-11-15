@@ -1,8 +1,14 @@
 /**
- * Generate clean 144×144 Apple Music StreamDock icons (red on dark).
- * SVG → PNG via @resvg/resvg-js. Static assets only — runtime setImage covers unchanged.
+ * Apple Music StreamDock icons — coherent Lucide/media-player geometry.
+ * Renders SVG at 2× via @resvg/resvg-js; Python downscales 288→144 (LANCZOS).
+ *
+ * Design rules (viewBox 0–100):
+ *  - ~20% padding → glyph in ~20–80
+ *  - stroke ≈ 6.5 (≈ Lucide 2 @ 24 scaled + StreamDock weight)
+ *  - round caps/joins; filled media glyphs optically nudged
  */
 import { Resvg } from "@resvg/resvg-js";
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -12,153 +18,157 @@ const OUT = path.resolve(
   __dirname,
   "../../plugins/catalog/com.laoy.streamdock.applemusic.sdPlugin/static/icon"
 );
+const TMP = path.join(__dirname, ".tmp-2x");
 
 const SIZE = 144;
-const FG = "#FA3C41";
+const RENDER = SIZE * 2; // 288
+const FG = "#E11D2E";
 const BG = "#121214";
+const SW = 6.5;
 
 function svg(body) {
   return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="${SIZE}" height="${SIZE}" viewBox="0 0 100 100">
+<svg xmlns="http://www.w3.org/2000/svg" width="${RENDER}" height="${RENDER}" viewBox="0 0 100 100">
   <rect width="100" height="100" rx="22" ry="22" fill="${BG}"/>
   ${body}
 </svg>`;
 }
 
-/** Dual-arrow repeat (Apple / media standard) — clean geometry */
+const stroke = `fill="none" stroke="${FG}" stroke-width="${SW}" stroke-linecap="round" stroke-linejoin="round"`;
+
+/**
+ * Lucide Repeat — exact 24×24 paths, scaled into viewBox with ~18% padding.
+ * Guarantees authentic media-player corner arcs (no hand-tuned sweep bugs).
+ */
 function repeatIcon(active = false) {
-  const sw = active ? 8 : 7.5;
   const mid = active
-    ? `<circle cx="50" cy="50" r="4.5" fill="${FG}"/>`
+    ? `<circle cx="50" cy="50" r="5" fill="${FG}"/>`
     : "";
-  // Dual rounded arrows (standard media repeat) — smooth cubic corners
+  // 24 → 64 content (pad 18): scale=64/24, origin=(100-64)/2=18
   return svg(`
-  <g fill="none" stroke="${FG}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M 28 38 H 58 C 68 38 74 44 74 52 V 54"/>
-    <path d="M 72 62 H 42 C 32 62 26 56 26 48 V 46"/>
+  <g transform="translate(18,18) scale(${64 / 24})"
+     fill="none" stroke="${FG}" stroke-width="2.45"
+     stroke-linecap="round" stroke-linejoin="round">
+    <path d="m17 2 4 4-4 4"/>
+    <path d="M3 11v-1a4 4 0 0 1 4-4h14"/>
+    <path d="m7 22-4-4 4-4"/>
+    <path d="M21 13v1a4 4 0 0 1-4 4H3"/>
   </g>
-  <path d="M 66 30 L 78 38 L 66 46" fill="${FG}"/>
-  <path d="M 34 70 L 22 62 L 34 54" fill="${FG}"/>
   ${mid}
   `);
 }
 
-/** Shuffle with deliberate gap at crossing */
+/** Lucide Shuffle — exact upstream 24×24 paths. */
 function shuffleIcon(active = false) {
-  const sw = active ? 8 : 7;
+  const sw = active ? 2.55 : 2.45;
   return svg(`
-  <g fill="none" stroke="${FG}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round">
-    <!-- upper path: BL→TR via top bend -->
-    <path d="M 22 36 H 34 C 42 36 46 42 50 48"/>
-    <path d="M 50 52 C 54 58 58 64 66 64 H 78"/>
-    <!-- lower path: TL→BR with gap through center -->
-    <path d="M 22 64 H 34 C 40 64 44 58 47 54"/>
-    <path d="M 53 46 C 56 42 60 36 66 36 H 78"/>
+  <g transform="translate(18,18) scale(${64 / 24})"
+     fill="none" stroke="${FG}" stroke-width="${sw}"
+     stroke-linecap="round" stroke-linejoin="round">
+    <path d="m18 14 4 4-4 4"/>
+    <path d="m18 2 4 4-4 4"/>
+    <path d="M2 18h1.973a4 4 0 0 0 3.3-1.7l5.454-8.6a4 4 0 0 1 3.3-1.7H22"/>
+    <path d="M2 6h1.972a4 4 0 0 1 3.6 2.2"/>
+    <path d="M22 18h-6.041a4 4 0 0 1-3.3-1.8l-.359-.45"/>
   </g>
-  <path d="M 72 28 L 82 36 L 72 44" fill="${FG}"/>
-  <path d="M 72 56 L 82 64 L 72 72" fill="${FG}"/>
   `);
 }
 
+/** Seek ±15 — partial ring + arrowhead + numeral. */
 function seek15(forward) {
-  // Nearly-full circle + overlapping arrowhead; nudge down for optical center
-  if (forward) {
-    return svg(`
-    <g transform="translate(0,3)">
-      <path d="M 58 29 A 22 22 0 1 1 40 30"
-            fill="none" stroke="${FG}" stroke-width="7.5" stroke-linecap="butt"/>
-      <path d="M 36 18 L 48 30 L 34 34 Z" fill="${FG}"/>
-      <text x="50" y="56" text-anchor="middle"
-            font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700"
-            fill="${FG}">15</text>
-    </g>
-    `);
-  }
+  const ring = forward
+    ? `M58 28 A22 22 0 1 1 40 29`
+    : `M42 28 A22 22 0 1 0 60 29`;
+  const head = forward
+    ? `M38 18 L50 30 L36 34 Z`
+    : `M62 18 L50 30 L64 34 Z`;
   return svg(`
-    <g transform="translate(0,3)">
-      <path d="M 42 29 A 22 22 0 1 0 60 30"
-            fill="none" stroke="${FG}" stroke-width="7.5" stroke-linecap="butt"/>
-      <path d="M 64 18 L 52 30 L 66 34 Z" fill="${FG}"/>
-      <text x="50" y="56" text-anchor="middle"
-            font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700"
-            fill="${FG}">15</text>
-    </g>
+  <g transform="translate(0,2)">
+    <path d="${ring}" fill="none" stroke="${FG}" stroke-width="${SW}" stroke-linecap="butt"/>
+    <path d="${head}" fill="${FG}"/>
+    <text x="50" y="58" text-anchor="middle"
+          font-family="Segoe UI, Arial, Helvetica, sans-serif"
+          font-size="20" font-weight="700" fill="${FG}">15</text>
+  </g>
   `);
 }
 
 function volume(waves, muted = false) {
-  const wavePaths =
+  const w1 =
     waves >= 1
-      ? `<path d="M 58 40 A 10 10 0 0 1 58 60" fill="none" stroke="${FG}" stroke-width="6.5" stroke-linecap="round"/>`
+      ? `<path d="M58 40 A10 10 0 0 1 58 60" fill="none" stroke="${FG}" stroke-width="${SW}" stroke-linecap="round"/>`
       : "";
-  const wave2 =
+  const w2 =
     waves >= 2
-      ? `<path d="M 66 32 A 20 20 0 0 1 66 68" fill="none" stroke="${FG}" stroke-width="6.5" stroke-linecap="round"/>`
+      ? `<path d="M68 32 A20 20 0 0 1 68 68" fill="none" stroke="${FG}" stroke-width="${SW}" stroke-linecap="round"/>`
       : "";
   const mute = muted
-    ? `<g fill="none" stroke="${FG}" stroke-width="7" stroke-linecap="round">
-         <path d="M 60 38 L 76 58 M 76 38 L 60 58"/>
+    ? `<g fill="none" stroke="${FG}" stroke-width="${SW}" stroke-linecap="round">
+         <path d="M60 38 L78 58 M78 38 L60 58"/>
        </g>`
-    : `${wavePaths}${wave2}`;
-
-  // Optical: mute is right-heavy; down left-heavy; up/control need left shift
-  const tx = muted ? -4 : waves === 1 ? 1 : -4;
+    : `${w1}${w2}`;
+  // Optical: speaker cone is left-heavy; nudge so glyph mass sits on center
+  const tx = muted ? -2 : waves <= 1 ? 2 : -3;
   return svg(`
   <g transform="translate(${tx},0)">
-    <rect x="26" y="40" width="11" height="20" rx="2" fill="${FG}"/>
-    <polygon points="37,40 52,28 52,72 37,60" fill="${FG}"/>
+    <path d="M28 40 H38 L54 28 V72 L38 60 H28 Z" fill="${FG}"
+          stroke="${FG}" stroke-width="1" stroke-linejoin="round"/>
     ${mute}
   </g>
   `);
 }
 
-function notesPlus() {
-  // Beamed notes + plus — calibrated so combined bbox centers near 50,50
+/**
+ * Single note + plus — compact unit (plus sits beside the stem tip, not flying off).
+ * Mass-centering places optical weight on canvas mid.
+ */
+function notePlus() {
   return svg(`
-  <g transform="translate(-10,6)">
-    <ellipse cx="36" cy="64" rx="9" ry="7" fill="${FG}"/>
-    <ellipse cx="56" cy="60" rx="9" ry="7" fill="${FG}"/>
-    <rect x="43" y="30" width="5" height="34" fill="${FG}"/>
-    <rect x="63" y="26" width="5" height="34" fill="${FG}"/>
-    <path d="M 48 30 H 68 V 37.5 H 48 Z" fill="${FG}"/>
-    <g fill="none" stroke="${FG}" stroke-width="6.5" stroke-linecap="round">
-      <path d="M 76 28 H 90 M 83 21 V 35"/>
+  <g>
+    <circle cx="42" cy="64" r="12" fill="${FG}"/>
+    <path d="M52 64 V28 L70 34" fill="none" stroke="${FG}"
+          stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- plus tucked against the bar tip -->
+    <g fill="none" stroke="${FG}" stroke-width="6" stroke-linecap="round">
+      <path d="M68 22 H80 M74 16 V28"/>
     </g>
   </g>
   `);
 }
 
-function notesOnly() {
+/** Single note (Now Playing) — Lucide Music2 geometry. */
+function noteOnly() {
   return svg(`
-  <g transform="translate(-4,2)">
-    <ellipse cx="40" cy="64" rx="10" ry="8" fill="${FG}"/>
-    <ellipse cx="62" cy="58" rx="10" ry="8" fill="${FG}"/>
-    <rect x="48" y="28" width="5.5" height="36" fill="${FG}"/>
-    <rect x="70" y="22" width="5.5" height="36" fill="${FG}"/>
-    <path d="M 53.5 28 H 75.5 V 36 H 53.5 Z" fill="${FG}"/>
+  <g>
+    <circle cx="42" cy="66" r="12" fill="${FG}"/>
+    <path d="M52 66 V26 L76 34" fill="none" stroke="${FG}"
+          stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
   </g>
   `);
 }
 
 const icons = {
+  // Transport — filled, optically nudged
   play: svg(`
-    <!-- geometric center nudged left so triangle looks centered -->
-    <polygon points="32,28 32,72 70,50" fill="${FG}"/>
+    <path d="M38 28 L38 72 L76 50 Z" fill="${FG}"
+          stroke="${FG}" stroke-width="3" stroke-linejoin="round"/>
   `),
 
   pause: svg(`
-    <rect x="34" y="28" width="12" height="44" rx="2.5" fill="${FG}"/>
-    <rect x="54" y="28" width="12" height="44" rx="2.5" fill="${FG}"/>
+    <rect x="34" y="28" width="12" height="44" rx="3" fill="${FG}"/>
+    <rect x="54" y="28" width="12" height="44" rx="3" fill="${FG}"/>
   `),
 
   previous: svg(`
-    <rect x="30" y="28" width="8" height="44" rx="1.5" fill="${FG}"/>
-    <polygon points="70,28 38,50 70,72" fill="${FG}"/>
+    <rect x="28" y="28" width="8" height="44" rx="2" fill="${FG}"/>
+    <path d="M72 28 L40 50 L72 72 Z" fill="${FG}"
+          stroke="${FG}" stroke-width="1.5" stroke-linejoin="round"/>
   `),
 
   next: svg(`
-    <polygon points="30,28 62,50 30,72" fill="${FG}"/>
-    <rect x="62" y="28" width="8" height="44" rx="1.5" fill="${FG}"/>
+    <path d="M28 28 L60 50 L28 72 Z" fill="${FG}"
+          stroke="${FG}" stroke-width="1.5" stroke-linejoin="round"/>
+    <rect x="64" y="28" width="8" height="44" rx="2" fill="${FG}"/>
   `),
 
   forward: seek15(true),
@@ -171,41 +181,33 @@ const icons = {
   shuffle_on: shuffleIcon(true),
 
   love: svg(`
-    <g transform="translate(0,2)">
-      <path d="M 50 74
-               C 28 58 22 46 22 36
-               C 22 27 29 22 37 22
-               C 43 22 47 25 50 30
-               C 53 25 57 22 63 22
-               C 71 22 78 27 78 36
-               C 78 46 72 58 50 74 Z"
-            fill="none" stroke="${FG}" stroke-width="7" stroke-linejoin="round"/>
-    </g>
+  <g transform="translate(18,18) scale(${64 / 24})"
+     fill="none" stroke="${FG}" stroke-width="2.45"
+     stroke-linecap="round" stroke-linejoin="round">
+    <path d="M2 9.5a5.5 5.5 0 0 1 9.591-3.676.56.56 0 0 0 .818 0A5.49 5.49 0 0 1 22 9.5c0 2.29-1.5 4-3 5.5l-5.492 5.313a2 2 0 0 1-3 .019L5 15c-1.5-1.5-3-3.2-3-5.5"/>
+  </g>
   `),
 
   love_on: svg(`
-    <g transform="translate(0,3)">
-      <path d="M 50 76
-               C 26 58 20 45 20 35
-               C 20 25 28 19 37 19
-               C 43 19 47 23 50 28
-               C 53 23 57 19 63 19
-               C 72 19 80 25 80 35
-               C 80 45 74 58 50 76 Z"
-            fill="${FG}"/>
-    </g>
+  <g transform="translate(18,18) scale(${64 / 24})">
+    <path d="M2 9.5a5.5 5.5 0 0 1 9.591-3.676.56.56 0 0 0 .818 0A5.49 5.49 0 0 1 22 9.5c0 2.29-1.5 4-3 5.5l-5.492 5.313a2 2 0 0 1-3 .019L5 15c-1.5-1.5-3-3.2-3-5.5"
+          fill="${FG}"/>
+  </g>
   `),
 
-  add_library: notesPlus(),
-  songinfo: notesOnly(),
+  add_library: notePlus(),
+  songinfo: noteOnly(),
 
   clear_queue: svg(`
-    <g transform="translate(-2,0)" fill="none" stroke="${FG}" stroke-width="7" stroke-linecap="round">
-      <path d="M 24 36 H 56"/>
-      <path d="M 24 50 H 50"/>
-      <path d="M 24 64 H 44"/>
-      <path d="M 62 40 L 80 58 M 80 40 L 62 58"/>
-    </g>
+  <g transform="translate(18,18) scale(${64 / 24})"
+     fill="none" stroke="${FG}" stroke-width="2.45"
+     stroke-linecap="round" stroke-linejoin="round">
+    <path d="M16 5H3"/>
+    <path d="M11 12H3"/>
+    <path d="M16 19H3"/>
+    <path d="m15.5 9.5 5 5"/>
+    <path d="m20.5 9.5-5 5"/>
+  </g>
   `),
 
   volume_up: volume(2),
@@ -214,43 +216,52 @@ const icons = {
   volume_mute: volume(0, true),
 
   prevornext: svg(`
-    <rect x="16" y="34" width="6" height="32" rx="1" fill="${FG}"/>
-    <polygon points="46,34 24,50 46,66" fill="${FG}"/>
-    <polygon points="54,34 76,50 54,66" fill="${FG}"/>
-    <rect x="78" y="34" width="6" height="32" rx="1" fill="${FG}"/>
+    <rect x="18" y="34" width="7" height="32" rx="2" fill="${FG}"/>
+    <path d="M48 34 L26 50 L48 66 Z" fill="${FG}"
+          stroke="${FG}" stroke-width="1" stroke-linejoin="round"/>
+    <path d="M52 34 L74 50 L52 66 Z" fill="${FG}"
+          stroke="${FG}" stroke-width="1" stroke-linejoin="round"/>
+    <rect x="75" y="34" width="7" height="32" rx="2" fill="${FG}"/>
   `),
 
   seek_control: svg(`
-    <polygon points="44,36 26,50 44,64" fill="${FG}"/>
-    <polygon points="32,36 14,50 32,64" fill="${FG}"/>
-    <polygon points="56,36 74,50 56,64" fill="${FG}"/>
-    <polygon points="68,36 86,50 68,64" fill="${FG}"/>
+    <g fill="${FG}" stroke="${FG}" stroke-width="1" stroke-linejoin="round">
+      <path d="M44 36 L26 50 L44 64 Z"/>
+      <path d="M34 36 L16 50 L34 64 Z"/>
+      <path d="M56 36 L74 50 L56 64 Z"/>
+      <path d="M66 36 L84 50 L66 64 Z"/>
+    </g>
   `),
 
   play_playlist: svg(`
-    <g transform="translate(-2,1)">
-      <g fill="none" stroke="${FG}" stroke-width="7" stroke-linecap="round">
-        <path d="M 42 34 H 80"/>
-        <path d="M 42 50 H 80"/>
-        <path d="M 42 66 H 72"/>
+    <g>
+      <path d="M22 30 L22 54 L42 42 Z" fill="${FG}"
+            stroke="${FG}" stroke-width="1.5" stroke-linejoin="round"/>
+      <g ${stroke}>
+        <path d="M48 34 H80"/>
+        <path d="M48 50 H80"/>
+        <path d="M48 66 H72"/>
       </g>
-      <polygon points="20,28 20,56 42,42" fill="${FG}"/>
     </g>
   `),
 };
 
-function writePng(name, svgStr) {
+function writePng2x(name, svgStr) {
   const resvg = new Resvg(svgStr, {
-    fitTo: { mode: "width", value: SIZE },
+    fitTo: { mode: "width", value: RENDER },
     background: "transparent",
   });
   const png = resvg.render().asPng();
-  fs.writeFileSync(path.join(OUT, `${name}.png`), png);
-  console.log("wrote", `${name}.png`);
+  fs.writeFileSync(path.join(TMP, `${name}.png`), png);
 }
 
 fs.mkdirSync(OUT, { recursive: true });
+fs.mkdirSync(TMP, { recursive: true });
 for (const [name, svgStr] of Object.entries(icons)) {
-  writePng(name, svgStr);
+  writePng2x(name, svgStr);
+  console.log("2x", `${name}.png`);
 }
-console.log("done", Object.keys(icons).length, "icons");
+
+const downscale = path.join(__dirname, "downscale_and_center.py");
+execFileSync("python", [downscale, TMP, OUT], { stdio: "inherit" });
+console.log("done", Object.keys(icons).length, "icons →", OUT);

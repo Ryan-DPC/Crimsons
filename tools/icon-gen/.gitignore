@@ -1,2 +1,7 @@
 node_modules/
 package-lock.json
+.tmp-2x/
+verify/
+preview_sheet.png
+preview_hi.mjs
+preview_lucide.mjs

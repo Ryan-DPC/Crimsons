@@ -6,7 +6,7 @@
   "Description": "Apple Music controls for StreamDock via Cider (local API on port 10767)",
   "Icon": "static/icon/applemusic.png",
   "Name": "Apple Music (Cider)",
-  "Version": "0.5.5",
+  "Version": "0.5.6",
   "SDKVersion": 2,
   "Software": {
     "MinimumVersion": "2.0.0"
