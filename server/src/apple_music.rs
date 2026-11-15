@@ -1248,6 +1248,10 @@ fn load_cider_token() -> String {
     // 1. Prefer dedicated cache
     if let Ok(raw) = std::fs::read_to_string(cider_cache_path()) {
         if let Ok(v) = serde_json::from_str::<serde_json::Value>(&raw) {
+            // Explicit PI disconnect — do not fall through to spa-config / data.json.
+            if v.get("cleared").and_then(|x| x.as_bool()) == Some(true) {
+                return String::new();
+            }
             if let Some(t) = v.get("appToken").and_then(|x| x.as_str()) {
                 if !t.is_empty() {
                     return t.to_string();
@@ -1295,9 +1299,11 @@ fn save_cider_token(token: &str) {
     if let Some(parent) = path.parent() {
         let _ = std::fs::create_dir_all(parent);
     }
+    let cleared = token.is_empty();
     let _ = std::fs::write(
         &path,
-        serde_json::to_string_pretty(&json!({ "appToken": token })).unwrap_or_default(),
+        serde_json::to_string_pretty(&json!({ "appToken": token, "cleared": cleared }))
+            .unwrap_or_default(),
     );
 
     let path = crate::storage::get_data_path_from_env();

@@ -44,6 +44,19 @@
     }
 
     function persistTokenToCrimsons(token) {
+        // Mirror Now Playing PI: clear the disconnect flag so getCiderToken works offline.
+        try {
+            const fs = require('fs');
+            const path = require('path');
+            const cachePath = path.join(process.env.APPDATA || '', 'com.laoy.crimsons', 'cider_cache.json');
+            const parent = path.dirname(cachePath);
+            if (!fs.existsSync(parent)) fs.mkdirSync(parent, { recursive: true });
+            fs.writeFileSync(
+                cachePath,
+                JSON.stringify({ appToken: token || '', cleared: !token }, null, 2),
+                'utf8'
+            );
+        } catch (eDisk) {}
         var wsToken = crimsonAuthToken();
         var url = wsToken
             ? 'ws://127.0.0.1:40510/?token=' + encodeURIComponent(wsToken)
@@ -60,6 +73,20 @@
     function getCiderToken() {
         if (ciderTokenOverride) return ciderTokenOverride;
         try {
+            const fs = require('fs');
+            const path = require('path');
+            const appdata = process.env.APPDATA || '';
+            const cachePath = path.join(appdata, 'com.laoy.crimsons', 'cider_cache.json');
+            if (fs.existsSync(cachePath)) {
+                const raw = JSON.parse(fs.readFileSync(cachePath, 'utf8'));
+                // Align with Now Playing PI disconnect — do not fall through to spa-config.
+                if (raw && raw.cleared === true) return '';
+                if (raw && raw.appToken && String(raw.appToken).trim()) {
+                    return String(raw.appToken).trim();
+                }
+            }
+        } catch (eCache) {}
+        try {
             const ls = localStorage.getItem('cider_token');
             if (ls && ls.trim()) return ls.trim();
         } catch (e1) {}
@@ -67,13 +94,6 @@
             const fs = require('fs');
             const path = require('path');
             const appdata = process.env.APPDATA || '';
-            const cachePath = path.join(appdata, 'com.laoy.crimsons', 'cider_cache.json');
-            if (fs.existsSync(cachePath)) {
-                const raw = JSON.parse(fs.readFileSync(cachePath, 'utf8'));
-                if (raw && raw.appToken && String(raw.appToken).trim()) {
-                    return String(raw.appToken).trim();
-                }
-            }
             const cfgPath = path.join(appdata, 'sh.cider.dotnet', 'spa-config.yml');
             if (fs.existsSync(cfgPath)) {
                 const content = fs.readFileSync(cfgPath, 'utf8');

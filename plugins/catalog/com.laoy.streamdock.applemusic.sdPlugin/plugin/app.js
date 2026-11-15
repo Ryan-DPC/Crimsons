@@ -17,6 +17,11 @@ const ART_RETRY_MS = 8000;
 const PLAYLIST_ART_RETRY_MS = 1500;
 /** playlistId / name → { url, b64 } so willAppear can paint instantly. */
 const playlistArtMemo = {};
+/** StreamDock keys clip centered setTitle — slide a fixed window instead. */
+const MARQUEE_CHARS = 10;
+const MARQUEE_GAP = "   ";
+const MARQUEE_TICK_MS = 280;
+const MARQUEE_PAUSE_MS = 1400;
 
 /** Dev-only pipeline logger (no-op in prod unless debug.flag / CRIMSON_PLUGIN_DEBUG). */
 const amLog = (typeof CrimsonDebug !== "undefined" && CrimsonDebug.create)
@@ -200,16 +205,26 @@ const playlistBrowser = {
         const label = !this.list.length
             ? "Aucune"
             : ((this.index + 1) + "/" + this.list.length);
-        const name = cur ? String(cur.name || "").slice(0, 14) : "Playlist";
+        const name = cur ? String(cur.name || "") : "Playlist";
 
         setTitleForAction("com.laoy.streamdock.applemusic.playlistbrowse", label);
 
         const viewContexts = actionContexts["com.laoy.streamdock.applemusic.playlistview"] || [];
-        viewContexts.forEach((ctx) => {
-            // Bypass setTitleForContext dedupe — page return blanks titles.
-            if (force) delete lastTitleByContext[ctx];
-            sendToContext(ctx, "setTitle", { title: name, target: 0 });
-        });
+        if (force) {
+            viewContexts.forEach((ctx) => { delete lastTitleByContext[ctx]; });
+        }
+        if (!cur || !name) {
+            playlistViewMarquee.stop();
+            viewContexts.forEach((ctx) => {
+                sendToContext(ctx, "setTitle", { title: "Playlist", target: 0 });
+            });
+        } else {
+            playlistViewMarquee.set([name], (title) => {
+                const ctxs = actionContexts["com.laoy.streamdock.applemusic.playlistview"] || [];
+                ctxs.forEach((ctx) => setTitleForContext(ctx, title));
+            });
+            if (force) playlistViewMarquee.forceRepaint();
+        }
 
         amLog.info("browser.paint", {
             name: name,
@@ -296,6 +311,11 @@ function getCiderToken() {
         var cachePath = path.join(appdata, "com.laoy.crimsons", "cider_cache.json");
         if (fs.existsSync(cachePath)) {
             var raw = JSON.parse(fs.readFileSync(cachePath, "utf8"));
+            // User explicitly disconnected — do not fall through to spa-config.
+            if (raw && raw.cleared === true) {
+                try { window.__CIDER_APP_TOKEN__ = ""; } catch (eClr) {}
+                return "";
+            }
             if (raw && raw.appToken && String(raw.appToken).trim()) {
                 window.__CIDER_APP_TOKEN__ = String(raw.appToken).trim();
                 return window.__CIDER_APP_TOKEN__;
@@ -327,6 +347,99 @@ function getCiderToken() {
     } catch (eWin) {}
     return "";
 }
+
+/**
+ * Sliding-window marquee for StreamDock setTitle (host center-clips long text).
+ * Pauses briefly at the start of each loop; no-ops when text fits the key.
+ */
+function createTitleMarquee(width) {
+    const chars = width || MARQUEE_CHARS;
+    let lines = [];
+    let offset = 0;
+    let pauseUntil = 0;
+    let timer = null;
+    let paint = null;
+
+    function sliceLine(text, off) {
+        if (!text || text.length <= chars) return text || "";
+        const loop = text + MARQUEE_GAP;
+        const i = ((off % loop.length) + loop.length) % loop.length;
+        return (loop + loop).slice(i, i + chars);
+    }
+
+    function render() {
+        if (!paint) return;
+        const title = lines.map((t) => sliceLine(t, offset)).join("\n");
+        paint(title);
+    }
+
+    function tick() {
+        const needs = lines.some((t) => t && t.length > chars);
+        if (!needs) {
+            offset = 0;
+            render();
+            return;
+        }
+        const now = Date.now();
+        if (now < pauseUntil) {
+            render();
+            return;
+        }
+        let maxLoop = 0;
+        for (let i = 0; i < lines.length; i++) {
+            const t = lines[i] || "";
+            if (t.length > chars) maxLoop = Math.max(maxLoop, t.length + MARQUEE_GAP.length);
+        }
+        offset += 1;
+        if (offset >= maxLoop) {
+            offset = 0;
+            pauseUntil = now + MARQUEE_PAUSE_MS;
+        }
+        render();
+    }
+
+    function ensureTimer(needsScroll) {
+        if (needsScroll && !timer) {
+            timer = setInterval(tick, MARQUEE_TICK_MS);
+        } else if (!needsScroll && timer) {
+            clearInterval(timer);
+            timer = null;
+        }
+    }
+
+    return {
+        set: function (nextLines, paintFn) {
+            paint = paintFn;
+            const next = (nextLines || []).map((s) => String(s || ""));
+            const same = next.length === lines.length && next.every((s, i) => s === lines[i]);
+            if (same) {
+                ensureTimer(next.some((t) => t.length > chars));
+                return;
+            }
+            lines = next;
+            offset = 0;
+            pauseUntil = Date.now() + MARQUEE_PAUSE_MS;
+            render();
+            ensureTimer(lines.some((t) => t.length > chars));
+        },
+        stop: function () {
+            if (timer) {
+                clearInterval(timer);
+                timer = null;
+            }
+            lines = [];
+            offset = 0;
+            paint = null;
+        },
+        forceRepaint: function () {
+            // Wipe StreamDock dedupe then show current window (page return).
+            render();
+        }
+    };
+}
+
+const songInfoMarquee = createTitleMarquee(MARQUEE_CHARS);
+const playlistViewMarquee = createTitleMarquee(12);
 
 /** Direct Cider HTTP API Client */
 const ciderAPI = {
@@ -1134,18 +1247,44 @@ function refreshPlaylistButtons(state) {
     });
 }
 
+function songInfoLines(state) {
+    if (!state || !state.track_name) return { track: "", artist: "" };
+    const track = String(state.track_name)
+        .replace(/\s*[\(\[](feat\.|ft\.|with).*?[\)\]]/i, "")
+        .trim();
+    const artist = String(state.artist_name || "").trim();
+    return { track: track, artist: artist };
+}
+
 function songInfoTitle(state) {
     if (!state || !state.cider_connected) return "Cider off";
     if (state.track_name) {
-        const cleanTrack = String(state.track_name)
-            .replace(/\s*[\(\[](feat\.|ft\.|with).*?[\)\]]/i, "")
-            .trim();
-        const cleanArtist = String(state.artist_name || "").trim();
-        return cleanArtist
-            ? `${cleanTrack.slice(0, 12)}\n${cleanArtist.slice(0, 12)}`
-            : cleanTrack.slice(0, 14);
+        const lines = songInfoLines(state);
+        // Full text — live keys use marquee; this is the logical title (tests / fallback).
+        return lines.artist ? (lines.track + "\n" + lines.artist) : lines.track;
     }
     return state.is_playing ? "Apple Music" : "—";
+}
+
+function applySongInfoTitle(state) {
+    if (!state || !state.cider_connected) {
+        songInfoMarquee.stop();
+        setTitleForAction("com.laoy.streamdock.applemusic.songinfo", "Cider off");
+        return;
+    }
+    if (!state.track_name) {
+        songInfoMarquee.stop();
+        setTitleForAction(
+            "com.laoy.streamdock.applemusic.songinfo",
+            state.is_playing ? "Apple Music" : "—"
+        );
+        return;
+    }
+    const lines = songInfoLines(state);
+    const parts = lines.artist ? [lines.track, lines.artist] : [lines.track];
+    songInfoMarquee.set(parts, (title) => {
+        setTitleForAction("com.laoy.streamdock.applemusic.songinfo", title);
+    });
 }
 
 async function applySongInfoArt(state) {
@@ -1849,7 +1988,8 @@ function applyNowPlaying(state) {
 
     // Always show title + artist on Now Playing — never blank when art URL exists
     // (blank+failed CORS left the red "i" stuck with no text).
-    setTitleForAction("com.laoy.streamdock.applemusic.songinfo", songInfoTitle(state));
+    // Long titles use a sliding-window marquee (StreamDock center-clips setTitle).
+    applySongInfoTitle(state);
     applySongInfoArt(state);
 
     refreshPlaylistButtons(state);

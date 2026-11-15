@@ -22,11 +22,17 @@ function songInfoTitle(state) {
       .replace(/\s*[\(\[](feat\.|ft\.|with).*?[\)\]]/i, "")
       .trim();
     const cleanArtist = String(state.artist_name || "").trim();
-    return cleanArtist
-      ? `${cleanTrack.slice(0, 12)}\n${cleanArtist.slice(0, 12)}`
-      : cleanTrack.slice(0, 14);
+    // Full text — live keys use sliding-window marquee in app.js
+    return cleanArtist ? `${cleanTrack}\n${cleanArtist}` : cleanTrack;
   }
   return state.is_playing ? "Apple Music" : "—";
+}
+
+function marqueeSlice(text, offset, width, gap) {
+  if (!text || text.length <= width) return text || "";
+  const loop = text + gap;
+  const i = ((offset % loop.length) + loop.length) % loop.length;
+  return (loop + loop).slice(i, i + width);
 }
 
 function playlistButtonTitle(settings, opts) {
@@ -63,6 +69,17 @@ function playlistButtonTitle(settings, opts) {
   );
 }
 
+// --- Marquee sliding window (mirrors createTitleMarquee) ---
+{
+  const gap = "   ";
+  const width = 10;
+  const sample = "you broke me first";
+  assert.equal(marqueeSlice(sample, 0, width, gap), "you broke ");
+  assert.equal(marqueeSlice(sample, 1, width, gap).length, width);
+  assert.equal(marqueeSlice("short", 0, width, gap), "short");
+  assert.ok(sample.length > width, "fixture must exceed key width");
+}
+
 {
   assert.equal(
     playlistButtonTitle({ playlistName: "2023-2024" }, { playing: false }),
@@ -80,6 +97,9 @@ assert.match(
   /Always show title \+ artist on Now Playing/,
   "app.js must keep the songinfo title comment/fix"
 );
+assert.match(appJs, /createTitleMarquee/, "songinfo must use sliding-window marquee");
+assert.match(appJs, /applySongInfoTitle/, "songinfo title must go through marquee helper");
+assert.match(appJs, /raw\.cleared === true/, "getCiderToken must honor PI disconnect flag");
 assert.doesNotMatch(
   appJs,
   /if \(state\.album_art\) \{\s*\/\/ Option 1: Clean cover art only/,
