@@ -1,7 +1,18 @@
 let streamDeckSocket = null;
 let globalPluginUUID = "";
 let lastAlbumArt = null;
+/** URL currently being converted — avoids parallel toBase64 storms. */
+let albumArtInFlight = null;
+/** Failed art URLs → next retry timestamp (ms). */
+let albumArtRetryAfter = {};
 let contextSettings = {};
+/** Last title/image sent per context — skip identical StreamDock spam. */
+let lastTitleByContext = {};
+let lastImageByContext = {};
+/** context -> playlist ref last launched from Play Playlist (▶ feedback). */
+let activePlaylistByContext = {};
+const POLL_MS = 1000;
+const ART_RETRY_MS = 8000;
 
 /** Dev-only pipeline logger (no-op in prod unless debug.flag / CRIMSON_PLUGIN_DEBUG). */
 const amLog = (typeof CrimsonDebug !== "undefined" && CrimsonDebug.create)
@@ -263,41 +274,114 @@ const ciderAPI = {
         }
     },
 
+    extractContainerId(now) {
+        if (!now || typeof now !== "object") return "";
+        const candidates = [
+            now.container && (now.container.id || now.containerId),
+            now._container && now._container.id,
+            now.playlistId,
+            now.playlist_id,
+            now.playParams && now.playParams.catalogId,
+            now.playParams && now.playParams.parentId
+        ];
+        for (const c of candidates) {
+            if (typeof c === "string" && c.trim()) return c.trim();
+        }
+        return "";
+    },
+
+    mapPlaybackState(d, now, time, vol) {
+        if (vol > 0) this.lastVolume = vol;
+        const artworkRaw = (now.artwork && now.artwork.url)
+            ? now.artwork.url
+            : (typeof now.artwork === "string" ? now.artwork : "");
+        const artwork = artworkRaw
+            ? String(artworkRaw).replace("{w}", "300").replace("{h}", "300")
+            : "";
+        return {
+            is_playing: d.state === "playing" || d.state === "play" || d.isPlaying === true,
+            track_name: now.name || "",
+            artist_name: now.artistName || "",
+            album_name: now.albumName || "",
+            album_art: artwork,
+            album_art_data: "",
+            progress_ms: Math.round((time.currentTime || 0) * 1000),
+            duration_ms: now.durationInMillis || Math.round((time.duration || 0) * 1000),
+            volume_percent: Math.round(Math.min(Math.max(vol, 0), 1) * 100),
+            shuffle_state: !!d.shuffleMode,
+            repeat_state: d.repeatMode || "none",
+            cider_connected: true,
+            in_favorites: !!now.inFavorites,
+            in_library: !!now.inLibrary,
+            track_id: (now.id || (now.playParams && now.playParams.id) || "") + "",
+            container_id: this.extractContainerId(now)
+        };
+    },
+
+    async fetchStateV1() {
+        try {
+            const playingResp = await this.request("/api/v1/playback/is-playing", "GET");
+            let isPlaying = false;
+            if (playingResp && playingResp.ok) {
+                const raw = await playingResp.json();
+                isPlaying = raw === true || raw === false
+                    ? raw
+                    : !!(raw.is_playing ?? raw.data ?? raw.value);
+            }
+            const nowResp = await this.request("/api/v1/playback/now-playing", "GET");
+            if (!nowResp || !nowResp.ok) return null;
+            const nowRaw = await nowResp.json();
+            const attrs = nowRaw.attributes || nowRaw.info || (nowRaw.data && nowRaw.data.attributes) || nowRaw;
+            const volResp = await this.request("/api/v1/playback/volume", "GET");
+            let vol = 0.5;
+            if (volResp && volResp.ok) {
+                const v = await volResp.json();
+                vol = typeof v.volume === "number" ? v.volume : (typeof v === "number" ? v : 0.5);
+            }
+            const artwork = (attrs.artwork && attrs.artwork.url)
+                ? attrs.artwork.url.replace("{w}", "300").replace("{h}", "300")
+                : "";
+            this.cachedState = {
+                is_playing: isPlaying,
+                track_name: attrs.name || "",
+                artist_name: attrs.artistName || "",
+                album_name: attrs.albumName || "",
+                album_art: artwork,
+                album_art_data: "",
+                progress_ms: 0,
+                duration_ms: attrs.durationInMillis || 0,
+                volume_percent: Math.round(Math.min(Math.max(vol, 0), 1) * 100),
+                shuffle_state: false,
+                repeat_state: "none",
+                cider_connected: true,
+                in_favorites: !!attrs.inFavorites,
+                in_library: !!attrs.inLibrary,
+                track_id: (nowRaw.id || "") + "",
+                container_id: this.extractContainerId(attrs) || this.extractContainerId(nowRaw)
+            };
+            return this.cachedState;
+        } catch (e) {
+            return null;
+        }
+    },
+
     async fetchState() {
         try {
             const resp = await this.request("/api/v2/playback", "GET");
             if (resp && resp.ok) {
                 const json = await resp.json();
-                const d = json.data || {};
-                const now = d.nowPlaying || {};
+                const d = json.data || json || {};
+                const now = d.nowPlaying || d.now_playing || {};
                 const time = d.time || {};
                 const vol = typeof d.volume === "number" ? d.volume : 0.5;
-                if (vol > 0) this.lastVolume = vol;
-
-                const artwork = (now.artwork && now.artwork.url)
-                    ? now.artwork.url.replace("{w}", "300").replace("{h}", "300")
-                    : "";
-
-                this.cachedState = {
-                    is_playing: d.state === "playing" || d.state === "play",
-                    track_name: now.name || "",
-                    artist_name: now.artistName || "",
-                    album_name: now.albumName || "",
-                    album_art: artwork,
-                    progress_ms: Math.round((time.currentTime || 0) * 1000),
-                    duration_ms: now.durationInMillis || Math.round((time.duration || 0) * 1000),
-                    volume_percent: Math.round(Math.min(Math.max(vol, 0), 1) * 100),
-                    shuffle_state: !!d.shuffleMode,
-                    repeat_state: d.repeatMode || "none",
-                    cider_connected: true,
-                    in_favorites: !!now.inFavorites,
-                    in_library: !!now.inLibrary
-                };
+                this.cachedState = this.mapPlaybackState(d, now, time, vol);
                 return this.cachedState;
             }
         } catch (e) {
-            console.warn("[AppleMusic:Cider] fetchState error", e);
+            console.warn("[AppleMusic:Cider] fetchState v2 error", e);
         }
+        const v1 = await this.fetchStateV1();
+        if (v1) return v1;
         return null;
     },
 
@@ -740,21 +824,97 @@ function crimsonWsUrl(port) {
     return token ? (base + '/?token=' + encodeURIComponent(token)) : base;
 }
 
-function playlistButtonTitle(settings) {
+function playlistButtonTitle(settings, opts) {
     const s = settings || {};
+    const playing = !!(opts && opts.playing);
+    let base = "";
     if (s.playlistName || s.name) {
-        return String(s.playlistName || s.name).slice(0, 14);
+        base = String(s.playlistName || s.name).slice(0, 14);
+    } else {
+        const raw = ciderAPI.extractPlaylistRaw(s);
+        if (!raw) {
+            base = "Playlist";
+        } else if (raw.includes("music.apple.com")) {
+            const id = ciderAPI.extractPlaylistIdFromUrl(raw);
+            base = (id || "Playlist").slice(0, 14);
+        } else {
+            base = raw.slice(0, 14);
+        }
     }
+    // Play Playlist keeps the configured label; show a live ▶ marker when this
+    // button's playlist is the active source (not Now Playing track text).
+    return playing ? ("▶ " + base).slice(0, 16) : base;
+}
+
+function playlistRefMatches(settings, containerId, activeRef) {
+    const s = settings || {};
     const raw = ciderAPI.extractPlaylistRaw(s);
-    if (!raw) return "Playlist";
-    if (raw.includes("music.apple.com")) {
-        const id = ciderAPI.extractPlaylistIdFromUrl(raw);
-        return (id || "Playlist").slice(0, 14);
+    const idFromUrl = raw && raw.includes("music.apple.com")
+        ? ciderAPI.extractPlaylistIdFromUrl(raw)
+        : null;
+    const candidates = [
+        raw,
+        s.playlistId,
+        s.playlist_id,
+        s.id,
+        idFromUrl,
+        activeRef
+    ].filter(Boolean).map(String);
+    if (containerId) {
+        const cid = String(containerId);
+        if (candidates.some(c => c === cid || c.includes(cid) || cid.includes(c))) {
+            return true;
+        }
     }
-    return raw.slice(0, 14);
+    if (activeRef) {
+        return candidates.some(c => c === activeRef || c.includes(activeRef) || activeRef.includes(c));
+    }
+    return false;
 }
 
 const playlistCoverCache = {}; // context -> artwork url
+/** Failed playlist cover URLs → next retry timestamp (ms). */
+const playlistCoverRetryAfter = {};
+
+/** After page change / restart StreamDock blanks keys but our dedupe caches
+ *  still hold the last URL — force a full paint so setImage/setTitle re-fire. */
+function invalidateUiPaintCaches(context) {
+    lastAlbumArt = null;
+    albumArtInFlight = null;
+    if (context) {
+        delete lastTitleByContext[context];
+        delete lastImageByContext[context];
+        delete playlistCoverCache[context];
+        delete playlistCoverRetryAfter[context];
+    } else {
+        lastTitleByContext = {};
+        lastImageByContext = {};
+        Object.keys(playlistCoverCache).forEach((k) => { delete playlistCoverCache[k]; });
+        Object.keys(playlistCoverRetryAfter).forEach((k) => { delete playlistCoverRetryAfter[k]; });
+    }
+}
+
+function forceRehydrateNowPlaying() {
+    invalidateUiPaintCaches(null);
+    return ciderAPI.fetchState().then((st) => {
+        if (st) {
+            applyNowPlaying(st);
+            return st;
+        }
+        applyNowPlaying({
+            cider_connected: false,
+            track_name: "",
+            artist_name: "",
+            album_art: "",
+            album_art_data: "",
+            is_playing: false
+        });
+        return null;
+    }).catch((e) => {
+        amLog.error("forceRehydrateNowPlaying", String(e && e.message ? e.message : e));
+        return null;
+    });
+}
 
 function sendToContext(context, event, payload) {
     const json = { event: event, context: context, payload: payload };
@@ -772,12 +932,97 @@ function sendToContext(context, event, payload) {
     return sent;
 }
 
-function applyPlaylistButtonTitle(context, settings) {
-    const s = settings || {};
-    // Cover art replaces the generic icon — keep title empty when we have artwork
-    const hasArt = !!(s.playlist_image || s.image);
-    const title = hasArt ? "" : playlistButtonTitle(s);
+function setTitleForContext(context, title) {
+    if (lastTitleByContext[context] === title) return;
+    lastTitleByContext[context] = title;
     sendToContext(context, "setTitle", { title: title, target: 0 });
+}
+
+function setImageForContext(context, image) {
+    if (lastImageByContext[context] === image) return;
+    lastImageByContext[context] = image;
+    sendToContext(context, "setImage", { image: image, target: 0 });
+}
+
+function applyPlaylistButtonTitle(context, settings, opts) {
+    const title = playlistButtonTitle(settings, opts);
+    setTitleForContext(context, title);
+}
+
+function refreshPlaylistButtons(state) {
+    const contexts = actionContexts["com.laoy.streamdock.applemusic.playplaylist"] || [];
+    contexts.forEach(context => {
+        const settings = contextSettings[context] || {};
+        const activeRef = activePlaylistByContext[context] || "";
+        const playing = !!(state && state.is_playing && state.cider_connected && (
+            playlistRefMatches(settings, state.container_id, activeRef) ||
+            (!!activeRef && !state.container_id)
+        ));
+        // Drop active marker once playback stops so the label returns to the PI name.
+        if (activeRef && state && state.cider_connected && !state.is_playing) {
+            delete activePlaylistByContext[context];
+        }
+        applyPlaylistButtonTitle(context, settings, { playing });
+    });
+}
+
+function songInfoTitle(state) {
+    if (!state || !state.cider_connected) return "Cider off";
+    if (state.track_name) {
+        const cleanTrack = String(state.track_name)
+            .replace(/\s*[\(\[](feat\.|ft\.|with).*?[\)\]]/i, "")
+            .trim();
+        const cleanArtist = String(state.artist_name || "").trim();
+        return cleanArtist
+            ? `${cleanTrack.slice(0, 12)}\n${cleanArtist.slice(0, 12)}`
+            : cleanTrack.slice(0, 14);
+    }
+    return state.is_playing ? "Apple Music" : "—";
+}
+
+async function applySongInfoArt(state) {
+    const dataUrl = state.album_art_data || "";
+    const url = state.album_art || "";
+
+    if (dataUrl && dataUrl.indexOf("data:") === 0) {
+        if (lastAlbumArt !== dataUrl) {
+            lastAlbumArt = dataUrl;
+            setImageForAction("com.laoy.streamdock.applemusic.songinfo", dataUrl);
+        }
+        return;
+    }
+
+    if (!url) {
+        if (lastAlbumArt !== "") {
+            lastAlbumArt = "";
+            setImageForAction("com.laoy.streamdock.applemusic.songinfo", "static/icon/songinfo.png");
+        }
+        return;
+    }
+
+    if (lastAlbumArt === url) return;
+
+    const now = Date.now();
+    if (albumArtRetryAfter[url] && albumArtRetryAfter[url] > now) return;
+    if (albumArtInFlight === url) return;
+    albumArtInFlight = url;
+
+    try {
+        const b64 = await crimsonAPI.toBase64(url);
+        if (b64) {
+            lastAlbumArt = url;
+            delete albumArtRetryAfter[url];
+            setImageForAction("com.laoy.streamdock.applemusic.songinfo", b64);
+        } else {
+            // Conversion failed (often CORS on mzstatic). Retry later; keep title visible.
+            // Do NOT set lastAlbumArt — that would permanently skip retries.
+            albumArtRetryAfter[url] = now + ART_RETRY_MS;
+            // Last-resort: some StreamDock hosts accept the raw URL.
+            setImageForAction("com.laoy.streamdock.applemusic.songinfo", url);
+        }
+    } finally {
+        if (albumArtInFlight === url) albumArtInFlight = null;
+    }
 }
 
 async function applyPlaylistCover(context, settings) {
@@ -796,18 +1041,25 @@ async function applyPlaylistCover(context, settings) {
     }
     if (!url) return;
     if (playlistCoverCache[context] === url) return;
+    const now = Date.now();
+    const retryKey = context + "|" + url;
+    if (playlistCoverRetryAfter[retryKey] && playlistCoverRetryAfter[retryKey] > now) return;
     try {
         const b64 = url.startsWith("data:") ? url : await crimsonAPI.toBase64(url);
         if (!b64) {
             console.warn("[AppleMusic] playlist cover toBase64 failed", url.slice(0, 80));
+            // Retry later — do NOT mark cache so willAppear/poll can try again.
+            playlistCoverRetryAfter[retryKey] = now + ART_RETRY_MS;
             return;
         }
+        delete playlistCoverRetryAfter[retryKey];
         playlistCoverCache[context] = url;
-        sendToContext(context, "setImage", { image: b64, target: 0 });
-        // Clear title once cover is on the key
-        sendToContext(context, "setTitle", { title: "", target: 0 });
+        setImageForContext(context, b64);
+        // Keep playlist PI name on the key (cover is background; do not blank title).
+        applyPlaylistButtonTitle(context, contextSettings[context] || s);
     } catch (e) {
         console.warn("[AppleMusic] playlist cover failed", e);
+        playlistCoverRetryAfter[retryKey] = now + ART_RETRY_MS;
     }
 }
 
@@ -879,23 +1131,23 @@ function handleHardwareEvent(jsonObj) {
         if (actionContexts[action] && !actionContexts[action].includes(context)) {
             actionContexts[action].push(context);
         }
+        // Page return / plugin reload: StreamDock wiped the key visuals but our
+        // dedupe caches may still match — invalidate so setImage/setTitle fire again.
+        invalidateUiPaintCaches(context);
         if (action === "com.laoy.streamdock.applemusic.playplaylist") {
-            delete playlistCoverCache[context];
             applyPlaylistButton(context, contextSettings[context] || jsonObj['payload']?.settings || {});
         }
         if (action === "com.laoy.streamdock.applemusic.playlistbrowse"
             || action === "com.laoy.streamdock.applemusic.playlistview") {
-            playlistBrowser.ensureLoaded(false).then(() => playlistBrowser.paint());
+            playlistBrowser.ensureLoaded(true).then(() => playlistBrowser.paint());
         }
-        // Immediately fetch state on appearance to display current song/volume
-        ciderAPI.fetchState().then(st => {
-            if (st) applyNowPlaying(st);
-        });
+        // Immediately rehydrate Now Playing (title+artist+art) on every appear
+        forceRehydrateNowPlaying();
     }
 
     if (event === "didReceiveSettings") {
         if (action === "com.laoy.streamdock.applemusic.playplaylist") {
-            delete playlistCoverCache[context];
+            invalidateUiPaintCaches(context);
             applyPlaylistButton(context, contextSettings[context] || {});
         }
     }
@@ -919,15 +1171,21 @@ function handleHardwareEvent(jsonObj) {
         if (actionContexts[action]) {
             actionContexts[action] = actionContexts[action].filter(c => c !== context);
         }
-        delete contextSettings[context];
+        // Keep contextSettings — AJAZZ often omits settings on the next willAppear
+        // after a page switch; wiping them left Play Playlist with name only / no cover.
         delete playlistCoverCache[context];
+        delete lastTitleByContext[context];
+        delete lastImageByContext[context];
+        // Global art dedupe must reset too: otherwise applySongInfoArt skips setImage
+        // when the same track is still playing after coming back to the page.
+        lastAlbumArt = null;
     }
 
     if (event === "keyDown" || (event === "dialPress" && jsonObj['payload']?.pressed)) {
         const settings = contextSettings[context]
             || (jsonObj['payload'] && jsonObj['payload'].settings)
             || {};
-        handleKeyDown(action, settings);
+        handleKeyDown(action, settings, context);
     }
 
     if (event === "dialRotate") {
@@ -948,6 +1206,14 @@ const crimsonAPI = {
             while (this.queue.length > 0) {
                 this.ws.send(JSON.stringify(this.queue.shift()));
             }
+            // Sidecar (re)connect after Crimson/StreamDock restart — force live paint.
+            forceRehydrateNowPlaying();
+            // Also re-apply playlist covers from cached settings.
+            const pp = actionContexts["com.laoy.streamdock.applemusic.playplaylist"] || [];
+            pp.forEach((ctx) => {
+                invalidateUiPaintCaches(ctx);
+                applyPlaylistButton(ctx, contextSettings[ctx] || {});
+            });
         };
         this.ws.onmessage = (evt) => {
             try {
@@ -958,7 +1224,14 @@ const crimsonAPI = {
                 if (data.type === "APPLE_MUSIC_STATE" && data.data) {
                     applyNowPlaying(data.data);
                 }
-                if (data.event) {
+                // Sidecar-pushed cover (data URL or http) — same path as Spotify.
+                if (data.event === "setImageBroadcast" && data.payload && data.payload.image) {
+                    applySongInfoArt({
+                        album_art: data.payload.image.indexOf("data:") === 0 ? "" : data.payload.image,
+                        album_art_data: data.payload.image.indexOf("data:") === 0 ? data.payload.image : ""
+                    });
+                }
+                if (data.event && data.event !== "setImageBroadcast") {
                     handleHardwareEvent(data);
                 }
             } catch (e) {
@@ -1111,9 +1384,12 @@ function connectElgatoStreamDeckSocket(inPort, inPluginUUID, inRegisterEvent, in
 
         streamDeckSocket.onopen = function () {
             streamDeckSocket.send(JSON.stringify({ "event": inRegisterEvent, "uuid": inPluginUUID }));
-            // Immediate state sync
-            ciderAPI.fetchState().then(st => {
-                if (st) applyNowPlaying(st);
+            // Immediate state sync after StreamDock socket reconnect / plugin reload
+            forceRehydrateNowPlaying();
+            const pp = actionContexts["com.laoy.streamdock.applemusic.playplaylist"] || [];
+            pp.forEach((ctx) => {
+                invalidateUiPaintCaches(ctx);
+                applyPlaylistButton(ctx, contextSettings[ctx] || {});
             });
         };
 
@@ -1139,7 +1415,7 @@ function connectElgatoStreamDeckSocket(inPort, inPluginUUID, inRegisterEvent, in
     connectHw();
 }
 
-function handleKeyDown(action, settings) {
+function handleKeyDown(action, settings, context) {
     amLog.info("hw.keyDown", { action: action });
     let endpoint = null;
     let payload = {};
@@ -1186,6 +1462,22 @@ function handleKeyDown(action, settings) {
         case "com.laoy.streamdock.applemusic.playplaylist":
             endpoint = "playplaylist";
             payload = settings || {};
+            // Mark this key as the active playlist source for ▶ feedback.
+            {
+                const raw = ciderAPI.extractPlaylistRaw(settings || {});
+                const id = raw && raw.includes("music.apple.com")
+                    ? (ciderAPI.extractPlaylistIdFromUrl(raw) || raw)
+                    : raw;
+                Object.keys(activePlaylistByContext).forEach(k => { delete activePlaylistByContext[k]; });
+                if (context) {
+                    activePlaylistByContext[context] = id || raw || "playlist";
+                }
+                refreshPlaylistButtons({
+                    is_playing: true,
+                    cider_connected: true,
+                    container_id: id || ""
+                });
+            }
             break;
         case "com.laoy.streamdock.applemusic.playlistview":
             // Visual button press → play currently browsed playlist
@@ -1310,51 +1602,29 @@ function applyNowPlaying(state) {
         state.duration_ms ? (formatTime(state.progress_ms) + "\n" + formatTime(state.duration_ms)) : ""
     );
 
-    let title = "";
-    if (state.cider_connected) {
-        if (state.album_art) {
-            // Option 1: Clean cover art only (no overlapping text)
-            title = "";
-        } else if (state.track_name) {
-            const cleanTrack = state.track_name.replace(/\s*[\(\[](feat\.|ft\.|with).*?[\)\]]/i, "").trim();
-            const cleanArtist = (state.artist_name || "").trim();
-            title = cleanArtist
-                ? `${cleanTrack.slice(0, 12)}\n${cleanArtist.slice(0, 12)}`
-                : cleanTrack.slice(0, 14);
-        } else {
-            title = "Apple Music";
-        }
-    } else {
-        title = "Cider off";
-    }
-    setTitleForAction("com.laoy.streamdock.applemusic.songinfo", title);
+    // Always show title + artist on Now Playing — never blank when art URL exists
+    // (blank+failed CORS left the red "i" stuck with no text).
+    setTitleForAction("com.laoy.streamdock.applemusic.songinfo", songInfoTitle(state));
+    applySongInfoArt(state);
 
-    if (state.album_art) {
-        if (lastAlbumArt !== state.album_art) {
-            lastAlbumArt = state.album_art;
-            crimsonAPI.toBase64(state.album_art).then(b64 => {
-                if (b64) {
-                    setImageForAction("com.laoy.streamdock.applemusic.songinfo", b64);
-                } else {
-                    // Allow retry next poll if download failed
-                    lastAlbumArt = null;
-                }
-            });
+    refreshPlaylistButtons(state);
+    // Retry playlist covers when previous toBase64 failed (page return / CORS).
+    const ppContexts = actionContexts["com.laoy.streamdock.applemusic.playplaylist"] || [];
+    ppContexts.forEach((ctx) => {
+        if (!playlistCoverCache[ctx]) {
+            applyPlaylistCover(ctx, contextSettings[ctx] || {});
         }
-    } else if (lastAlbumArt !== "") {
-        lastAlbumArt = "";
-        setImageForAction("com.laoy.streamdock.applemusic.songinfo", "static/icon/songinfo.png");
-    }
+    });
 }
 
 function setTitleForAction(action, title) {
     const contexts = actionContexts[action] || [];
-    contexts.forEach(context => sendToContext(context, "setTitle", { title: title, target: 0 }));
+    contexts.forEach(context => setTitleForContext(context, title));
 }
 
 function setImageForAction(action, image) {
     const contexts = actionContexts[action] || [];
-    contexts.forEach(context => sendToContext(context, "setImage", { image: image, target: 0 }));
+    contexts.forEach(context => setImageForContext(context, image));
 }
 
 function updateActionState(action, state) {
@@ -1374,6 +1644,14 @@ async function pollCiderLive() {
         const st = await ciderAPI.fetchState();
         if (!st) {
             amLog.warn("poll: fetchState returned null");
+            applyNowPlaying({
+                cider_connected: false,
+                track_name: "",
+                artist_name: "",
+                album_art: "",
+                album_art_data: "",
+                is_playing: false
+            });
             return;
         }
         const connected = !!st.cider_connected;
@@ -1409,7 +1687,7 @@ async function pollCiderLive() {
     }
 }
 pollCiderLive._lastTrackId = "";
-setInterval(pollCiderLive, 400);
+setInterval(pollCiderLive, POLL_MS);
 // Keepalive ping so StreamDock is less likely to throttle the plugin timer
 setInterval(() => {
     try {
