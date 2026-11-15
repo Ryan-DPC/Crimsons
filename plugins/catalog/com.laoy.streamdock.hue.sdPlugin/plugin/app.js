@@ -44,7 +44,13 @@ const actionContexts = {
 };
 
 const lightStates = {}; // context -> { on: false, sceneIndex: 0 }
+const settingsByContext = {}; // context -> { lightId, ... }
 let hueScenes = [];
+
+function getLightIdForContext(context) {
+    const s = settingsByContext[context] || {};
+    return s.lightId != null && String(s.lightId).trim() !== "" ? String(s.lightId) : null;
+}
 
 // Pre-converted base64 cache
 const iconCache = {
@@ -125,14 +131,38 @@ async function hueRequest(endpoint, method = "GET", body = null) {
 
 async function syncRealHueState() {
     if (!hueUser) return;
-    const data = await hueRequest(`/api/${hueUser}/groups/0`);
-    if (data && data.state) {
-        const anyOn = !!data.state.any_on;
-        actionContexts["com.laoy.streamdock.hue.toggle"].forEach(ctx => {
+
+    const lights = await hueRequest(`/api/${hueUser}/lights`);
+    const toggleContexts = actionContexts["com.laoy.streamdock.hue.toggle"] || [];
+
+    if (lights && typeof lights === "object") {
+        const lightIds = Object.keys(lights);
+        for (const ctx of toggleContexts) {
             if (!lightStates[ctx]) lightStates[ctx] = { on: false, sceneIndex: 0 };
-            lightStates[ctx].on = anyOn;
-            updateToggleKeyVisual(ctx, anyOn);
-        });
+            let lightId = getLightIdForContext(ctx);
+            if (!lightId || !lights[lightId]) {
+                lightId = lightIds[0] || null;
+                if (lightId) {
+                    settingsByContext[ctx] = Object.assign({}, settingsByContext[ctx] || {}, { lightId });
+                }
+            }
+            if (lightId && lights[lightId] && lights[lightId].state) {
+                const isOn = !!lights[lightId].state.on;
+                lightStates[ctx].on = isOn;
+                updateToggleKeyVisual(ctx, isOn);
+            }
+        }
+    } else {
+        // Fallback: group 0 if lights list unavailable
+        const data = await hueRequest(`/api/${hueUser}/groups/0`);
+        if (data && data.state) {
+            const anyOn = !!data.state.any_on;
+            toggleContexts.forEach(ctx => {
+                if (!lightStates[ctx]) lightStates[ctx] = { on: false, sceneIndex: 0 };
+                lightStates[ctx].on = anyOn;
+                updateToggleKeyVisual(ctx, anyOn);
+            });
+        }
     }
 
     // Also fetch scenes
@@ -183,6 +213,22 @@ async function startPairingFlow(context) {
     }, 1500);
 }
 
+async function resolveLightId(context) {
+    let lightId = getLightIdForContext(context);
+    if (lightId) return lightId;
+
+    const lights = await hueRequest(`/api/${hueUser}/lights`);
+    if (lights && typeof lights === "object") {
+        const ids = Object.keys(lights);
+        if (ids.length > 0) {
+            lightId = ids[0];
+            settingsByContext[context] = Object.assign({}, settingsByContext[context] || {}, { lightId });
+            return lightId;
+        }
+    }
+    return null;
+}
+
 async function toggleHueLight(context) {
     if (!lightStates[context]) lightStates[context] = { on: false, sceneIndex: 0 };
     const st = lightStates[context];
@@ -193,13 +239,19 @@ async function toggleHueLight(context) {
         return;
     }
 
+    const lightId = await resolveLightId(context);
+    if (!lightId) {
+        console.warn("[HUE] No light available to toggle");
+        return;
+    }
+
     // Toggle state immediately for 0-latency UI
     st.on = !st.on;
     updateToggleKeyVisual(context, st.on);
 
-    // Send command to real Philips Hue bridge
-    const res = await hueRequest(`/api/${hueUser}/groups/0/action`, "PUT", { on: st.on });
-    console.log("[HUE] Toggled group 0 to:", st.on, res);
+    // Send command to the selected light (not the whole group)
+    const res = await hueRequest(`/api/${hueUser}/lights/${lightId}/state`, "PUT", { on: st.on });
+    console.log("[HUE] Toggled light", lightId, "to:", st.on, res);
 }
 
 async function cycleHueScene(context) {
@@ -249,6 +301,9 @@ function handleHardwareEvent(jsonObj) {
         if (!lightStates[context]) {
             lightStates[context] = { on: false, sceneIndex: 0 };
         }
+        if (jsonObj.payload && jsonObj.payload.settings) {
+            settingsByContext[context] = jsonObj.payload.settings;
+        }
 
         if (action === "com.laoy.streamdock.hue.toggle") {
             const st = lightStates[context];
@@ -261,10 +316,18 @@ function handleHardwareEvent(jsonObj) {
         }
     }
 
+    if (event === "didReceiveSettings") {
+        settingsByContext[context] = (jsonObj.payload && jsonObj.payload.settings) || {};
+        if (action === "com.laoy.streamdock.hue.toggle") {
+            syncRealHueState();
+        }
+    }
+
     if (event === "willDisappear") {
         if (actionContexts[action]) {
             actionContexts[action] = actionContexts[action].filter(c => c !== context);
         }
+        delete settingsByContext[context];
     }
 
     if (event === "keyUp" || event === "keyDown" || (event === "dialPress" && jsonObj.payload?.pressed)) {

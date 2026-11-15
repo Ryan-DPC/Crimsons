@@ -127,6 +127,29 @@
             font-weight: 600;
             color: #f4f4f5;
         }
+        .field {
+            margin-bottom: 10px;
+        }
+        .field label {
+            display: block;
+            margin-bottom: 4px;
+            font-size: 11px;
+            color: #a1a1aa;
+            font-weight: 600;
+        }
+        .field select {
+            width: 100%;
+            padding: 7px 8px;
+            border-radius: 6px;
+            border: 1px solid #3f3f46;
+            background: #27272a;
+            color: #f4f4f5;
+            font-size: 12px;
+            outline: none;
+        }
+        .field select:focus {
+            border-color: #0284c7;
+        }
     </style>
 </head>
 <body>
@@ -159,6 +182,13 @@
             </div>
         </div>
 
+        <div class="field">
+            <label for="lightSelect">Ampoule cible</label>
+            <select id="lightSelect">
+                <option value="">Chargement…</option>
+            </select>
+        </div>
+
         <button class="btn btn-danger" onclick="disconnectHue()">Dissocier le Pont</button>
     </div>
 
@@ -167,6 +197,28 @@
         let bridgeIp = localStorage.getItem("hue_bridge_ip") || "192.168.1.3";
         let hueUser = localStorage.getItem("hue_username") || "";
         let pairingInterval = null;
+        let websocket = null;
+        let piUuid = null;
+        let actionContext = null;
+        let settings = {};
+
+        function saveSettings() {
+            if (!websocket || websocket.readyState !== WebSocket.OPEN || !actionContext) return;
+            websocket.send(JSON.stringify({
+                event: "setSettings",
+                context: actionContext,
+                payload: settings
+            }));
+        }
+
+        function applySettings(next) {
+            settings = next || {};
+            const sel = document.getElementById("lightSelect");
+            if (sel && settings.lightId) {
+                const has = Array.from(sel.options).some(o => o.value === String(settings.lightId));
+                if (has) sel.value = String(settings.lightId);
+            }
+        }
 
         function updateUI() {
             const badge = document.getElementById("badgeStatus");
@@ -189,15 +241,52 @@
 
         async function loadHueInfo() {
             if (!hueUser) return;
+            const sel = document.getElementById("lightSelect");
             try {
                 const resp = await fetch(`http://${bridgeIp}/api/${hueUser}/lights`);
                 if (resp.ok) {
                     const data = await resp.json();
-                    const count = Object.keys(data).length;
-                    document.getElementById("lightCount").textContent = count + " ampoule(s)";
+                    const ids = Object.keys(data);
+                    document.getElementById("lightCount").textContent = ids.length + " ampoule(s)";
+
+                    if (!sel) return;
+                    sel.innerHTML = "";
+                    if (ids.length === 0) {
+                        const opt = document.createElement("option");
+                        opt.value = "";
+                        opt.textContent = "Aucune ampoule";
+                        sel.appendChild(opt);
+                        return;
+                    }
+
+                    ids.forEach(id => {
+                        const light = data[id] || {};
+                        const opt = document.createElement("option");
+                        opt.value = String(id);
+                        opt.textContent = (light.name || ("Ampoule " + id)) + " (" + id + ")";
+                        sel.appendChild(opt);
+                    });
+
+                    const saved = settings.lightId != null ? String(settings.lightId) : "";
+                    if (saved && ids.includes(saved)) {
+                        sel.value = saved;
+                    } else {
+                        sel.value = ids[0];
+                        if (settings.lightId !== ids[0]) {
+                            settings.lightId = ids[0];
+                            saveSettings();
+                        }
+                    }
                 }
             } catch (e) {
                 document.getElementById("lightCount").textContent = "Erreur réseau";
+                if (sel) {
+                    sel.innerHTML = "";
+                    const opt = document.createElement("option");
+                    opt.value = "";
+                    opt.textContent = "Erreur réseau";
+                    sel.appendChild(opt);
+                }
             }
         }
 
@@ -276,8 +365,49 @@
             }
         }
 
+        document.getElementById("lightSelect").addEventListener("change", function () {
+            const value = (this.value || "").trim();
+            if (!value) return;
+            settings.lightId = value;
+            saveSettings();
+        });
+
         // StreamDock Property Inspector entry point
         function connectElgatoStreamDeckSocket(inPort, inPluginUUID, inRegisterEvent, inInfo, inActionInfo) {
+            piUuid = inPluginUUID;
+            try {
+                const actionInfo = typeof inActionInfo === "string" ? JSON.parse(inActionInfo) : (inActionInfo || {});
+                actionContext = actionInfo.context || inPluginUUID;
+                if (actionInfo.payload && actionInfo.payload.settings) {
+                    settings = actionInfo.payload.settings;
+                }
+            } catch (e) {
+                actionContext = inPluginUUID;
+            }
+
+            try {
+                websocket = new WebSocket("ws://127.0.0.1:" + inPort);
+                websocket.onopen = function () {
+                    websocket.send(JSON.stringify({ event: inRegisterEvent, uuid: piUuid }));
+                    if (actionContext) {
+                        websocket.send(JSON.stringify({ event: "getSettings", context: actionContext }));
+                    }
+                };
+                websocket.onmessage = function (evt) {
+                    try {
+                        const data = JSON.parse(evt.data);
+                        if (data.event === "didReceiveSettings") {
+                            applySettings(data.payload && data.payload.settings);
+                            if (hueUser) loadHueInfo();
+                        }
+                    } catch (e) {
+                        console.error("[HUE PI]", e);
+                    }
+                };
+            } catch (e) {
+                console.warn("[HUE PI] WS connect failed:", e);
+            }
+
             checkConnection();
         }
         window.connectElgatoStreamDeckSocket = connectElgatoStreamDeckSocket;
