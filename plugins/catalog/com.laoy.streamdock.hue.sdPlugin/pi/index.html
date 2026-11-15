@@ -62,29 +62,6 @@
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
         }
-        .row {
-            margin-bottom: 10px;
-        }
-        .label {
-            font-size: 11px;
-            color: #a1a1aa;
-            margin-bottom: 4px;
-            display: block;
-            font-weight: 500;
-        }
-        .input-text {
-            width: 100%;
-            background: #27272a;
-            border: 1px solid #3f3f46;
-            color: #f4f4f5;
-            padding: 6px 8px;
-            border-radius: 6px;
-            font-size: 12px;
-            outline: none;
-        }
-        .input-text:focus {
-            border-color: #38bdf8;
-        }
         .btn {
             display: block;
             width: 100%;
@@ -103,14 +80,6 @@
         }
         .btn-primary:hover {
             background: #0369a1;
-        }
-        .btn-success {
-            background: #16a34a;
-            color: #ffffff;
-            margin-top: 6px;
-        }
-        .btn-success:hover {
-            background: #15803d;
         }
         .btn-danger {
             background: rgba(239, 68, 68, 0.15);
@@ -168,11 +137,6 @@
         <span id="badgeStatus" class="badge badge-disconnected">Non connecté</span>
     </div>
 
-    <div class="row">
-        <label class="label">Adresse IP du Pont Hue</label>
-        <input id="ipInput" class="input-text" type="text" value="192.168.1.3" />
-    </div>
-
     <!-- NOT PAIRED VIEW -->
     <div id="unpairedView">
         <div class="notice">
@@ -195,21 +159,14 @@
             </div>
         </div>
 
-        <button class="btn btn-success" onclick="toggleTestLight()">⚡ Tester Allumer / Éteindre</button>
         <button class="btn btn-danger" onclick="disconnectHue()">Dissocier le Pont</button>
     </div>
 
     <script>
+        // Bridge IP is resolved from token/localStorage (no user-facing IP field).
         let bridgeIp = localStorage.getItem("hue_bridge_ip") || "192.168.1.3";
         let hueUser = localStorage.getItem("hue_username") || "";
         let pairingInterval = null;
-
-        document.getElementById("ipInput").value = bridgeIp;
-        document.getElementById("ipInput").addEventListener("change", (e) => {
-            bridgeIp = e.target.value.trim();
-            localStorage.setItem("hue_bridge_ip", bridgeIp);
-            checkConnection();
-        });
 
         function updateUI() {
             const badge = document.getElementById("badgeStatus");
@@ -249,6 +206,10 @@
                 const f = await fetch("../hue_token.json");
                 if (f.ok) {
                     const d = await f.json();
+                    if (d && d.bridge_ip) {
+                        bridgeIp = d.bridge_ip;
+                        localStorage.setItem("hue_bridge_ip", bridgeIp);
+                    }
                     if (d && d.username) {
                         hueUser = d.username;
                         localStorage.setItem("hue_username", hueUser);
@@ -305,23 +266,6 @@
                     badge.textContent = "Délai expiré";
                 }
             }, 1200);
-        }
-
-        async function toggleTestLight() {
-            if (!hueUser) return;
-            try {
-                // Get current state
-                const gResp = await fetch(`http://${bridgeIp}/api/${hueUser}/groups/0`);
-                const gData = await gResp.json();
-                const anyOn = gData?.state?.any_on;
-                await fetch(`http://${bridgeIp}/api/${hueUser}/groups/0/action`, {
-                    method: "PUT",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ on: !anyOn })
-                });
-            } catch (e) {
-                alert("Erreur commande Hue: " + e.message);
-            }
         }
 
         function disconnectHue() {
