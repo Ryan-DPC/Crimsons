@@ -102,7 +102,7 @@
       "description": "Plugin StreamDock branché sur l’API locale Cider. Molette Parcourir playlists + bouton Aperçu. Nécessite Cider + apptoken Library.",
       "packageId": "com.laoy.streamdock.applemusic.sdPlugin",
       "packagePath": "com.laoy.streamdock.applemusic.sdPlugin",
-      "version": "0.5.3",
+      "version": "0.5.4",
       "status": "published",
       "pricing": "5.99 CHF/mois",
       "categories": [

@@ -97,8 +97,8 @@
             .replace('{w}', '144')
             .replace('{h}', '144')
             .replace(/\/1200x1200bb\.(png|jpg)/gi, '/144x144bb.jpg')
-            .replace(/\/600x600bb\.(png|jpg)/gi, '/144x144bb.jpg')
-            .replace(/\/300x300bb\.(png|jpg)/gi, '/144x144bb.jpg');
+            .replace(/\/600x600bb\.(png|jpg)/gi, '/144x144bb.$1')
+            .replace(/\/300x300bb\.(png|jpg)/gi, '/144x144bb.$1');
     }
 
     function extractArtwork(item) {

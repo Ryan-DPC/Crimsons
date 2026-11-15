@@ -51,6 +51,8 @@ const playlistBrowser = {
     list: [],
     index: 0,
     loading: false,
+    /** In-flight ensureLoaded promise — concurrent willAppear must await, not no-op. */
+    loadPromise: null,
     moveBusy: false,
     pendingDelta: 0,
     lastCoverUrl: "",
@@ -62,28 +64,63 @@ const playlistBrowser = {
         return this.list[i];
     },
 
+    clearCoverDedupe() {
+        this.lastCoverUrl = "";
+        this.lastCoverCtx = {};
+    },
+
     async ensureLoaded(force) {
-        if (this.loading) return;
+        // Browse + Preview both fire willAppear — join the in-flight load so the
+        // second caller no longer paints with an empty list / no cover.
+        if (this.loadPromise) {
+            await this.loadPromise;
+            if (!force && this.list.length) return;
+        }
         if (!force && this.list.length) return;
-        this.loading = true;
+        if (this.loadPromise) {
+            await this.loadPromise;
+            return;
+        }
+
         const t0 = Date.now();
+        this.loading = true;
         amLog.info("browser.ensureLoaded start", { force: !!force, cached: this.list.length });
-        try {
-            const list = await ciderAPI.listLibraryPlaylistsFast();
-            this.list = list || [];
-            if (this.index >= this.list.length) this.index = 0;
-            amLog.timing("browser.listFast", t0);
-            amLog.info("browser.list ready", { count: this.list.length });
-            // Cover for current only — never block scroll on full-library enrich
-            const cur = this.current();
-            if (cur && !cur.image) {
-                const t1 = Date.now();
-                cur.image = await ciderAPI.artworkFromFirstTrack(cur.id);
-                amLog.timing("browser.cover.current", t1);
+        const work = (async () => {
+            try {
+                const list = await ciderAPI.listLibraryPlaylistsFast();
+                this.list = list || [];
+                if (this.index >= this.list.length) this.index = 0;
+                amLog.timing("browser.listFast", t0);
+                const cur = this.current();
+                amLog.info("browser.list ready", {
+                    count: this.list.length,
+                    index: this.index,
+                    id: cur && cur.id,
+                    name: cur && cur.name,
+                    hasImage: !!(cur && cur.image)
+                });
+                // Cover for current only — never block scroll on full-library enrich
+                if (cur && !cur.image) {
+                    const t1 = Date.now();
+                    cur.image = await ciderAPI.artworkFromFirstTrack(cur.id);
+                    amLog.timing("browser.cover.current", t1);
+                    amLog.info("browser.cover.current result", {
+                        id: cur.id,
+                        name: cur.name,
+                        art: cur.image ? String(cur.image).slice(0, 80) : ""
+                    });
+                }
+            } catch (e) {
+                amLog.error("browser.ensureLoaded failed", String(e && e.message ? e.message : e));
+            } finally {
+                this.loading = false;
             }
-        } catch (e) {
-            amLog.error("browser.ensureLoaded failed", String(e && e.message ? e.message : e));
+        })();
+        this.loadPromise = work;
+        try {
+            await work;
         } finally {
+            if (this.loadPromise === work) this.loadPromise = null;
             this.loading = false;
         }
     },
@@ -117,14 +154,17 @@ const playlistBrowser = {
                 this.paint({ skipCoverFetch: true });
                 if (cur && !cur.image) {
                     ciderAPI.artworkFromFirstTrack(cur.id).then((art) => {
-                        if (!art) return;
+                        if (!art) {
+                            amLog.warn("browser.move no artwork", { id: cur.id, name: cur.name });
+                            return;
+                        }
                         if (this.current() && this.current().id === cur.id) {
                             cur.image = art;
-                            this.applyCover(art);
+                            this.applyCover(art, { force: true });
                         }
                     }).catch(() => {});
                 } else if (cur && cur.image) {
-                    this.applyCover(cur.image);
+                    this.applyCover(cur.image, { force: true });
                 }
                 amLog.timing("browser.move.tick", t0);
             }
@@ -156,6 +196,7 @@ const playlistBrowser = {
 
     paint(opts) {
         const cur = this.current();
+        const force = !!(opts && opts.force);
         const label = !this.list.length
             ? "Aucune"
             : ((this.index + 1) + "/" + this.list.length);
@@ -165,39 +206,77 @@ const playlistBrowser = {
 
         const viewContexts = actionContexts["com.laoy.streamdock.applemusic.playlistview"] || [];
         viewContexts.forEach((ctx) => {
+            // Bypass setTitleForContext dedupe — page return blanks titles.
+            if (force) delete lastTitleByContext[ctx];
             sendToContext(ctx, "setTitle", { title: name, target: 0 });
         });
 
+        amLog.info("browser.paint", {
+            name: name,
+            label: label,
+            hasImage: !!(cur && cur.image),
+            views: viewContexts.length,
+            force: force,
+            skipCoverFetch: !!(opts && opts.skipCoverFetch)
+        });
+
         if (cur && cur.image) {
-            this.applyCover(cur.image);
+            this.applyCover(cur.image, { force: force });
         } else if (!(opts && opts.skipCoverFetch)) {
+            // Still try first-track art (list often has artwork:null for user playlists).
+            if (cur && cur.id) {
+                ciderAPI.artworkFromFirstTrack(cur.id).then((art) => {
+                    if (!art) {
+                        amLog.warn("browser.paint no artwork", { id: cur.id, name: cur.name });
+                        return;
+                    }
+                    if (this.current() && this.current().id === cur.id) {
+                        cur.image = art;
+                        this.applyCover(art, { force: true });
+                    }
+                }).catch(() => {});
+            }
             viewContexts.forEach((ctx) => {
                 sendToContext(ctx, "setImage", { image: "static/icon/play_playlist.png", target: 0 });
             });
         }
     },
 
-    async applyCover(url) {
+    async applyCover(url, opts) {
         if (!url) return;
+        const force = !!(opts && opts.force);
         const viewContexts = actionContexts["com.laoy.streamdock.applemusic.playlistview"] || [];
-        if (!viewContexts.length) return;
+        if (!viewContexts.length) {
+            amLog.warn("browser.cover no playlistview contexts");
+            return;
+        }
         const t0 = Date.now();
         const cur = this.current();
         try {
-            const b64 = url.startsWith("data:") ? url : await crimsonAPI.toBase64(url);
+            let b64 = url.startsWith("data:") ? url : await crimsonAPI.toBase64(url);
             if (!b64) {
-                amLog.warn("browser.cover toBase64 failed", url.slice(0, 80));
-                return;
+                amLog.warn("browser.cover toBase64 failed — raw URL fallback", url.slice(0, 80));
+                // Same last-resort as Now Playing / Play Playlist.
+                b64 = url;
             }
             // Warm Play Playlist memo so square keys can paint instantly later.
-            if (cur && cur.id) rememberPlaylistArt(cur.id, url, b64);
-            if (cur && cur.name) rememberPlaylistArt(cur.name, url, b64);
+            if (cur && cur.id) rememberPlaylistArt(cur.id, url, b64.startsWith("data:") ? b64 : "");
+            if (cur && cur.name) rememberPlaylistArt(cur.name, url, b64.startsWith("data:") ? b64 : "");
+            let painted = 0;
             viewContexts.forEach((ctx) => {
-                if (this.lastCoverCtx[ctx] === url) return;
+                if (!force && this.lastCoverCtx[ctx] === url) return;
                 this.lastCoverCtx[ctx] = url;
                 sendToContext(ctx, "setImage", { image: b64, target: 0 });
+                painted++;
             });
             this.lastCoverUrl = url;
+            amLog.info("browser.cover.setImage", {
+                painted: painted,
+                views: viewContexts.length,
+                force: force,
+                b64: b64.startsWith("data:"),
+                url: String(url).slice(0, 80)
+            });
             amLog.timing("browser.cover.apply", t0);
         } catch (e) {
             amLog.error("browser.cover failed", String(e && e.message ? e.message : e));
@@ -517,9 +596,10 @@ const ciderAPI = {
             .replace(/\{w\}x\{h\}bb/g, "144x144bb")
             .replace("{w}", "144")
             .replace("{h}", "144")
-            .replace(/\/600x600bb\.(png|jpg)/g, "/144x144bb.jpg")
-            .replace(/\/1200x1200bb\.(png|jpg)/g, "/144x144bb.jpg")
-            .replace(/\/300x300bb\.(png|jpg)/g, "/144x144bb.jpg");
+            // Keep original extension — mzstatic serves both .png and .jpg variants.
+            .replace(/\/600x600bb\.(png|jpg)/gi, "/144x144bb.$1")
+            .replace(/\/1200x1200bb\.(png|jpg)/gi, "/144x144bb.$1")
+            .replace(/\/300x300bb\.(png|jpg)/gi, "/144x144bb.$1");
     },
 
     extractArtworkFromItem(item) {
@@ -579,14 +659,31 @@ const ciderAPI = {
                 `/api/v2/library/playlists/${encodeURIComponent(playlistId)}/songs?limit=1`,
                 "GET"
             );
-            if (!resp || !resp.ok) return "";
+            if (!resp || !resp.ok) {
+                amLog.warn("artworkFromFirstTrack HTTP", {
+                    id: playlistId,
+                    status: resp ? resp.status : null
+                });
+                return "";
+            }
             const json = await resp.json();
             const items = (json && json.data && Array.isArray(json.data.items))
                 ? json.data.items
                 : (Array.isArray(json && json.data) ? json.data : []);
-            if (!items.length) return "";
-            return this.extractArtworkFromItem(items[0]);
+            if (!items.length) {
+                amLog.warn("artworkFromFirstTrack empty songs", { id: playlistId });
+                return "";
+            }
+            const art = this.extractArtworkFromItem(items[0]);
+            if (!art) {
+                amLog.warn("artworkFromFirstTrack no extractable art", {
+                    id: playlistId,
+                    track: items[0] && (items[0].name || (items[0].attributes && items[0].attributes.name))
+                });
+            }
+            return art;
         } catch (e) {
+            amLog.error("artworkFromFirstTrack exception", String(e && e.message ? e.message : e));
             return "";
         }
     },
@@ -1104,6 +1201,13 @@ async function applyPlaylistCover(context, settings, opts) {
     const memo = memoKey
         ? (playlistArtMemo[memoKey] || playlistArtMemo[String(memoKey).toLowerCase()])
         : null;
+    amLog.info("applyPlaylistCover start", {
+        context: String(context || "").slice(0, 12),
+        memoKey: String(memoKey || "").slice(0, 40),
+        hasUrl: !!url,
+        hasMemoB64: !!(memo && memo.b64),
+        force: force
+    });
 
     // Fast path: paint cached base64 immediately (willAppear / page return <1s).
     if (memo && memo.b64) {
@@ -1121,12 +1225,22 @@ async function applyPlaylistCover(context, settings, opts) {
         const raw = ciderAPI.extractPlaylistRaw(s);
         if (raw) {
             url = await ciderAPI.resolvePlaylistArtwork(raw);
+            amLog.info("applyPlaylistCover resolve", {
+                raw: String(raw).slice(0, 40),
+                art: url ? String(url).slice(0, 80) : ""
+            });
             if (url) {
                 persistPlaylistImageToSettings(context, s, url);
             }
         }
     }
-    if (!url) return;
+    if (!url) {
+        amLog.warn("applyPlaylistCover empty artwork", {
+            memoKey: String(memoKey || "").slice(0, 40),
+            name: s.playlistName || s.name || ""
+        });
+        return;
+    }
 
     // Re-check memo for this URL after resolve (browser may have warmed it).
     const memo2 = memoKey
@@ -1252,7 +1366,11 @@ function handleHardwareEvent(jsonObj) {
             }).catch(() => {});
         } else if (action === "com.laoy.streamdock.applemusic.playlistbrowse"
             || action === "com.laoy.streamdock.applemusic.playlistview") {
-            playlistBrowser.ensureLoaded(true).then(() => playlistBrowser.paint());
+            // StreamDock blanks the key on page return; wipe cover dedupe so setImage re-fires.
+            playlistBrowser.clearCoverDedupe();
+            delete lastTitleByContext[context];
+            delete lastImageByContext[context];
+            playlistBrowser.ensureLoaded(true).then(() => playlistBrowser.paint({ force: true }));
             forceRehydrateNowPlaying();
         } else {
             // Page return / plugin reload: wipe songinfo dedupe then rehydrate.
@@ -1294,6 +1412,7 @@ function handleHardwareEvent(jsonObj) {
         delete playlistCoverCache[context];
         delete lastTitleByContext[context];
         delete lastImageByContext[context];
+        delete playlistBrowser.lastCoverCtx[context];
         // Global art dedupe must reset too: otherwise applySongInfoArt skips setImage
         // when the same track is still playing after coming back to the page.
         lastAlbumArt = null;
@@ -1332,6 +1451,14 @@ const crimsonAPI = {
                 invalidatePlaylistPaintCaches(ctx);
                 applyPlaylistButton(ctx, contextSettings[ctx] || {}, { force: true });
             });
+            // Playlist Preview key (browser) — same page-return blanking problem.
+            const hasBrowser =
+                (actionContexts["com.laoy.streamdock.applemusic.playlistview"] || []).length
+                || (actionContexts["com.laoy.streamdock.applemusic.playlistbrowse"] || []).length;
+            if (hasBrowser) {
+                playlistBrowser.clearCoverDedupe();
+                playlistBrowser.ensureLoaded(true).then(() => playlistBrowser.paint({ force: true }));
+            }
         };
         this.ws.onmessage = (evt) => {
             try {
