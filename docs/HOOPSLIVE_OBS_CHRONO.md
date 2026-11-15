@@ -35,6 +35,15 @@ Install pack: `plugins/streamdeck/com.laoy.streamdock.hoopslive-obs.sdPlugin/`
 
 Property Inspector **global** settings: `baseUrl`, `token`, `pollMs`.
 
+| Field | Put this | Not this |
+| --- | --- | --- |
+| Public base URL | `https://store.hoopslive.ch` (API origin, no trailing slash) | Full `…/hl-obs/<secret>/…` overlay URL |
+| API token | `HOOPSLIVE_OBS_TOKEN` | Path secret from `/hl-obs/…` |
+| Overlay helper (optional) | Paste Browser Source URL → PI can fill origin / warn on host mismatch | Do not use as scene name |
+| OBS scene name | Only on **OBS Scene (stub)** — e.g. `HL — Start` | Any `https://…` link |
+
+Display titles on error: `CFG?` (missing settings), `401`/`403`/`404`, `NO API` (route returns HTML / not deployed), `NET`.
+
 | Key | UUID suffix | API |
 | --- | --- | --- |
 | Chrono Display | `display` | GET poll → title `MM:SS` |
@@ -47,6 +56,8 @@ Property Inspector **global** settings: `baseUrl`, `token`, `pollMs`.
 | +1m | `add60` | POST `add` `{seconds:60}` |
 | -10s | `sub10` | POST `add` `{seconds:-10}` |
 | OBS Scene | `obs_scene` | **Stub** — see below |
+
+**Deploy gate:** production `store.hoopslive.ch` must run store branch `feat/hoopslive-obs-chrono-20a4` (or merged equivalent). If `GET /api/hoopslive/obs/countdown` returns SPA HTML instead of JSON, buttons show `NO API` until that deploy.
 
 ## OBS scenes limit (stub)
 

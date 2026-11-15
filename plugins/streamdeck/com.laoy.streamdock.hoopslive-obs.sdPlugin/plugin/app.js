@@ -35,6 +35,10 @@ let settingsByContext = {};
 /** @type {string[]} */
 let displayContexts = [];
 let pollTimer = null;
+/** @type {Record<string, number>} */
+let lastKeyAt = {};
+/** Last display error title (short) */
+let lastErrTitle = '--:--';
 
 function fmt(sec) {
   const s = Math.max(0, Math.floor(Number(sec) || 0));
@@ -45,6 +49,9 @@ function fmt(sec) {
 
 function baseUrl() {
   const u = String(globalSettings.baseUrl || '').replace(/\/$/, '');
+  // Guard: if user pasted a full hl-obs overlay URL as baseUrl, keep only origin
+  const m = u.match(/^(https?:\/\/[^/]+)/i);
+  if (m && /\/hl-obs\//i.test(u)) return m[1];
   return u;
 }
 
@@ -75,6 +82,37 @@ function showOk(context) {
   sendToSd({ event: 'showOk', context });
 }
 
+function errTitle(err) {
+  const msg = String((err && err.message) || err || '');
+  if (/Missing baseUrl|Missing token|Missing baseUrl\/token/i.test(msg)) return 'CFG?';
+  if (/HTTP 401|Unauthorized/i.test(msg)) return '401';
+  if (/HTTP 403/i.test(msg)) return '403';
+  if (/HTTP 404/i.test(msg)) return '404';
+  if (/HTTP 429/i.test(msg)) return '429';
+  if (/NOT_JSON|SPA|NO_API|Unexpected token|JSON/i.test(msg)) return 'NO API';
+  if (/Failed to fetch|NetworkError|TypeError/i.test(msg)) return 'NET';
+  const m = msg.match(/HTTP (\d{3})/i);
+  if (m) return m[1];
+  return '--:--';
+}
+
+async function parseJsonResponse(res) {
+  const ct = String(res.headers.get('content-type') || '');
+  const text = await res.text();
+  const trimmed = text.trim();
+  if (!res.ok) {
+    throw new Error('HTTP ' + res.status);
+  }
+  if (!ct.includes('json') || trimmed.startsWith('<!DOCTYPE') || trimmed.startsWith('<!doctype') || trimmed.startsWith('<html')) {
+    throw new Error('NOT_JSON');
+  }
+  try {
+    return JSON.parse(trimmed);
+  } catch (_) {
+    throw new Error('NOT_JSON');
+  }
+}
+
 async function apiGet() {
   const base = baseUrl();
   const tok = token();
@@ -86,8 +124,7 @@ async function apiGet() {
       'X-HoopsLive-Token': tok,
     },
   });
-  if (!res.ok) throw new Error('HTTP ' + res.status);
-  return res.json();
+  return parseJsonResponse(res);
 }
 
 async function apiPost(action, extra) {
@@ -105,8 +142,7 @@ async function apiPost(action, extra) {
     },
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error('HTTP ' + res.status);
-  return res.json();
+  return parseJsonResponse(res);
 }
 
 async function refreshDisplays() {
@@ -114,9 +150,11 @@ async function refreshDisplays() {
   try {
     const snap = await apiGet();
     const title = fmt(snap.remainingSec) + (snap.running ? '' : ' ‖');
+    lastErrTitle = '--:--';
     for (const ctx of displayContexts) setTitle(ctx, title);
   } catch (e) {
-    for (const ctx of displayContexts) setTitle(ctx, '--:--');
+    lastErrTitle = errTitle(e);
+    for (const ctx of displayContexts) setTitle(ctx, lastErrTitle);
   }
 }
 
@@ -132,9 +170,17 @@ function ensurePoll() {
  */
 async function stubObsScene(context) {
   const settings = settingsByContext[context] || {};
-  const sceneName = String(settings.sceneName || settings.scene || '').trim();
+  let sceneName = String(settings.sceneName || settings.scene || '').trim();
+  // User sometimes pastes hl-obs URL here — reject clearly
+  if (/^https?:\/\//i.test(sceneName) || /\/hl-obs\//i.test(sceneName)) {
+    console.warn('[HoopsLive OBS] obs_scene: sceneName looks like a URL — use OBS scene title, not hl-obs link');
+    setTitle(context, 'URL?');
+    showAlert(context);
+    return;
+  }
   if (!sceneName) {
     console.warn('[HoopsLive OBS] obs_scene stub: set sceneName in Property Inspector');
+    setTitle(context, 'NAME?');
     showAlert(context);
     return;
   }
@@ -183,12 +229,14 @@ async function handleKeyDown(action, context) {
     if (!spec) return;
     const snap = await apiPost(spec.action, spec.extra);
     showOk(context);
-    if (action === UUID.display || displayContexts.length) {
+    if (displayContexts.length) {
       const title = fmt(snap.remainingSec) + (snap.running ? '' : ' ‖');
       for (const ctx of displayContexts) setTitle(ctx, title);
     }
   } catch (e) {
-    console.error('[HoopsLive OBS]', e);
+    console.error('[HoopsLive OBS]', e && e.message ? e.message : e);
+    const t = errTitle(e);
+    setTitle(context, t);
     showAlert(context);
   }
 }
@@ -217,7 +265,11 @@ function handleHardwareEvent(jsonObj) {
     globalSettings = (payload.settings || {});
     ensurePoll();
   }
-  if (event === 'keyDown') {
+  // AJAZZ/StreamDock: accept keyDown or keyUp; debounce to avoid double fire
+  if (event === 'keyDown' || event === 'keyUp' || (event === 'dialPress' && payload.pressed)) {
+    const now = Date.now();
+    if (lastKeyAt[context] && now - lastKeyAt[context] < 350) return;
+    lastKeyAt[context] = now;
     handleKeyDown(action, context);
   }
 }

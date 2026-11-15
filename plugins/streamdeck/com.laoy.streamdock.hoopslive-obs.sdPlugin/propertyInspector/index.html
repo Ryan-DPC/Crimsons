@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fr">
 <head>
   <meta charset="utf-8" />
   <title>HoopsLive OBS Chrono Settings</title>
@@ -8,11 +8,15 @@
     label { display: block; margin-top: 8px; opacity: .85; }
     input { width: 100%; box-sizing: border-box; margin-top: 4px; padding: 6px; border-radius: 4px; border: 1px solid #555; background: #1b1b1b; color: #fff; }
     .hint { opacity: .65; margin-top: 10px; line-height: 1.35; }
+    .warn { color: #f0c674; opacity: .95; margin-top: 8px; line-height: 1.35; display: none; }
+    .okmsg { color: #8abeb7; opacity: .95; margin-top: 6px; line-height: 1.35; display: none; }
     code { font-size: 11px; }
+    .section { margin-top: 12px; padding-top: 8px; border-top: 1px solid #444; }
+    #sceneRow { display: none; }
   </style>
 </head>
 <body>
-  <label>Public base URL (no trailing slash)
+  <label>Public base URL — API host (no trailing slash)
     <input id="baseUrl" placeholder="https://store.hoopslive.ch" />
   </label>
   <label>API token (HOOPSLIVE_OBS_TOKEN)
@@ -21,22 +25,101 @@
   <label>Display poll ms (250–2000)
     <input id="pollMs" type="number" min="250" max="2000" value="400" />
   </label>
-  <label>OBS scene name (obs_scene stub only)
-    <input id="sceneName" placeholder="Start" />
-  </label>
+
+  <div class="section">
+    <label>Overlay / hl-obs link (optional helper — OBS Browser Source only)
+      <input id="overlayUrl" placeholder="https://store.hoopslive.ch/hl-obs/&lt;secret&gt;/scenes/start.html" />
+    </label>
+    <p id="overlayHint" class="okmsg"></p>
+    <p id="overlayWarn" class="warn"></p>
+  </div>
+
+  <div id="sceneRow" class="section">
+    <label>OBS scene name (stub only — e.g. HL — Start)
+      <input id="sceneName" placeholder="HL — Start" />
+    </label>
+  </div>
+
   <p class="hint">
-    Chrono source of truth is the <strong>VPS store API</strong>, not localhost.
-    <code>obs_scene</code> tries <code>http://127.0.0.1:40510/local/obs/scene</code> (not implemented in sidecar — stub).
+    Chrono = <strong>VPS store API</strong> (<code>baseUrl</code> + token). Do <strong>not</strong> put the
+    <code>hl-obs/…</code> overlay URL in baseUrl or scene name — that link is for OBS Browser Source only.
+    <code>obs_scene</code> tries <code>http://127.0.0.1:40510/local/obs/scene</code> (not in sidecar — stub).
   </p>
   <script>
     let uuid = '';
     let actionInfo = {};
     let websocket = null;
 
+    const HL_OBS_RE = /^(https?:\/\/[^/\s]+)\/hl-obs\/([^/\s]+)(?:\/|$)/i;
+
+    function normalizeBase(u) {
+      return String(u || '').trim().replace(/\/$/, '');
+    }
+
+    function parseOverlay(raw) {
+      const s = String(raw || '').trim();
+      if (!s) return null;
+      const m = s.match(HL_OBS_RE);
+      if (!m) return null;
+      return { origin: m[1].replace(/\/$/, ''), pathSecret: m[2] };
+    }
+
+    function showOverlayFeedback() {
+      const hint = document.getElementById('overlayHint');
+      const warn = document.getElementById('overlayWarn');
+      hint.style.display = 'none';
+      warn.style.display = 'none';
+      hint.textContent = '';
+      warn.textContent = '';
+
+      const raw = document.getElementById('overlayUrl').value.trim();
+      if (!raw) return;
+
+      const parsed = parseOverlay(raw);
+      if (!parsed) {
+        warn.textContent = 'Not an hl-obs URL. Expected: https://store.hoopslive.ch/hl-obs/<secret>/scenes/…';
+        warn.style.display = 'block';
+        return;
+      }
+
+      const baseEl = document.getElementById('baseUrl');
+      const cur = normalizeBase(baseEl.value);
+      if (!cur) {
+        baseEl.value = parsed.origin;
+        sendGlobal();
+        hint.textContent = 'Filled Public base URL from overlay origin: ' + parsed.origin +
+          ' (path secret is for OBS only — not needed by StreamDock).';
+        hint.style.display = 'block';
+      } else if (cur !== parsed.origin) {
+        warn.textContent = 'Overlay host (' + parsed.origin + ') ≠ Public base URL (' + cur +
+          '). StreamDock must use the API host (usually https://store.hoopslive.ch). Keep overlay URL in OBS only.';
+        warn.style.display = 'block';
+      } else {
+        hint.textContent = 'OK — same host as Public base URL. Path secret stays in OBS Browser Source, not here.';
+        hint.style.display = 'block';
+      }
+    }
+
+    function guardSceneField() {
+      const el = document.getElementById('sceneName');
+      const v = el.value.trim();
+      const warn = document.getElementById('overlayWarn');
+      if (/^https?:\/\//i.test(v) || /\/hl-obs\//i.test(v)) {
+        document.getElementById('overlayUrl').value = v;
+        el.value = '';
+        sendAction();
+        showOverlayFeedback();
+        warn.textContent = 'Moved hl-obs URL out of “OBS scene name”. That field wants an OBS scene title (stub), not a URL.';
+        warn.style.display = 'block';
+        return true;
+      }
+      return false;
+    }
+
     function sendGlobal() {
       if (!websocket) return;
       const settings = {
-        baseUrl: document.getElementById('baseUrl').value.trim().replace(/\/$/, ''),
+        baseUrl: normalizeBase(document.getElementById('baseUrl').value),
         token: document.getElementById('token').value,
         pollMs: parseInt(document.getElementById('pollMs').value, 10) || 400,
       };
@@ -49,6 +132,7 @@
 
     function sendAction() {
       if (!websocket || !actionInfo.context) return;
+      if (guardSceneField()) return;
       const settings = Object.assign({}, actionInfo.payload && actionInfo.payload.settings || {}, {
         sceneName: document.getElementById('sceneName').value.trim(),
       });
@@ -59,6 +143,11 @@
       }));
     }
 
+    function isObsSceneAction() {
+      const a = String(actionInfo.action || '');
+      return a.indexOf('.obs_scene') !== -1;
+    }
+
     function connectElgatoStreamDeckSocket(port, inUuid, registerEvent, inInfo, inActionInfo) {
       uuid = inUuid;
       try { actionInfo = JSON.parse(inActionInfo); } catch (_) { actionInfo = {}; }
@@ -66,9 +155,13 @@
       websocket.onopen = () => {
         websocket.send(JSON.stringify({ event: registerEvent, uuid: inUuid }));
         websocket.send(JSON.stringify({ event: 'getGlobalSettings', context: inUuid }));
+        document.getElementById('sceneRow').style.display = isObsSceneAction() ? 'block' : 'none';
         if (actionInfo.payload && actionInfo.payload.settings) {
           const s = actionInfo.payload.settings;
-          if (s.sceneName) document.getElementById('sceneName').value = s.sceneName;
+          if (s.sceneName) {
+            document.getElementById('sceneName').value = s.sceneName;
+            guardSceneField();
+          }
         }
       };
       websocket.onmessage = (evt) => {
@@ -90,6 +183,8 @@
     });
     document.getElementById('sceneName').addEventListener('change', sendAction);
     document.getElementById('sceneName').addEventListener('blur', sendAction);
+    document.getElementById('overlayUrl').addEventListener('change', showOverlayFeedback);
+    document.getElementById('overlayUrl').addEventListener('blur', showOverlayFeedback);
 
     window.connectElgatoStreamDeckSocket = connectElgatoStreamDeckSocket;
   </script>
