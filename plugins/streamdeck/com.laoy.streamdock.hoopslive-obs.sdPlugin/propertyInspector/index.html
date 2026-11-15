@@ -10,9 +10,15 @@
     .hint { opacity: .65; margin-top: 10px; line-height: 1.35; }
     .warn { color: #f0c674; opacity: .95; margin-top: 8px; line-height: 1.35; display: none; }
     .okmsg { color: #8abeb7; opacity: .95; margin-top: 6px; line-height: 1.35; display: none; }
+    .err { color: #e06c75; opacity: .95; margin-top: 6px; line-height: 1.35; display: none; }
     code { font-size: 11px; }
     .section { margin-top: 12px; padding-top: 8px; border-top: 1px solid #444; }
     #sceneRow { display: none; }
+    button#testApi {
+      margin-top: 10px; width: 100%; padding: 8px; border-radius: 6px; border: 0;
+      background: #e11d48; color: #fff; font-weight: 600; cursor: pointer;
+    }
+    button#testApi:disabled { opacity: .5; cursor: wait; }
   </style>
 </head>
 <body>
@@ -25,10 +31,13 @@
   <label>Display poll ms (250–2000)
     <input id="pollMs" type="number" min="250" max="2000" value="400" />
   </label>
+  <button type="button" id="testApi">Tester l’API chrono (VPS)</button>
+  <p id="apiHint" class="okmsg"></p>
+  <p id="apiErr" class="err"></p>
 
   <div class="section">
     <label>Overlay / hl-obs link (optional helper — OBS Browser Source only)
-      <input id="overlayUrl" placeholder="https://store.hoopslive.ch/hl-obs/&lt;secret&gt;/scenes/start.html" />
+      <input id="overlayUrl" placeholder="https://store.hoopslive.ch/hl-obs/&lt;secret&gt;/scenes/start.html?k=TOKEN" />
     </label>
     <p id="overlayHint" class="okmsg"></p>
     <p id="overlayWarn" class="warn"></p>
@@ -41,9 +50,10 @@
   </div>
 
   <p class="hint">
-    Chrono = <strong>VPS store API</strong> (<code>baseUrl</code> + token). Do <strong>not</strong> put the
-    <code>hl-obs/…</code> overlay URL in baseUrl or scene name — that link is for OBS Browser Source only.
-    <code>obs_scene</code> tries <code>http://127.0.0.1:40510/local/obs/scene</code> (not in sidecar — stub).
+    Le message vert « same host » = <strong>seulement</strong> que l’URL overlay a le même domaine que
+    <code>baseUrl</code> — <strong>ce n’est pas</strong> un test de l’API. Utilise <strong>Tester l’API</strong>.
+    Dans OBS, Browser Source = URL <code>store…/hl-obs/…/start.html?k=TOKEN</code>
+    (pas <code>hoopslive.ch</code> sans store client). Les boutons +1m parlent à l’API, pas à l’URL overlay du PI.
   </p>
   <script>
     let uuid = '';
@@ -95,8 +105,64 @@
           '). StreamDock must use the API host (usually https://store.hoopslive.ch). Keep overlay URL in OBS only.';
         warn.style.display = 'block';
       } else {
-        hint.textContent = 'OK — same host as Public base URL. Path secret stays in OBS Browser Source, not here.';
+        hint.textContent = 'Host OK (même domaine que baseUrl) — ce n’est PAS un test API. Clique « Tester l’API ». Dans OBS colle aussi ?k=TOKEN.';
         hint.style.display = 'block';
+      }
+    }
+
+    async function testApi() {
+      const hint = document.getElementById('apiHint');
+      const err = document.getElementById('apiErr');
+      const btn = document.getElementById('testApi');
+      hint.style.display = 'none';
+      err.style.display = 'none';
+      hint.textContent = '';
+      err.textContent = '';
+      const base = normalizeBase(document.getElementById('baseUrl').value);
+      const tok = document.getElementById('token').value.trim();
+      if (!base || !tok) {
+        err.textContent = 'CFG? — renseigne Public base URL + API token (pas seulement le lien hl-obs).';
+        err.style.display = 'block';
+        return;
+      }
+      btn.disabled = true;
+      try {
+        const res = await fetch(base + '/api/hoopslive/obs/countdown', {
+          headers: {
+            Accept: 'application/json',
+            Authorization: 'Bearer ' + tok,
+            'X-HoopsLive-Token': tok,
+          },
+        });
+        const ct = String(res.headers.get('content-type') || '');
+        const text = await res.text();
+        if (text.trim().startsWith('<!') || text.trim().startsWith('<html') || !ct.includes('json')) {
+          err.textContent = 'NO API — le serveur renvoie du HTML. Déploie la branche chrono sur le VPS store.';
+          err.style.display = 'block';
+          return;
+        }
+        if (res.status === 401) {
+          err.textContent = '401 — token incorrect / différent de HOOPSLIVE_OBS_TOKEN sur le VPS.';
+          err.style.display = 'block';
+          return;
+        }
+        if (!res.ok) {
+          err.textContent = 'HTTP ' + res.status + ' — ' + text.slice(0, 120);
+          err.style.display = 'block';
+          return;
+        }
+        const snap = JSON.parse(text);
+        const s = Math.max(0, Math.floor(Number(snap.remainingSec) || 0));
+        const mm = String(Math.floor(s / 60)).padStart(2, '0');
+        const ss = String(s % 60).padStart(2, '0');
+        hint.textContent = 'API OK — ' + mm + ':' + ss + (snap.running ? ' (running)' : ' (pause)') +
+          '. Les boutons +1m / −10 doivent marcher. Overlay OBS = store…/hl-obs/…?k=TOKEN';
+        hint.style.display = 'block';
+      } catch (e) {
+        err.textContent = 'NET — ' + String((e && e.message) || e);
+        err.style.display = 'block';
+      } finally {
+        btn.disabled = false;
       }
     }
 
@@ -185,6 +251,7 @@
     document.getElementById('sceneName').addEventListener('blur', sendAction);
     document.getElementById('overlayUrl').addEventListener('change', showOverlayFeedback);
     document.getElementById('overlayUrl').addEventListener('blur', showOverlayFeedback);
+    document.getElementById('testApi').addEventListener('click', testApi);
 
     window.connectElgatoStreamDeckSocket = connectElgatoStreamDeckSocket;
   </script>
