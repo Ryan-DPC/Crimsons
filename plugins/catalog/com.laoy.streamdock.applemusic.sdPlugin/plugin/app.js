@@ -13,6 +13,10 @@ let lastImageByContext = {};
 let activePlaylistByContext = {};
 const POLL_MS = 1000;
 const ART_RETRY_MS = 8000;
+/** Playlist covers retry sooner — 8s backoff made willAppear feel “broken”. */
+const PLAYLIST_ART_RETRY_MS = 1500;
+/** playlistId / name → { url, b64 } so willAppear can paint instantly. */
+const playlistArtMemo = {};
 
 /** Dev-only pipeline logger (no-op in prod unless debug.flag / CRIMSON_PLUGIN_DEBUG). */
 const amLog = (typeof CrimsonDebug !== "undefined" && CrimsonDebug.create)
@@ -178,12 +182,16 @@ const playlistBrowser = {
         const viewContexts = actionContexts["com.laoy.streamdock.applemusic.playlistview"] || [];
         if (!viewContexts.length) return;
         const t0 = Date.now();
+        const cur = this.current();
         try {
             const b64 = url.startsWith("data:") ? url : await crimsonAPI.toBase64(url);
             if (!b64) {
                 amLog.warn("browser.cover toBase64 failed", url.slice(0, 80));
                 return;
             }
+            // Warm Play Playlist memo so square keys can paint instantly later.
+            if (cur && cur.id) rememberPlaylistArt(cur.id, url, b64);
+            if (cur && cur.name) rememberPlaylistArt(cur.name, url, b64);
             viewContexts.forEach((ctx) => {
                 if (this.lastCoverCtx[ctx] === url) return;
                 this.lastCoverCtx[ctx] = url;
@@ -641,6 +649,10 @@ const ciderAPI = {
     async resolvePlaylistArtwork(raw) {
         const key = (raw || "").trim();
         if (!key) return "";
+        // Instant: memory from a prior paint / browser scroll
+        const memo = playlistArtMemo[key] || playlistArtMemo[key.toLowerCase()];
+        if (memo && memo.url) return memo.url;
+
         const match = (list) => (list || []).find((p) =>
             p.id === key
             || (p.name && p.name.toLowerCase() === key.toLowerCase())
@@ -651,22 +663,17 @@ const ciderAPI = {
         if (fromCache && fromCache.image) return fromCache.image;
 
         try {
+            // Fast list ONLY — never enrichMissingArtwork (that serial first-track
+            // crawl for the whole library is what made covers land ~5s late).
             if (!this.playlistCache.length) {
-                await this.listLibraryPlaylists();
-            } else {
-                // Re-enrich just this playlist if still missing art
-                const hit = match(this.playlistCache);
-                if (hit && !hit.image) {
-                    hit.image = await this.artworkFromFirstTrack(hit.id);
-                }
-                if (hit && hit.image) return hit.image;
+                await this.listLibraryPlaylistsFast();
             }
-            const again = match(this.playlistCache);
-            if (again && again.image) return again.image;
-            if (again && again.id) {
-                const art = await this.artworkFromFirstTrack(again.id);
+            const hit = match(this.playlistCache);
+            if (hit && hit.image) return hit.image;
+            if (hit && hit.id) {
+                const art = await this.artworkFromFirstTrack(hit.id);
                 if (art) {
-                    again.image = art;
+                    hit.image = art;
                     return art;
                 }
             }
@@ -873,29 +880,56 @@ function playlistRefMatches(settings, containerId, activeRef) {
 }
 
 const playlistCoverCache = {}; // context -> artwork url
-/** Failed playlist cover URLs → next retry timestamp (ms). */
+/** Failed playlist cover URLs → next retry timestamp (ms). Keys: "context|url". */
 const playlistCoverRetryAfter = {};
 
-/** After page change / restart StreamDock blanks keys but our dedupe caches
- *  still hold the last URL — force a full paint so setImage/setTitle re-fire. */
-function invalidateUiPaintCaches(context) {
+function clearPlaylistCoverRetryForContext(context) {
+    if (!context) {
+        Object.keys(playlistCoverRetryAfter).forEach((k) => { delete playlistCoverRetryAfter[k]; });
+        return;
+    }
+    Object.keys(playlistCoverRetryAfter).forEach((k) => {
+        if (k === context || k.startsWith(context + "|")) delete playlistCoverRetryAfter[k];
+    });
+}
+
+function invalidateNowPlayingCaches() {
     lastAlbumArt = null;
     albumArtInFlight = null;
+}
+
+/** Wipe setImage/setTitle dedupe for a Play Playlist key so paint re-fires.
+ *  Does NOT clear playlistArtMemo — that is the fast willAppear path. */
+function invalidatePlaylistPaintCaches(context) {
     if (context) {
         delete lastTitleByContext[context];
         delete lastImageByContext[context];
         delete playlistCoverCache[context];
-        delete playlistCoverRetryAfter[context];
+        clearPlaylistCoverRetryForContext(context);
     } else {
         lastTitleByContext = {};
         lastImageByContext = {};
         Object.keys(playlistCoverCache).forEach((k) => { delete playlistCoverCache[k]; });
-        Object.keys(playlistCoverRetryAfter).forEach((k) => { delete playlistCoverRetryAfter[k]; });
+        clearPlaylistCoverRetryForContext(null);
     }
 }
 
+/** After page change / restart StreamDock blanks keys but our dedupe caches
+ *  still hold the last URL — force a full paint so setImage/setTitle re-fire. */
+function invalidateUiPaintCaches(context) {
+    invalidateNowPlayingCaches();
+    invalidatePlaylistPaintCaches(context);
+}
+
+/** Rehydrate Now Playing only — must NOT wipe playlist cover memo/dedupe
+ *  (that raced with applyPlaylistCover and delayed/skipped square-key paints). */
 function forceRehydrateNowPlaying() {
-    invalidateUiPaintCaches(null);
+    invalidateNowPlayingCaches();
+    const songContexts = actionContexts["com.laoy.streamdock.applemusic.songinfo"] || [];
+    songContexts.forEach((ctx) => {
+        delete lastTitleByContext[ctx];
+        delete lastImageByContext[ctx];
+    });
     return ciderAPI.fetchState().then((st) => {
         if (st) {
             applyNowPlaying(st);
@@ -914,6 +948,43 @@ function forceRehydrateNowPlaying() {
         amLog.error("forceRehydrateNowPlaying", String(e && e.message ? e.message : e));
         return null;
     });
+}
+
+function playlistCoverMemoKey(settings) {
+    const s = settings || {};
+    const raw = ciderAPI.extractPlaylistRaw(s);
+    if (raw) return raw;
+    if (s.playlistName) return String(s.playlistName);
+    if (s.name) return String(s.name);
+    return "";
+}
+
+function rememberPlaylistArt(key, url, b64) {
+    if (!key) return;
+    const prev = playlistArtMemo[key] || {};
+    const entry = {
+        url: (url || prev.url || "").trim(),
+        b64: b64 || prev.b64 || ""
+    };
+    playlistArtMemo[key] = entry;
+    const lower = String(key).toLowerCase();
+    if (lower !== key) playlistArtMemo[lower] = entry;
+}
+
+function persistPlaylistImageToSettings(context, settings, url) {
+    if (!context || !url) return;
+    const prev = contextSettings[context] || {};
+    if (prev.playlist_image === url && prev.image === url) {
+        contextSettings[context] = Object.assign({}, prev, settings || {});
+        return;
+    }
+    const next = Object.assign({}, prev, settings || {}, {
+        playlist_image: url,
+        image: url
+    });
+    contextSettings[context] = next;
+    // Persist URL so the next StreamDock restart skips Cider resolve.
+    sendToContext(context, "setSettings", next);
 }
 
 function sendToContext(context, event, payload) {
@@ -1025,47 +1096,83 @@ async function applySongInfoArt(state) {
     }
 }
 
-async function applyPlaylistCover(context, settings) {
-    const s = settings || {};
+async function applyPlaylistCover(context, settings, opts) {
+    const s = Object.assign({}, contextSettings[context] || {}, settings || {});
+    const force = !!(opts && opts.force);
+    const memoKey = playlistCoverMemoKey(s);
     let url = (s.playlist_image || s.image || "").trim();
+    const memo = memoKey
+        ? (playlistArtMemo[memoKey] || playlistArtMemo[String(memoKey).toLowerCase()])
+        : null;
+
+    // Fast path: paint cached base64 immediately (willAppear / page return <1s).
+    if (memo && memo.b64) {
+        const paintedUrl = memo.url || memo.b64;
+        if (force || playlistCoverCache[context] !== paintedUrl || lastImageByContext[context] !== memo.b64) {
+            playlistCoverCache[context] = paintedUrl;
+            setImageForContext(context, memo.b64);
+            applyPlaylistButtonTitle(context, s);
+        }
+        if (url && memo.url && memo.url === url && !force) return;
+        if (!url && memo.url) url = memo.url;
+    }
+
     if (!url) {
         const raw = ciderAPI.extractPlaylistRaw(s);
         if (raw) {
             url = await ciderAPI.resolvePlaylistArtwork(raw);
             if (url) {
-                s.playlist_image = url;
-                s.image = url;
-                contextSettings[context] = Object.assign({}, contextSettings[context] || {}, s);
+                persistPlaylistImageToSettings(context, s, url);
             }
         }
     }
     if (!url) return;
-    if (playlistCoverCache[context] === url) return;
+
+    // Re-check memo for this URL after resolve (browser may have warmed it).
+    const memo2 = memoKey
+        ? (playlistArtMemo[memoKey] || playlistArtMemo[String(memoKey).toLowerCase()])
+        : null;
+    if (memo2 && memo2.b64 && memo2.url === url) {
+        playlistCoverCache[context] = url;
+        setImageForContext(context, memo2.b64);
+        applyPlaylistButtonTitle(context, contextSettings[context] || s);
+        if (!force) return;
+    }
+
+    if (!force && playlistCoverCache[context] === url && lastImageByContext[context]) return;
+
     const now = Date.now();
     const retryKey = context + "|" + url;
-    if (playlistCoverRetryAfter[retryKey] && playlistCoverRetryAfter[retryKey] > now) return;
+    if (!force && playlistCoverRetryAfter[retryKey] && playlistCoverRetryAfter[retryKey] > now) return;
     try {
-        const b64 = url.startsWith("data:") ? url : await crimsonAPI.toBase64(url);
+        let b64 = url.startsWith("data:") ? url : await crimsonAPI.toBase64(url);
         if (!b64) {
             console.warn("[AppleMusic] playlist cover toBase64 failed", url.slice(0, 80));
-            // Retry later — do NOT mark cache so willAppear/poll can try again.
-            playlistCoverRetryAfter[retryKey] = now + ART_RETRY_MS;
+            // Last-resort like Now Playing: some hosts accept the raw mzstatic URL.
+            setImageForContext(context, url);
+            playlistCoverCache[context] = url;
+            rememberPlaylistArt(memoKey, url, "");
+            persistPlaylistImageToSettings(context, s, url);
+            applyPlaylistButtonTitle(context, contextSettings[context] || s);
+            playlistCoverRetryAfter[retryKey] = now + PLAYLIST_ART_RETRY_MS;
             return;
         }
         delete playlistCoverRetryAfter[retryKey];
         playlistCoverCache[context] = url;
+        rememberPlaylistArt(memoKey, url, b64);
+        persistPlaylistImageToSettings(context, s, url);
         setImageForContext(context, b64);
         // Keep playlist PI name on the key (cover is background; do not blank title).
         applyPlaylistButtonTitle(context, contextSettings[context] || s);
     } catch (e) {
         console.warn("[AppleMusic] playlist cover failed", e);
-        playlistCoverRetryAfter[retryKey] = now + ART_RETRY_MS;
+        playlistCoverRetryAfter[retryKey] = now + PLAYLIST_ART_RETRY_MS;
     }
 }
 
-function applyPlaylistButton(context, settings) {
+function applyPlaylistButton(context, settings, opts) {
     applyPlaylistButtonTitle(context, settings);
-    applyPlaylistCover(context, settings);
+    applyPlaylistCover(context, settings, opts);
 }
 
 function sendToPropertyInspector(context, action, payload) {
@@ -1131,24 +1238,35 @@ function handleHardwareEvent(jsonObj) {
         if (actionContexts[action] && !actionContexts[action].includes(context)) {
             actionContexts[action].push(context);
         }
-        // Page return / plugin reload: StreamDock wiped the key visuals but our
-        // dedupe caches may still match — invalidate so setImage/setTitle fire again.
-        invalidateUiPaintCaches(context);
         if (action === "com.laoy.streamdock.applemusic.playplaylist") {
-            applyPlaylistButton(context, contextSettings[context] || jsonObj['payload']?.settings || {});
-        }
-        if (action === "com.laoy.streamdock.applemusic.playlistbrowse"
+            // Dedupe only for this key — keep playlistArtMemo for instant cover paint.
+            invalidatePlaylistPaintCaches(context);
+            applyPlaylistButton(
+                context,
+                contextSettings[context] || jsonObj['payload']?.settings || {},
+                { force: true }
+            );
+            // Live ▶ marker without touching Now Playing / playlist memo.
+            ciderAPI.fetchState().then((st) => {
+                if (st) refreshPlaylistButtons(st);
+            }).catch(() => {});
+        } else if (action === "com.laoy.streamdock.applemusic.playlistbrowse"
             || action === "com.laoy.streamdock.applemusic.playlistview") {
             playlistBrowser.ensureLoaded(true).then(() => playlistBrowser.paint());
+            forceRehydrateNowPlaying();
+        } else {
+            // Page return / plugin reload: wipe songinfo dedupe then rehydrate.
+            invalidateNowPlayingCaches();
+            delete lastTitleByContext[context];
+            delete lastImageByContext[context];
+            forceRehydrateNowPlaying();
         }
-        // Immediately rehydrate Now Playing (title+artist+art) on every appear
-        forceRehydrateNowPlaying();
     }
 
     if (event === "didReceiveSettings") {
         if (action === "com.laoy.streamdock.applemusic.playplaylist") {
-            invalidateUiPaintCaches(context);
-            applyPlaylistButton(context, contextSettings[context] || {});
+            invalidatePlaylistPaintCaches(context);
+            applyPlaylistButton(context, contextSettings[context] || {}, { force: true });
         }
     }
 
@@ -1161,8 +1279,8 @@ function handleHardwareEvent(jsonObj) {
             if (payload.type === "refreshCover" || payload.type === "settingsUpdated") {
                 const s = Object.assign({}, contextSettings[context] || {}, payload.settings || {});
                 contextSettings[context] = s;
-                delete playlistCoverCache[context];
-                applyPlaylistButton(context, s);
+                invalidatePlaylistPaintCaches(context);
+                applyPlaylistButton(context, s, { force: true });
             }
         }
     }
@@ -1208,11 +1326,11 @@ const crimsonAPI = {
             }
             // Sidecar (re)connect after Crimson/StreamDock restart — force live paint.
             forceRehydrateNowPlaying();
-            // Also re-apply playlist covers from cached settings.
+            // Also re-apply playlist covers from cached settings / memo (instant b64).
             const pp = actionContexts["com.laoy.streamdock.applemusic.playplaylist"] || [];
             pp.forEach((ctx) => {
-                invalidateUiPaintCaches(ctx);
-                applyPlaylistButton(ctx, contextSettings[ctx] || {});
+                invalidatePlaylistPaintCaches(ctx);
+                applyPlaylistButton(ctx, contextSettings[ctx] || {}, { force: true });
             });
         };
         this.ws.onmessage = (evt) => {
@@ -1388,8 +1506,8 @@ function connectElgatoStreamDeckSocket(inPort, inPluginUUID, inRegisterEvent, in
             forceRehydrateNowPlaying();
             const pp = actionContexts["com.laoy.streamdock.applemusic.playplaylist"] || [];
             pp.forEach((ctx) => {
-                invalidateUiPaintCaches(ctx);
-                applyPlaylistButton(ctx, contextSettings[ctx] || {});
+                invalidatePlaylistPaintCaches(ctx);
+                applyPlaylistButton(ctx, contextSettings[ctx] || {}, { force: true });
             });
         };
 

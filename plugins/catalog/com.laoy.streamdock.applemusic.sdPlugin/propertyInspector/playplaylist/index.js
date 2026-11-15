@@ -374,11 +374,15 @@
             context: context,
             payload: { image: dataUrl, target: 0 }
         });
-        sdSend({
-            event: 'setTitle',
-            context: context,
-            payload: { title: '', target: 0 }
-        });
+        // Keep playlist name on the key (cover is background — do not blank title).
+        const label = String(settings.playlistName || settings.name || '').slice(0, 14);
+        if (label) {
+            sdSend({
+                event: 'setTitle',
+                context: context,
+                payload: { title: label, target: 0 }
+            });
+        }
         return okImg;
     }
 

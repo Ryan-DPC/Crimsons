@@ -96,5 +96,17 @@ assert.match(
   /Keep contextSettings/,
   "must keep playlist settings across willDisappear"
 );
+assert.match(appJs, /playlistArtMemo/, "must memoize playlist covers for instant willAppear paint");
+assert.match(appJs, /PLAYLIST_ART_RETRY_MS/, "playlist cover retry must be faster than album 8s backoff");
+assert.match(
+  appJs,
+  /never enrichMissingArtwork/,
+  "resolvePlaylistArtwork must not crawl the full library (5s delay bug)"
+);
+assert.match(
+  appJs,
+  /must NOT wipe playlist cover/,
+  "forceRehydrateNowPlaying must not clear playlist cover caches"
+);
 
 console.log("applemusic_ui_refresh_test: ok");
