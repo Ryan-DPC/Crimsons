@@ -441,7 +441,6 @@ impl SpotifyService {
             let mut poll_count = 0u64;
             let mut force_poll = false;
             let mut last_running_check = std::time::Instant::now().checked_sub(Duration::from_secs(60)).unwrap_or_else(|| std::time::Instant::now());
-            let mut is_running = false;
             
             loop {
                 if !self_arc.is_enabled.load(std::sync::atomic::Ordering::Relaxed) {
@@ -454,13 +453,12 @@ impl SpotifyService {
                 }
                 poll_count = poll_count.wrapping_add(1);
 
-                // Throttled process check (every 5 seconds)
+                // Keep spotifyd available as a Connect target, but never transfer
+                // playback to it from this poll loop (see idle handling below).
                 if last_running_check.elapsed() > Duration::from_secs(5) {
-                    is_running = self_arc.is_spotify_running();
                     last_running_check = std::time::Instant::now();
-                    if !is_running {
+                    if !self_arc.is_spotify_running() {
                         self_arc.start_spotifyd();
-                        is_running = true;
                     }
                 }
                 
@@ -572,45 +570,11 @@ impl SpotifyService {
                                 state.volume_percent = self_arc.cached_volume.load(std::sync::atomic::Ordering::Relaxed);
                             }
 
-                            let is_idle = state.track_id.is_empty();
-                            
-                            // AUTO-WAKE: If idle but Spotify is running, try to activate a device (if enabled in settings)
-                            let data = crate::storage::load_data_from_path(crate::storage::get_data_path_from_env());
-                            let auto_wake_enabled = data.other.get("spotifyAutoWake")
-                                .and_then(|v| v.as_bool())
-                                .unwrap_or(true); // default to true
-                            
-                            let wake_interval = if poll_count < 60 { 2 } else { 10 };
-                            if auto_wake_enabled && is_idle && is_running && poll_count % wake_interval == 0 {
-                                let client = reqwest::Client::new();
-                                if let Ok(resp) = client.get("https://api.spotify.com/v1/me/player/devices").header(AUTHORIZATION, format!("Bearer {}", token)).send().await {
-                                    if let Ok(json) = resp.json::<serde_json::Value>().await {
-                                        if let Some(devices) = json["devices"].as_array() {
-                                            if !devices.is_empty() {
-                                                // Prioritize "Computer" (PC), then "Smartphone", then anything
-                                                let target_device = devices.iter().find(|d| d["type"].as_str() == Some("Computer"))
-                                                    .or_else(|| devices.iter().find(|d| d["type"].as_str() == Some("Smartphone")))
-                                                    .or_else(|| devices.get(0));
-                                                
-                                                if let Some(device) = target_device {
-                                                    let id = device["id"].as_str().unwrap_or("");
-                                                    if !id.is_empty() {
-                                                        let log_msg = format!("Spotify Auto-Wake: Activating device {} ({})", device["name"].as_str().unwrap_or("Unknown"), id);
-                                                        println!("{}", log_msg);
-                                                        
-                                                        let _ = client.put("https://api.spotify.com/v1/me/player")
-                                                            .header(AUTHORIZATION, format!("Bearer {}", token))
-                                                            .json(&json!({ "device_ids": [id], "play": false }))
-                                                            .send().await;
-                                                        
-                                                        force_poll = true; // Trigger immediate re-poll to capture active status
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
+                            // Plugin health = valid token + successful API poll (including 204 idle).
+                            // Do NOT transfer/activate a Connect device from the background poll:
+                            // that retargets playback onto Crimsons/spotifyd and breaks Spotify on
+                            // phone and other devices. Device wake stays on-demand only (StreamDock
+                            // / hotkey commands that hit 404/403 "no active device").
 
                             let state_json = json!({
                                 "type": "SPOTIFY_STATE",
@@ -993,7 +957,9 @@ impl SpotifyService {
         if success {
             self.notify.notify_one();
         } else if status == 404 || status == 403 {
-            println!("No active Spotify player found for command {}. Attempting Auto-Wake...", endpoint);
+            // On-demand only: user pressed a StreamDock/hotkey control with no active
+            // Connect device. Background polling must never do this transfer.
+            println!("No active Spotify player for command {}. Waking a device on demand...", endpoint);
             if self.try_activate_any_device().await {
                 // Wait a bit for Spotify to register the device as active
                 tokio::time::sleep(std::time::Duration::from_millis(800)).await;

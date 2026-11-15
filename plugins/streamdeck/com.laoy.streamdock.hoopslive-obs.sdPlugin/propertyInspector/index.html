@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>HoopsLive OBS Chrono Settings</title>
+  <style>
+    body { font-family: system-ui, sans-serif; font-size: 12px; color: #eee; background: #2d2d2d; margin: 10px; }
+    label { display: block; margin-top: 8px; opacity: .85; }
+    input { width: 100%; box-sizing: border-box; margin-top: 4px; padding: 6px; border-radius: 4px; border: 1px solid #555; background: #1b1b1b; color: #fff; }
+    .hint { opacity: .65; margin-top: 10px; line-height: 1.35; }
+    code { font-size: 11px; }
+  </style>
+</head>
+<body>
+  <label>Public base URL (no trailing slash)
+    <input id="baseUrl" placeholder="https://store.hoopslive.ch" />
+  </label>
+  <label>API token (HOOPSLIVE_OBS_TOKEN)
+    <input id="token" type="password" autocomplete="off" />
+  </label>
+  <label>Display poll ms (250–2000)
+    <input id="pollMs" type="number" min="250" max="2000" value="400" />
+  </label>
+  <label>OBS scene name (obs_scene stub only)
+    <input id="sceneName" placeholder="Start" />
+  </label>
+  <p class="hint">
+    Chrono source of truth is the <strong>VPS store API</strong>, not localhost.
+    <code>obs_scene</code> tries <code>http://127.0.0.1:40510/local/obs/scene</code> (not implemented in sidecar — stub).
+  </p>
+  <script>
+    let uuid = '';
+    let actionInfo = {};
+    let websocket = null;
+
+    function sendGlobal() {
+      if (!websocket) return;
+      const settings = {
+        baseUrl: document.getElementById('baseUrl').value.trim().replace(/\/$/, ''),
+        token: document.getElementById('token').value,
+        pollMs: parseInt(document.getElementById('pollMs').value, 10) || 400,
+      };
+      websocket.send(JSON.stringify({
+        event: 'setGlobalSettings',
+        context: uuid,
+        payload: settings,
+      }));
+    }
+
+    function sendAction() {
+      if (!websocket || !actionInfo.context) return;
+      const settings = Object.assign({}, actionInfo.payload && actionInfo.payload.settings || {}, {
+        sceneName: document.getElementById('sceneName').value.trim(),
+      });
+      websocket.send(JSON.stringify({
+        event: 'setSettings',
+        context: actionInfo.context,
+        payload: settings,
+      }));
+    }
+
+    function connectElgatoStreamDeckSocket(port, inUuid, registerEvent, inInfo, inActionInfo) {
+      uuid = inUuid;
+      try { actionInfo = JSON.parse(inActionInfo); } catch (_) { actionInfo = {}; }
+      websocket = new WebSocket('ws://127.0.0.1:' + port);
+      websocket.onopen = () => {
+        websocket.send(JSON.stringify({ event: registerEvent, uuid: inUuid }));
+        websocket.send(JSON.stringify({ event: 'getGlobalSettings', context: inUuid }));
+        if (actionInfo.payload && actionInfo.payload.settings) {
+          const s = actionInfo.payload.settings;
+          if (s.sceneName) document.getElementById('sceneName').value = s.sceneName;
+        }
+      };
+      websocket.onmessage = (evt) => {
+        try {
+          const msg = JSON.parse(evt.data);
+          if (msg.event === 'didReceiveGlobalSettings' && msg.payload && msg.payload.settings) {
+            const s = msg.payload.settings;
+            if (s.baseUrl) document.getElementById('baseUrl').value = s.baseUrl;
+            if (s.token) document.getElementById('token').value = s.token;
+            if (s.pollMs) document.getElementById('pollMs').value = s.pollMs;
+          }
+        } catch (_) {}
+      };
+    }
+
+    ['baseUrl', 'token', 'pollMs'].forEach((id) => {
+      document.getElementById(id).addEventListener('change', sendGlobal);
+      document.getElementById(id).addEventListener('blur', sendGlobal);
+    });
+    document.getElementById('sceneName').addEventListener('change', sendAction);
+    document.getElementById('sceneName').addEventListener('blur', sendAction);
+
+    window.connectElgatoStreamDeckSocket = connectElgatoStreamDeckSocket;
+  </script>
+</body>
+</html>

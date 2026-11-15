@@ -1,0 +1,106 @@
+{
+  "Author": "Laoy / HoopsLive",
+  "Category": "HoopsLive OBS",
+  "CategoryIcon": "static/icon/plugin.png",
+  "CodePath": "plugin/index.html",
+  "Description": "HoopsLive OBS Chrono — controls the VPS countdown (HTTPS) and shows MM:SS on Stream Deck. OBS scene switch is a documented stub.",
+  "Icon": "static/icon/plugin.png",
+  "Name": "HoopsLive OBS Chrono",
+  "Version": "1.0.0",
+  "SDKVersion": 2,
+  "Software": {
+    "MinimumVersion": "2.0.0"
+  },
+  "OS": [
+    {
+      "Platform": "windows",
+      "MinimumVersion": "10"
+    }
+  ],
+  "Actions": [
+    {
+      "Name": "Chrono Display",
+      "UUID": "com.laoy.streamdock.hoopslive-obs.display",
+      "Icon": "static/icon/display.png",
+      "States": [
+        { "Image": "static/icon/display.png", "TitleAlignment": "middle", "FontSize": "14" }
+      ],
+      "Tooltip": "Shows remaining MM:SS (polls VPS)",
+      "PropertyInspectorPath": "propertyInspector/index.html"
+    },
+    {
+      "Name": "Toggle",
+      "UUID": "com.laoy.streamdock.hoopslive-obs.toggle",
+      "Icon": "static/icon/toggle.png",
+      "States": [
+        { "Image": "static/icon/toggle.png", "TitleAlignment": "bottom", "FontSize": "10" }
+      ],
+      "Tooltip": "Start / pause countdown",
+      "PropertyInspectorPath": "propertyInspector/index.html"
+    },
+    {
+      "Name": "Pause",
+      "UUID": "com.laoy.streamdock.hoopslive-obs.pause",
+      "Icon": "static/icon/pause.png",
+      "States": [{ "Image": "static/icon/pause.png" }],
+      "Tooltip": "Pause countdown",
+      "PropertyInspectorPath": "propertyInspector/index.html"
+    },
+    {
+      "Name": "Resume",
+      "UUID": "com.laoy.streamdock.hoopslive-obs.resume",
+      "Icon": "static/icon/resume.png",
+      "States": [{ "Image": "static/icon/resume.png" }],
+      "Tooltip": "Resume countdown",
+      "PropertyInspectorPath": "propertyInspector/index.html"
+    },
+    {
+      "Name": "Reset",
+      "UUID": "com.laoy.streamdock.hoopslive-obs.reset",
+      "Icon": "static/icon/reset.png",
+      "States": [{ "Image": "static/icon/reset.png" }],
+      "Tooltip": "Reset to durationSec",
+      "PropertyInspectorPath": "propertyInspector/index.html"
+    },
+    {
+      "Name": "Stop",
+      "UUID": "com.laoy.streamdock.hoopslive-obs.stop",
+      "Icon": "static/icon/stop.png",
+      "States": [{ "Image": "static/icon/stop.png" }],
+      "Tooltip": "Stop and zero remaining",
+      "PropertyInspectorPath": "propertyInspector/index.html"
+    },
+    {
+      "Name": "+10s",
+      "UUID": "com.laoy.streamdock.hoopslive-obs.add10",
+      "Icon": "static/icon/add10.png",
+      "States": [{ "Image": "static/icon/add10.png" }],
+      "Tooltip": "Add 10 seconds",
+      "PropertyInspectorPath": "propertyInspector/index.html"
+    },
+    {
+      "Name": "+1m",
+      "UUID": "com.laoy.streamdock.hoopslive-obs.add60",
+      "Icon": "static/icon/add60.png",
+      "States": [{ "Image": "static/icon/add60.png" }],
+      "Tooltip": "Add 60 seconds",
+      "PropertyInspectorPath": "propertyInspector/index.html"
+    },
+    {
+      "Name": "-10s",
+      "UUID": "com.laoy.streamdock.hoopslive-obs.sub10",
+      "Icon": "static/icon/sub10.png",
+      "States": [{ "Image": "static/icon/sub10.png" }],
+      "Tooltip": "Subtract 10 seconds",
+      "PropertyInspectorPath": "propertyInspector/index.html"
+    },
+    {
+      "Name": "OBS Scene (stub)",
+      "UUID": "com.laoy.streamdock.hoopslive-obs.obs_scene",
+      "Icon": "static/icon/obs_scene.png",
+      "States": [{ "Image": "static/icon/obs_scene.png" }],
+      "Tooltip": "Stub: no obs-websocket in CRIMSONS sidecar — configure scene name for future bridge",
+      "PropertyInspectorPath": "propertyInspector/index.html"
+    }
+  ]
+}
