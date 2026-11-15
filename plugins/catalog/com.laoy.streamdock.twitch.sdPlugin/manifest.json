@@ -1,51 +1,66 @@
 {
   "Actions": [
     {
-      "Icon": "static/icon/twitch_chat@2x.png",
-      "Name": "Send Chat Message (Soon)",
-      "Controllers": ["Keypad"],
+      "Icon": "static/icon/twitch_chat.png",
+      "Name": "Message Chat",
       "States": [
         {
-          "Image": "static/icon/twitch_chat.png"
+          "Image": "static/icon/twitch_chat.png",
+          "TitleAlignment": "bottom",
+          "FontSize": "10"
         }
       ],
+      "DisableAutomaticStates": true,
+      "UserTitleEnabled": true,
+      "SupportedInMultiActions": true,
       "UUID": "com.laoy.streamdock.twitch.chat",
-      "PropertyInspectorPath": "propertyInspector/index.html"
+      "Tooltip": "Envoyer un message prédéfini dans votre chat Twitch",
+      "Context": "GLOBAL"
     },
     {
-      "Icon": "static/icon/twitch_ad@2x.png",
-      "Name": "Run Ad (Soon)",
-      "Controllers": ["Keypad"],
+      "Icon": "static/icon/twitch_ad.png",
+      "Name": "Lancer Publicité (30s)",
       "States": [
         {
-          "Image": "static/icon/twitch_ad.png"
+          "Image": "static/icon/twitch_ad.png",
+          "TitleAlignment": "bottom",
+          "FontSize": "10"
         }
       ],
+      "DisableAutomaticStates": true,
+      "UserTitleEnabled": true,
+      "SupportedInMultiActions": true,
       "UUID": "com.laoy.streamdock.twitch.ad",
-      "PropertyInspectorPath": "propertyInspector/index.html"
+      "Tooltip": "Lancer une pause publicitaire de 30 secondes",
+      "Context": "GLOBAL"
     },
     {
-      "Icon": "static/icon/twitch_viewers@2x.png",
-      "Name": "Viewer Count (Soon)",
-      "Controllers": ["Information"],
+      "Icon": "static/icon/twitch_viewers.png",
+      "Name": "Compteur Viewers",
       "States": [
         {
           "Image": "static/icon/twitch_viewers.png",
-          "Title": "0"
+          "Title": "0",
+          "TitleAlignment": "bottom",
+          "FontSize": "11"
         }
       ],
+      "DisableAutomaticStates": true,
+      "UserTitleEnabled": true,
+      "SupportedInMultiActions": true,
       "UUID": "com.laoy.streamdock.twitch.viewers",
-      "PropertyInspectorPath": "propertyInspector/index.html"
+      "Tooltip": "Afficher le nombre de spectateurs en direct sur votre chaîne",
+      "Context": "GLOBAL"
     }
   ],
   "Author": "Laoy",
-  "Description": "Twitch — stub for future external Crimsons plugin catalog (not shipped in base pack)",
-  "Icon": "static/icon/twitch_chat@2x.png",
-  "Name": "Twitch (External)",
-  "Category": "Twitch (External)",
-  "CategoryIcon": "static/icon/twitch_chat@2x.png",
-  "Version": "3.1.0",
-  "SDKVersion": 1,
+  "Description": "Actions créateur et modération Twitch pour StreamDock",
+  "Icon": "static/icon/twitch_chat.png",
+  "Name": "Twitch",
+  "Category": "Twitch",
+  "CategoryIcon": "static/icon/twitch_chat.png",
+  "Version": "3.1.2",
+  "SDKVersion": 2,
   "OS": [
     {
       "Platform": "windows",
@@ -53,7 +68,7 @@
     }
   ],
   "Software": {
-    "MinimumVersion": "3.10.188.226"
+    "MinimumVersion": "2.0.0"
   },
-  "CodePath": "plugin/index.html"
+  "CodePath": "index.html"
 }

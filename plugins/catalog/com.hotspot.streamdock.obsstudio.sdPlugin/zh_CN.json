@@ -1,0 +1,50 @@
+{
+	"Author": "Hotspot",
+	"Name": "OBS Studio",
+	"Description": "Stream Dock 上的 OBS Studio 插件",
+	"Category": "OBS Studio",
+    "com.hotspot.streamdock.obsstudio.record": {
+        "Name": "录制",
+        "Tooltip": "开始/停止录制"
+    },
+    "com.hotspot.streamdock.obsstudio.stream": {
+        "Name": "推流",
+        "Tooltip": "开始/停止推流"
+    },
+    "com.hotspot.streamdock.obsstudio.virtualcamera": {
+        "Name": "虚拟摄像头",
+        "Tooltip": "打开/关闭虚拟摄像头"
+    },
+    "com.hotspot.streamdock.obsstudio.scene": {
+        "Name": "场景",
+        "Tooltip": "切换场景"
+    },
+    "com.hotspot.streamdock.obsstudio.source": {
+        "Name": "来源",
+        "Tooltip": "显示/隐藏来源"
+    },
+    "com.hotspot.streamdock.obsstudio.mixeraudio": {
+        "Name": "一键静音",
+        "Tooltip": "将音频静音/取消静音"
+    },
+    "com.hotspot.streamdock.obsstudio.studiomode": {
+        "Name": "工作室模式",
+        "Tooltip": "启用/禁用工作室模式"
+    },
+    "com.hotspot.streamdock.obsstudio.screenshot": {
+        "Name": "截图",
+        "Tooltip": "截屏当前场景"
+    },
+    "com.hotspot.streamdock.obsstudio.transition": {
+        "Name": "转场特效",
+        "Tooltip": "显示转场特效"
+    },
+    "com.hotspot.streamdock.obsstudio.shortcutup": {
+        "Name": "绿幕背景图 UP",
+        "Tooltip": "快捷键-绿幕背景图 UP"
+    },
+    "com.hotspot.streamdock.obsstudio.shortcutdn": {
+        "Name": "绿幕背景图 DN",
+        "Tooltip": "快捷键-绿幕背景图 DN"
+    }
+}

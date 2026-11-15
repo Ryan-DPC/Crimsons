@@ -1,0 +1,50 @@
+﻿{
+	"Author": "ホットスポット",
+	"Name": "OBSスタジオ",
+	"Description": " OBS スタジオ用のストリームドックプラグイン",
+	"Category": "OBSスタジオ",
+    "com.hotspot.streamdock.obsstudio.record": {
+        "Name": "レコード",
+        "Tooltip": "レコードを開始/停止します"
+    },
+    "com.hotspot.streamdock.obsstudio.stream": {
+        "Name": "ストリーム",
+        "Tooltip": "ストリームを開始/停止します"
+    },
+    "com.hotspot.streamdock.obsstudio.virtualcamera": {
+        "Name": "バーチャルカメラ",
+        "Tooltip": "バーチャルカメラをオン/オフします"
+    },
+    "com.hotspot.streamdock.obsstudio.scene": {
+        "Name": "シーン",
+        "Tooltip": "シーンシフト"
+    },
+    "com.hotspot.streamdock.obsstudio.source": {
+        "Name": "ソースの可視化",
+        "Tooltip": "ソースを表示/非表示します"
+    },
+    "com.hotspot.streamdock.obsstudio.mixeraudio": {
+        "Name": "オーディオミキサー",
+        "Tooltip": "オーディオのミュート/ミュートを解除します"
+    },
+    "com.hotspot.streamdock.obsstudio.studiomode": {
+        "Name": "スタジオモード",
+        "Tooltip": "スタジオモードを有効/無効します"
+    },
+    "com.hotspot.streamdock.obsstudio.screenshot": {
+        "Name": "スクリーンショット",
+        "Tooltip": "アクティブなシーンのスクリーンショットを撮ります"
+    },
+    "com.hotspot.streamdock.obsstudio.transition": {
+        "Name": "シーンシフト",
+        "Tooltip": "シーンシフトを表示します"
+    },
+    "com.hotspot.streamdock.obsstudio.shortcutup": {
+        "Name": "緑色の背景画像 アップ",
+        "Tooltip": "ショートカットキー -緑色の背景画像 UP "
+    },
+    "com.hotspot.streamdock.obsstudio.shortcutdn": {
+        "Name": "緑色の背景画像ダウン",
+        "Tooltip": "ショートカットキー -緑色の背景画像ダウン"
+    }
+}

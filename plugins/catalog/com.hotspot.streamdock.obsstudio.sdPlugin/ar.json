@@ -1,0 +1,50 @@
+{
+	"Author": "Hotspot",
+	"Name": "OBS Studio",
+	"Description": "Stream Dock أعلى OBS Studio توصيل في",
+	"Category": "OBS Studio",
+    "com.hotspot.streamdock.obsstudio.record": {
+        "Name": "سِجِلّ",
+        "Tooltip": "بدء/إيقاف التسجيل"
+    },
+    "com.hotspot.streamdock.obsstudio.stream": {
+        "Name": "دفع التدفق",
+        "Tooltip": "بدء/إيقاف البث"
+    },
+    "com.hotspot.streamdock.obsstudio.virtualcamera": {
+        "Name": "الكاميرا الافتراضية",
+        "Tooltip": "تشغيل/إيقاف تشغيل الكاميرا الافتراضية"
+    },
+    "com.hotspot.streamdock.obsstudio.scene": {
+        "Name": "مشاهد",
+        "Tooltip": "مشهد التبديل"
+    },
+    "com.hotspot.streamdock.obsstudio.source": {
+        "Name": "مصدر",
+        "Tooltip": "إظهار/إخفاء المصادر"
+    },
+    "com.hotspot.streamdock.obsstudio.mixeraudio": {
+        "Name": "نقرة واحدة لكتم الصوت",
+        "Tooltip": "كتم/إلغاء كتم الصوت"
+    },
+    "com.hotspot.streamdock.obsstudio.studiomode": {
+        "Name": "وضع الاستوديو",
+        "Tooltip": "تمكين/تعطيل وضع الاستوديو"
+    },
+    "com.hotspot.streamdock.obsstudio.screenshot": {
+        "Name": "لقطة شاشة",
+        "Tooltip": "التقط لقطة شاشة للمشهد الحالي"
+    },
+    "com.hotspot.streamdock.obsstudio.transition": {
+        "Name": "آثار الانتقال",
+        "Tooltip": "إظهار تأثيرات الانتقال"
+    },
+    "com.hotspot.streamdock.obsstudio.shortcutup": {
+        "Name": "صورة خلفية الشاشة الخضراء UP",
+        "Tooltip": "مفتاح الاختصار-صورة خلفية الشاشة الخضراء UP"
+    },
+    "com.hotspot.streamdock.obsstudio.shortcutdn": {
+        "Name": "صورة خلفية الشاشة الخضراء DN",
+        "Tooltip": "مفتاح الاختصار-صورة خلفية الشاشة الخضراء DN"
+    }
+}
