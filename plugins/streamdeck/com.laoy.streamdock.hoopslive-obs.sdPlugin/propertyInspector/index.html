@@ -2,59 +2,77 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8" />
-  <title>HoopsLive OBS Chrono Settings</title>
+  <title>HoopsLive OBS — Setup</title>
   <style>
     body { font-family: system-ui, sans-serif; font-size: 12px; color: #eee; background: #2d2d2d; margin: 10px; }
-    label { display: block; margin-top: 8px; opacity: .85; }
-    input { width: 100%; box-sizing: border-box; margin-top: 4px; padding: 6px; border-radius: 4px; border: 1px solid #555; background: #1b1b1b; color: #fff; }
-    .hint { opacity: .65; margin-top: 10px; line-height: 1.35; }
-    .warn { color: #f0c674; opacity: .95; margin-top: 8px; line-height: 1.35; display: none; }
-    .okmsg { color: #8abeb7; opacity: .95; margin-top: 6px; line-height: 1.35; display: none; }
-    .err { color: #e06c75; opacity: .95; margin-top: 6px; line-height: 1.35; display: none; }
-    code { font-size: 11px; }
-    .section { margin-top: 12px; padding-top: 8px; border-top: 1px solid #444; }
-    #sceneRow { display: none; }
-    button#testApi {
-      margin-top: 10px; width: 100%; padding: 8px; border-radius: 6px; border: 0;
-      background: #e11d48; color: #fff; font-weight: 600; cursor: pointer;
+    label { display: block; margin-top: 8px; opacity: .9; }
+    input, textarea {
+      width: 100%; box-sizing: border-box; margin-top: 4px; padding: 8px;
+      border-radius: 6px; border: 1px solid #555; background: #1b1b1b; color: #fff;
+      font: inherit;
     }
-    button#testApi:disabled { opacity: .5; cursor: wait; }
+    textarea { min-height: 56px; resize: vertical; }
+    .hint { opacity: .7; margin-top: 10px; line-height: 1.4; }
+    .okmsg { color: #8abeb7; margin-top: 8px; line-height: 1.35; display: none; }
+    .warn { color: #f0c674; margin-top: 8px; line-height: 1.35; display: none; }
+    .err { color: #e06c75; margin-top: 8px; line-height: 1.35; display: none; }
+    .section { margin-top: 12px; padding-top: 10px; border-top: 1px solid #444; }
+    .steps { margin: 0; padding-left: 1.1rem; opacity: .8; line-height: 1.45; }
+    button {
+      margin-top: 8px; width: 100%; padding: 9px; border-radius: 6px; border: 0;
+      background: #e11d48; color: #fff; font-weight: 700; cursor: pointer;
+    }
+    button.secondary { background: #334155; margin-top: 6px; }
+    button:disabled { opacity: .5; cursor: wait; }
+    details { margin-top: 10px; opacity: .85; }
+    summary { cursor: pointer; }
+    #sceneRow { display: none; }
+    code { font-size: 11px; }
   </style>
 </head>
 <body>
-  <label>Public base URL — API host (no trailing slash)
-    <input id="baseUrl" placeholder="https://store.hoopslive.ch" />
+  <p class="hint" style="margin-top:0">
+    <strong>Setup en 1 collage.</strong> Pas besoin de chercher le token à la main si ton URL OBS contient déjà
+    <code>?k=…</code>.
+  </p>
+
+  <label>URL OBS Browser Source (colle ici)
+    <textarea id="setupPaste" placeholder="https://hoopslive.ch/hl-obs/…/scenes/start.html?k=TON_TOKEN"></textarea>
   </label>
-  <label>API token (HOOPSLIVE_OBS_TOKEN)
-    <input id="token" type="password" autocomplete="off" />
-  </label>
-  <label>Display poll ms (250–2000)
-    <input id="pollMs" type="number" min="250" max="2000" value="400" />
-  </label>
-  <button type="button" id="testApi">Tester l’API chrono (VPS)</button>
-  <p id="apiHint" class="okmsg"></p>
-  <p id="apiErr" class="err"></p>
+  <button type="button" id="applySetup">Appliquer → Stream Deck</button>
+  <button type="button" id="testApi" class="secondary">Tester la connexion</button>
+  <p id="setupOk" class="okmsg"></p>
+  <p id="setupWarn" class="warn"></p>
+  <p id="setupErr" class="err"></p>
 
   <div class="section">
-    <label>Overlay / hl-obs link (optional helper — OBS Browser Source only)
-      <input id="overlayUrl" placeholder="https://store.hoopslive.ch/hl-obs/&lt;secret&gt;/scenes/start.html?k=TOKEN" />
-    </label>
-    <p id="overlayHint" class="okmsg"></p>
-    <p id="overlayWarn" class="warn"></p>
+    <ol class="steps">
+      <li>Sur le VPS, note <code>HOOPSLIVE_OBS_TOKEN</code> (fichier <code>.env</code> du store).</li>
+      <li>OBS → Source Navigateur → URL<br>
+        <code>https://hoopslive.ch/hl-obs/&lt;secret&gt;/scenes/start.html?k=&lt;token&gt;</code></li>
+      <li>Colle <strong>cette même URL</strong> ci-dessus → Appliquer → Tester.</li>
+    </ol>
   </div>
 
+  <details>
+    <summary>Réglages avancés (auto-remplis)</summary>
+    <label>API base URL
+      <input id="baseUrl" placeholder="https://store.hoopslive.ch ou https://hoopslive.ch" />
+    </label>
+    <label>API token
+      <input id="token" type="password" autocomplete="off" />
+    </label>
+    <label>Poll ms
+      <input id="pollMs" type="number" min="250" max="2000" value="400" />
+    </label>
+  </details>
+
   <div id="sceneRow" class="section">
-    <label>OBS scene name (stub only — e.g. HL — Start)
+    <label>OBS scene name (stub)
       <input id="sceneName" placeholder="HL — Start" />
     </label>
   </div>
 
-  <p class="hint">
-    Le message vert « same host » = <strong>seulement</strong> que l’URL overlay a le même domaine que
-    <code>baseUrl</code> — <strong>ce n’est pas</strong> un test de l’API. Utilise <strong>Tester l’API</strong>.
-    Dans OBS, Browser Source = URL <code>store…/hl-obs/…/start.html?k=TOKEN</code>
-    (pas <code>hoopslive.ch</code> sans store client). Les boutons +1m parlent à l’API, pas à l’URL overlay du PI.
-  </p>
   <script>
     let uuid = '';
     let actionInfo = {};
@@ -66,62 +84,99 @@
       return String(u || '').trim().replace(/\/$/, '');
     }
 
-    function parseOverlay(raw) {
+    function parseSetup(raw) {
       const s = String(raw || '').trim();
       if (!s) return null;
+      let url;
+      try { url = new URL(s); } catch (_) { return null; }
       const m = s.match(HL_OBS_RE);
-      if (!m) return null;
-      return { origin: m[1].replace(/\/$/, ''), pathSecret: m[2] };
+      const k = url.searchParams.get('k') || '';
+      // Chrono API: hoopslive.ch est proxifié → same host OK ; sinon store.
+      let apiBase = url.origin;
+      if (m && /hoopslive\.ch$/i.test(url.hostname) && !/^store\./i.test(url.hostname)) {
+        apiBase = url.origin; // /api/hoopslive/obs/* proxied on hoopslive.ch
+      }
+      return {
+        origin: url.origin,
+        pathSecret: m ? m[2] : '',
+        token: k,
+        apiBase,
+        isHlObs: !!m,
+        obsUrl: s,
+      };
     }
 
-    function showOverlayFeedback() {
-      const hint = document.getElementById('overlayHint');
-      const warn = document.getElementById('overlayWarn');
-      hint.style.display = 'none';
-      warn.style.display = 'none';
-      hint.textContent = '';
-      warn.textContent = '';
+    function sendGlobal() {
+      if (!websocket) return;
+      websocket.send(JSON.stringify({
+        event: 'setGlobalSettings',
+        context: uuid,
+        payload: {
+          baseUrl: normalizeBase(document.getElementById('baseUrl').value),
+          token: document.getElementById('token').value,
+          pollMs: parseInt(document.getElementById('pollMs').value, 10) || 400,
+        },
+      }));
+    }
 
-      const raw = document.getElementById('overlayUrl').value.trim();
-      if (!raw) return;
+    function sendAction() {
+      if (!websocket || !actionInfo.context) return;
+      const settings = Object.assign({}, actionInfo.payload && actionInfo.payload.settings || {}, {
+        sceneName: document.getElementById('sceneName').value.trim(),
+      });
+      websocket.send(JSON.stringify({
+        event: 'setSettings',
+        context: actionInfo.context,
+        payload: settings,
+      }));
+    }
 
-      const parsed = parseOverlay(raw);
+    function clearMsgs() {
+      ['setupOk', 'setupWarn', 'setupErr'].forEach((id) => {
+        const el = document.getElementById(id);
+        el.style.display = 'none';
+        el.textContent = '';
+      });
+    }
+
+    function applySetup() {
+      clearMsgs();
+      const parsed = parseSetup(document.getElementById('setupPaste').value);
       if (!parsed) {
-        warn.textContent = 'Not an hl-obs URL. Expected: https://store.hoopslive.ch/hl-obs/<secret>/scenes/…';
-        warn.style.display = 'block';
+        document.getElementById('setupErr').textContent = 'URL invalide. Colle l’URL complète de la Browser Source OBS.';
+        document.getElementById('setupErr').style.display = 'block';
         return;
       }
-
-      const baseEl = document.getElementById('baseUrl');
-      const cur = normalizeBase(baseEl.value);
-      if (!cur) {
-        baseEl.value = parsed.origin;
-        sendGlobal();
-        hint.textContent = 'Filled Public base URL from overlay origin: ' + parsed.origin +
-          ' (path secret is for OBS only — not needed by StreamDock).';
-        hint.style.display = 'block';
-      } else if (cur !== parsed.origin) {
-        warn.textContent = 'Overlay host (' + parsed.origin + ') ≠ Public base URL (' + cur +
-          '). StreamDock must use the API host (usually https://store.hoopslive.ch). Keep overlay URL in OBS only.';
-        warn.style.display = 'block';
+      if (!parsed.isHlObs) {
+        document.getElementById('setupWarn').textContent =
+          'Pas une URL /hl-obs/… — on remplit quand même base + token si présents.';
+        document.getElementById('setupWarn').style.display = 'block';
+      }
+      document.getElementById('baseUrl').value = parsed.apiBase;
+      if (parsed.token) {
+        document.getElementById('token').value = parsed.token;
       } else {
-        hint.textContent = 'Host OK (même domaine que baseUrl) — ce n’est PAS un test API. Clique « Tester l’API ». Dans OBS colle aussi ?k=TOKEN.';
-        hint.style.display = 'block';
+        document.getElementById('setupWarn').textContent =
+          'Pas de ?k=TOKEN dans l’URL. Ajoute-le dans OBS (même valeur que HOOPSLIVE_OBS_TOKEN), puis re-colle ici.';
+        document.getElementById('setupWarn').style.display = 'block';
+      }
+      sendGlobal();
+      const ok = document.getElementById('setupOk');
+      if (parsed.token) {
+        ok.textContent = 'OK — Stream Deck configuré (API ' + parsed.apiBase + '). Clique « Tester la connexion », puis Actualiser la source OBS.';
+        ok.style.display = 'block';
       }
     }
 
     async function testApi() {
-      const hint = document.getElementById('apiHint');
-      const err = document.getElementById('apiErr');
-      const btn = document.getElementById('testApi');
-      hint.style.display = 'none';
-      err.style.display = 'none';
-      hint.textContent = '';
-      err.textContent = '';
+      clearMsgs();
       const base = normalizeBase(document.getElementById('baseUrl').value);
       const tok = document.getElementById('token').value.trim();
+      const err = document.getElementById('setupErr');
+      const ok = document.getElementById('setupOk');
+      const btn = document.getElementById('testApi');
       if (!base || !tok) {
-        err.textContent = 'CFG? — renseigne Public base URL + API token (pas seulement le lien hl-obs).';
+        err.textContent = 'Il manque base URL ou token. Colle une URL OBS avec ?k=TOKEN puis Appliquer.';
         err.style.display = 'block';
         return;
       }
@@ -136,18 +191,18 @@
         });
         const ct = String(res.headers.get('content-type') || '');
         const text = await res.text();
-        if (text.trim().startsWith('<!') || text.trim().startsWith('<html') || !ct.includes('json')) {
-          err.textContent = 'NO API — le serveur renvoie du HTML. Déploie la branche chrono sur le VPS store.';
+        if (text.trim().startsWith('<!') || !ct.includes('json')) {
+          err.textContent = 'NO API — le serveur renvoie du HTML (mauvaise base ou store pas déployé).';
           err.style.display = 'block';
           return;
         }
         if (res.status === 401) {
-          err.textContent = '401 — token incorrect / différent de HOOPSLIVE_OBS_TOKEN sur le VPS.';
+          err.textContent = '401 — token faux. Vérifie HOOPSLIVE_OBS_TOKEN sur le VPS / dans ?k=.';
           err.style.display = 'block';
           return;
         }
         if (!res.ok) {
-          err.textContent = 'HTTP ' + res.status + ' — ' + text.slice(0, 120);
+          err.textContent = 'HTTP ' + res.status;
           err.style.display = 'block';
           return;
         }
@@ -155,9 +210,10 @@
         const s = Math.max(0, Math.floor(Number(snap.remainingSec) || 0));
         const mm = String(Math.floor(s / 60)).padStart(2, '0');
         const ss = String(s % 60).padStart(2, '0');
-        hint.textContent = 'API OK — ' + mm + ':' + ss + (snap.running ? ' (running)' : ' (pause)') +
-          '. Les boutons +1m / −10 doivent marcher. Overlay OBS = store…/hl-obs/…?k=TOKEN';
-        hint.style.display = 'block';
+        ok.textContent = 'Connexion OK — chrono ' + mm + ':' + ss +
+          (snap.running ? ' (running)' : ' (pause)') +
+          '. Les touches +1m / pause du deck pilotent ce chrono.';
+        ok.style.display = 'block';
       } catch (e) {
         err.textContent = 'NET — ' + String((e && e.message) || e);
         err.style.display = 'block';
@@ -166,52 +222,8 @@
       }
     }
 
-    function guardSceneField() {
-      const el = document.getElementById('sceneName');
-      const v = el.value.trim();
-      const warn = document.getElementById('overlayWarn');
-      if (/^https?:\/\//i.test(v) || /\/hl-obs\//i.test(v)) {
-        document.getElementById('overlayUrl').value = v;
-        el.value = '';
-        sendAction();
-        showOverlayFeedback();
-        warn.textContent = 'Moved hl-obs URL out of “OBS scene name”. That field wants an OBS scene title (stub), not a URL.';
-        warn.style.display = 'block';
-        return true;
-      }
-      return false;
-    }
-
-    function sendGlobal() {
-      if (!websocket) return;
-      const settings = {
-        baseUrl: normalizeBase(document.getElementById('baseUrl').value),
-        token: document.getElementById('token').value,
-        pollMs: parseInt(document.getElementById('pollMs').value, 10) || 400,
-      };
-      websocket.send(JSON.stringify({
-        event: 'setGlobalSettings',
-        context: uuid,
-        payload: settings,
-      }));
-    }
-
-    function sendAction() {
-      if (!websocket || !actionInfo.context) return;
-      if (guardSceneField()) return;
-      const settings = Object.assign({}, actionInfo.payload && actionInfo.payload.settings || {}, {
-        sceneName: document.getElementById('sceneName').value.trim(),
-      });
-      websocket.send(JSON.stringify({
-        event: 'setSettings',
-        context: actionInfo.context,
-        payload: settings,
-      }));
-    }
-
     function isObsSceneAction() {
-      const a = String(actionInfo.action || '');
-      return a.indexOf('.obs_scene') !== -1;
+      return String(actionInfo.action || '').indexOf('.obs_scene') !== -1;
     }
 
     function connectElgatoStreamDeckSocket(port, inUuid, registerEvent, inInfo, inActionInfo) {
@@ -222,12 +234,8 @@
         websocket.send(JSON.stringify({ event: registerEvent, uuid: inUuid }));
         websocket.send(JSON.stringify({ event: 'getGlobalSettings', context: inUuid }));
         document.getElementById('sceneRow').style.display = isObsSceneAction() ? 'block' : 'none';
-        if (actionInfo.payload && actionInfo.payload.settings) {
-          const s = actionInfo.payload.settings;
-          if (s.sceneName) {
-            document.getElementById('sceneName').value = s.sceneName;
-            guardSceneField();
-          }
+        if (actionInfo.payload && actionInfo.payload.settings && actionInfo.payload.settings.sceneName) {
+          document.getElementById('sceneName').value = actionInfo.payload.settings.sceneName;
         }
       };
       websocket.onmessage = (evt) => {
@@ -238,20 +246,25 @@
             if (s.baseUrl) document.getElementById('baseUrl').value = s.baseUrl;
             if (s.token) document.getElementById('token').value = s.token;
             if (s.pollMs) document.getElementById('pollMs').value = s.pollMs;
+            // Prefill paste box if empty and we have enough to rebuild a hint
+            const paste = document.getElementById('setupPaste');
+            if (!paste.value && s.baseUrl && s.token) {
+              paste.placeholder = s.baseUrl + '/hl-obs/<secret>/scenes/start.html?k=…';
+            }
           }
         } catch (_) {}
       };
     }
 
+    document.getElementById('applySetup').addEventListener('click', applySetup);
+    document.getElementById('testApi').addEventListener('click', testApi);
+    document.getElementById('setupPaste').addEventListener('change', applySetup);
     ['baseUrl', 'token', 'pollMs'].forEach((id) => {
       document.getElementById(id).addEventListener('change', sendGlobal);
       document.getElementById(id).addEventListener('blur', sendGlobal);
     });
     document.getElementById('sceneName').addEventListener('change', sendAction);
     document.getElementById('sceneName').addEventListener('blur', sendAction);
-    document.getElementById('overlayUrl').addEventListener('change', showOverlayFeedback);
-    document.getElementById('overlayUrl').addEventListener('blur', showOverlayFeedback);
-    document.getElementById('testApi').addEventListener('click', testApi);
 
     window.connectElgatoStreamDeckSocket = connectElgatoStreamDeckSocket;
   </script>
