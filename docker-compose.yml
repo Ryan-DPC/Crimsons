@@ -7,9 +7,18 @@ services:
     restart: unless-stopped
     ports:
       - "127.0.0.1:5174:3000"
+    env_file:
+      - path: .env
+        required: false
     environment:
       - NODE_ENV=production
       - PORT=3000
+      - HOOPSLIVE_OBS_TOKEN=${HOOPSLIVE_OBS_TOKEN:-}
+      - OBS_PATH_SECRET=${OBS_PATH_SECRET:-}
+      - HOOPSLIVE_OBS_PUBLIC_PATH_SECRET=${HOOPSLIVE_OBS_PUBLIC_PATH_SECRET:-}
+      - HOOPSLIVE_OBS_PUBLIC_BASE=${HOOPSLIVE_OBS_PUBLIC_BASE:-https://store.hoopslive.ch}
+      - HOOPSLIVE_OBS_CORS_ORIGIN=${HOOPSLIVE_OBS_CORS_ORIGIN:-}
+      - HOOPSLIVE_OBS_IP_ALLOWLIST=${HOOPSLIVE_OBS_IP_ALLOWLIST:-}
     networks:
       - hoopslive-net
 
