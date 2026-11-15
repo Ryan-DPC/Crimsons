@@ -893,16 +893,17 @@ fn find_playlist_id_in_search(raw: &serde_json::Value, needle_lc: &str) -> Optio
 }
 
 fn extract_playlist_shuffle(params: Option<&serde_json::Value>) -> bool {
+    // Default ON: Crimsons playlist launches are shuffle-first unless explicitly false.
     let p = match params {
         Some(v) => v,
-        None => return false,
+        None => return true,
     };
     p.get("shuffle")
         .or_else(|| p.pointer("/payload/shuffle"))
         .or_else(|| p.pointer("/payload/settings/shuffle"))
         .or_else(|| p.pointer("/settings/shuffle"))
         .and_then(|v| v.as_bool())
-        .unwrap_or(false)
+        .unwrap_or(true)
 }
 
 fn extract_playlist_raw(params: Option<&serde_json::Value>) -> Option<String> {
@@ -1075,6 +1076,13 @@ mod tests {
             Some("pl.u-nested")
         );
         assert!(extract_playlist_shuffle(Some(&v)));
+    }
+
+    #[test]
+    fn extract_shuffle_defaults_true() {
+        assert!(extract_playlist_shuffle(None));
+        assert!(extract_playlist_shuffle(Some(&json!({ "playlist": "p.1" }))));
+        assert!(!extract_playlist_shuffle(Some(&json!({ "shuffle": false }))));
     }
 
     #[test]

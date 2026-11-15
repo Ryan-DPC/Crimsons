@@ -37,5 +37,13 @@
   "com.laoy.streamdock.applemusic.playplaylist": {
     "Name": "Lancer une playlist",
     "Tooltip": "Lancer une playlist précise (ID ou URL Apple Music)"
+  },
+  "com.laoy.streamdock.applemusic.playlistbrowse": {
+    "Name": "Parcourir playlists (Molette)",
+    "Tooltip": "Scroll les playlists — appuyer pour lancer"
+  },
+  "com.laoy.streamdock.applemusic.playlistview": {
+    "Name": "Aperçu playlist",
+    "Tooltip": "Affiche la playlist sélectionnée — appuyer pour lancer"
   }
 }

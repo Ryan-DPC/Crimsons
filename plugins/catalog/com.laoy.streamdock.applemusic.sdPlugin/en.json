@@ -37,5 +37,13 @@
   "com.laoy.streamdock.applemusic.playplaylist": {
     "Name": "Play Playlist",
     "Tooltip": "Launch a specific playlist by id or Apple Music URL"
+  },
+  "com.laoy.streamdock.applemusic.playlistbrowse": {
+    "Name": "Playlist Browser (Knob)",
+    "Tooltip": "Scroll playlists — press to play"
+  },
+  "com.laoy.streamdock.applemusic.playlistview": {
+    "Name": "Playlist Preview",
+    "Tooltip": "Shows selected playlist cover — press to play"
   }
 }

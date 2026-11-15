@@ -6,7 +6,7 @@
   "Description": "Apple Music controls for StreamDock via Cider (local API on port 10767)",
   "Icon": "static/icon/applemusic.png",
   "Name": "Apple Music (Cider)",
-  "Version": "0.4.0",
+  "Version": "0.5.0",
   "SDKVersion": 2,
   "Software": {
     "MinimumVersion": "2.0.0"
@@ -135,7 +135,7 @@
       "Name": "Now Playing",
       "UUID": "com.laoy.streamdock.applemusic.songinfo",
       "Icon": "static/icon/songinfo.png",
-      "PropertyInspector": "propertyInspector/cider/index.html",
+      "PropertyInspectorPath": "propertyInspector/cider/index.html",
       "States": [
         {
           "Image": "static/icon/songinfo.png",
@@ -225,7 +225,7 @@
       "Name": "Play Playlist",
       "UUID": "com.laoy.streamdock.applemusic.playplaylist",
       "Icon": "static/icon/play_playlist.png",
-      "PropertyInspector": "propertyInspector/playplaylist/index.html",
+      "PropertyInspectorPath": "propertyInspector/playplaylist/index.html",
       "States": [
         {
           "Image": "static/icon/play_playlist.png",
@@ -234,6 +234,38 @@
         }
       ],
       "Tooltip": "Launch a specific Apple Music playlist (paste id or music.apple.com URL)",
+      "Context": "GLOBAL"
+    },
+    {
+      "Name": "Playlist Browser (Molette)",
+      "UUID": "com.laoy.streamdock.applemusic.playlistbrowse",
+      "Icon": "static/icon/play_playlist.png",
+      "DisableAutomaticStates": true,
+      "States": [
+        {
+          "Image": "static/icon/play_playlist.png",
+          "TitleAlignment": "center",
+          "FontSize": "10"
+        }
+      ],
+      "Controllers": [
+        "Knob"
+      ],
+      "Tooltip": "Scroll through your Cider library playlists — press to play the selected one",
+      "Context": "GLOBAL"
+    },
+    {
+      "Name": "Playlist Preview",
+      "UUID": "com.laoy.streamdock.applemusic.playlistview",
+      "Icon": "static/icon/play_playlist.png",
+      "States": [
+        {
+          "Image": "static/icon/play_playlist.png",
+          "TitleAlignment": "bottom",
+          "FontSize": "9"
+        }
+      ],
+      "Tooltip": "Shows the playlist selected by the browser knob — press to play",
       "Context": "GLOBAL"
     },
     {

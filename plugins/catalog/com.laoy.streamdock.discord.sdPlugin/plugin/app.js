@@ -1,3 +1,8 @@
+const discordLog = (typeof CrimsonDebug !== "undefined" && CrimsonDebug.create)
+    ? CrimsonDebug.create("discord")
+    : { enabled: false, info: function () {}, warn: function () {}, error: function () {}, timing: function () { return 0; } };
+discordLog.info("plugin boot", { debug: !!discordLog.enabled });
+
 let streamDeckSocket = null;
 let globalPluginUUID = "";
 let actionContexts = {
@@ -71,6 +76,9 @@ function handleHardwareEvent(jsonObj) {
     const event = jsonObj['event'];
     const action = jsonObj['action'];
     const context = jsonObj['context'];
+    if (event === "keyDown" || event === "dialRotate" || event === "willAppear") {
+        discordLog.info("hw." + event, { action: action });
+    }
     const payload = jsonObj['payload'] || {};
 
     if (!event) return;

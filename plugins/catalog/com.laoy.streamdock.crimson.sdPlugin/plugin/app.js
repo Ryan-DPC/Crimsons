@@ -1,3 +1,8 @@
+const crimsonLog = (typeof CrimsonDebug !== "undefined" && CrimsonDebug.create)
+    ? CrimsonDebug.create("crimson")
+    : { enabled: false, info: function () {}, warn: function () {}, error: function () {}, timing: function () { return 0; } };
+crimsonLog.info("plugin boot", { debug: !!crimsonLog.enabled });
+
 // App State
 const actionContexts = {
     "com.laoy.streamdock.crimson.autoaccept": [],
@@ -449,6 +454,7 @@ window.connectElgatoStreamDeckSocket = function(inPort, inPluginUUID, inRegister
         }
 
         if (event === "keyDown" || (event === "dialPress" && jsonObj['payload']?.pressed)) {
+            crimsonLog.info("hw.keyDown", { action: action });
             const now = Date.now();
             if (now - lastClickTime > 200) {
                 lastClickTime = now;
@@ -457,6 +463,7 @@ window.connectElgatoStreamDeckSocket = function(inPort, inPluginUUID, inRegister
         }
 
         if (event === "dialRotate") {
+            crimsonLog.info("hw.dialRotate", { action: action, ticks: jsonObj['payload'] && jsonObj['payload']['ticks'] });
             const ticks = jsonObj['payload']['ticks'];
             handleDialRotate(action, ticks);
         }

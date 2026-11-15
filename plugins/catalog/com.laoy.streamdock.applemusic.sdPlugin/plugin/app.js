@@ -2,6 +2,13 @@ let streamDeckSocket = null;
 let globalPluginUUID = "";
 let lastAlbumArt = null;
 let contextSettings = {};
+
+/** Dev-only pipeline logger (no-op in prod unless debug.flag / CRIMSON_PLUGIN_DEBUG). */
+const amLog = (typeof CrimsonDebug !== "undefined" && CrimsonDebug.create)
+    ? CrimsonDebug.create("applemusic")
+    : { enabled: false, info: function () {}, warn: function () {}, error: function () {}, timing: function () { return 0; } };
+amLog.info("plugin boot", { debug: !!amLog.enabled });
+
 let actionContexts = {
     "com.laoy.streamdock.applemusic.playpause": [],
     "com.laoy.streamdock.applemusic.previous": [],
@@ -17,37 +24,186 @@ let actionContexts = {
     "com.laoy.streamdock.applemusic.seekbackward": [],
     "com.laoy.streamdock.applemusic.clearqueue": [],
     "com.laoy.streamdock.applemusic.playplaylist": [],
+    "com.laoy.streamdock.applemusic.playlistbrowse": [],
+    "com.laoy.streamdock.applemusic.playlistview": [],
     "com.laoy.streamdock.applemusic.volumecontrol": [],
     "com.laoy.streamdock.applemusic.previousornext": [],
     "com.laoy.streamdock.applemusic.seekcontrol": []
 };
 
+/** Shared playlist browser: molette scroll + bouton visu/play. */
+const playlistBrowser = {
+    list: [],
+    index: 0,
+    loading: false,
+    moveBusy: false,
+    pendingDelta: 0,
+    lastCoverUrl: "",
+    lastCoverCtx: {},
+
+    current() {
+        if (!this.list.length) return null;
+        const i = ((this.index % this.list.length) + this.list.length) % this.list.length;
+        return this.list[i];
+    },
+
+    async ensureLoaded(force) {
+        if (this.loading) return;
+        if (!force && this.list.length) return;
+        this.loading = true;
+        const t0 = Date.now();
+        amLog.info("browser.ensureLoaded start", { force: !!force, cached: this.list.length });
+        try {
+            const list = await ciderAPI.listLibraryPlaylistsFast();
+            this.list = list || [];
+            if (this.index >= this.list.length) this.index = 0;
+            amLog.timing("browser.listFast", t0);
+            amLog.info("browser.list ready", { count: this.list.length });
+            // Cover for current only — never block scroll on full-library enrich
+            const cur = this.current();
+            if (cur && !cur.image) {
+                const t1 = Date.now();
+                cur.image = await ciderAPI.artworkFromFirstTrack(cur.id);
+                amLog.timing("browser.cover.current", t1);
+            }
+        } catch (e) {
+            amLog.error("browser.ensureLoaded failed", String(e && e.message ? e.message : e));
+        } finally {
+            this.loading = false;
+        }
+    },
+
+    move(delta) {
+        // Coalesce dial ticks so rapid scrolling never stacks awaits (freeze source)
+        this.pendingDelta += delta;
+        if (this.moveBusy) return;
+        this._drainMove();
+    },
+
+    async _drainMove() {
+        if (this.moveBusy) return;
+        this.moveBusy = true;
+        try {
+            while (this.pendingDelta !== 0) {
+                const step = this.pendingDelta > 0 ? 1 : -1;
+                this.pendingDelta -= step;
+                const t0 = Date.now();
+                await this.ensureLoaded(false);
+                if (!this.list.length) {
+                    this.paint({ empty: true });
+                    amLog.warn("browser.move empty list");
+                    break;
+                }
+                this.index = (this.index + step) % this.list.length;
+                if (this.index < 0) this.index += this.list.length;
+                const cur = this.current();
+                amLog.info("browser.move", { index: this.index, id: cur && cur.id, name: cur && cur.name });
+                // Paint name/position immediately; cover async so dial never freezes
+                this.paint({ skipCoverFetch: true });
+                if (cur && !cur.image) {
+                    ciderAPI.artworkFromFirstTrack(cur.id).then((art) => {
+                        if (!art) return;
+                        if (this.current() && this.current().id === cur.id) {
+                            cur.image = art;
+                            this.applyCover(art);
+                        }
+                    }).catch(() => {});
+                } else if (cur && cur.image) {
+                    this.applyCover(cur.image);
+                }
+                amLog.timing("browser.move.tick", t0);
+            }
+        } finally {
+            this.moveBusy = false;
+            if (this.pendingDelta !== 0) this._drainMove();
+        }
+    },
+
+    async playCurrent() {
+        const t0 = Date.now();
+        await this.ensureLoaded(false);
+        const cur = this.current();
+        if (!cur || !cur.id) {
+            amLog.warn("browser.playCurrent: nothing selected");
+            return;
+        }
+        amLog.info("browser.playCurrent SHUFFLE", { id: cur.id, name: cur.name });
+        await ciderAPI.playPlaylist({
+            playlist: cur.id,
+            playlistId: cur.id,
+            playlistName: cur.name,
+            shuffle: true
+        });
+        amLog.timing("browser.playCurrent", t0);
+        setTitleForAction("com.laoy.streamdock.applemusic.playlistbrowse", "▶ " + String(cur.name || "").slice(0, 10));
+        setTimeout(() => this.paint({}), 800);
+    },
+
+    paint(opts) {
+        const cur = this.current();
+        const label = !this.list.length
+            ? "Aucune"
+            : ((this.index + 1) + "/" + this.list.length);
+        const name = cur ? String(cur.name || "").slice(0, 14) : "Playlist";
+
+        setTitleForAction("com.laoy.streamdock.applemusic.playlistbrowse", label);
+
+        const viewContexts = actionContexts["com.laoy.streamdock.applemusic.playlistview"] || [];
+        viewContexts.forEach((ctx) => {
+            sendToContext(ctx, "setTitle", { title: name, target: 0 });
+        });
+
+        if (cur && cur.image) {
+            this.applyCover(cur.image);
+        } else if (!(opts && opts.skipCoverFetch)) {
+            viewContexts.forEach((ctx) => {
+                sendToContext(ctx, "setImage", { image: "static/icon/play_playlist.png", target: 0 });
+            });
+        }
+    },
+
+    async applyCover(url) {
+        if (!url) return;
+        const viewContexts = actionContexts["com.laoy.streamdock.applemusic.playlistview"] || [];
+        if (!viewContexts.length) return;
+        const t0 = Date.now();
+        try {
+            const b64 = url.startsWith("data:") ? url : await crimsonAPI.toBase64(url);
+            if (!b64) {
+                amLog.warn("browser.cover toBase64 failed", url.slice(0, 80));
+                return;
+            }
+            viewContexts.forEach((ctx) => {
+                if (this.lastCoverCtx[ctx] === url) return;
+                this.lastCoverCtx[ctx] = url;
+                sendToContext(ctx, "setImage", { image: b64, target: 0 });
+            });
+            this.lastCoverUrl = url;
+            amLog.timing("browser.cover.apply", t0);
+        } catch (e) {
+            amLog.error("browser.cover failed", String(e && e.message ? e.message : e));
+        }
+    }
+};
+
 const CIDER_BASE = "http://127.0.0.1:10767";
 
-/** Dynamic Cider App Token resolver with multi-source fallback. */
+/** Dynamic Cider App Token resolver — prefer live disk sources over stale injected values. */
 function getCiderToken() {
-    if (typeof window !== "undefined" && window.__CIDER_APP_TOKEN__) {
-        return window.__CIDER_APP_TOKEN__;
-    }
-    try {
-        if (typeof localStorage !== "undefined" && localStorage.getItem("cider_token")) {
-            return localStorage.getItem("cider_token");
-        }
-    } catch (eStorage) {}
     try {
         var fs = require("fs");
         var path = require("path");
         var appdata = process.env.APPDATA || "";
-        // 1. Check Crimsons cider cache
+        // 1. Crimsons cider cache (set via Now Playing PI / APPLE_MUSIC_CREDENTIALS)
         var cachePath = path.join(appdata, "com.laoy.crimsons", "cider_cache.json");
         if (fs.existsSync(cachePath)) {
             var raw = JSON.parse(fs.readFileSync(cachePath, "utf8"));
-            if (raw && raw.appToken) {
-                window.__CIDER_APP_TOKEN__ = raw.appToken;
-                return raw.appToken;
+            if (raw && raw.appToken && String(raw.appToken).trim()) {
+                window.__CIDER_APP_TOKEN__ = String(raw.appToken).trim();
+                return window.__CIDER_APP_TOKEN__;
             }
         }
-        // 2. Check Cider spa config
+        // 2. Cider spa-config.yml apiTokens
         var cfgPath = path.join(appdata, "sh.cider.dotnet", "spa-config.yml");
         if (fs.existsSync(cfgPath)) {
             var content = fs.readFileSync(cfgPath, "utf8");
@@ -61,14 +217,24 @@ function getCiderToken() {
             }
         }
     } catch (eNode) {}
-    // 3. Known active token fallback
-    return "q0ayx8a0n91yhg9v9wrq9h6w";
+    try {
+        if (typeof localStorage !== "undefined" && localStorage.getItem("cider_token")) {
+            return localStorage.getItem("cider_token");
+        }
+    } catch (eStorage) {}
+    try {
+        if (typeof window !== "undefined" && window.__CIDER_APP_TOKEN__) {
+            return String(window.__CIDER_APP_TOKEN__).trim();
+        }
+    } catch (eWin) {}
+    return "";
 }
 
 /** Direct Cider HTTP API Client */
 const ciderAPI = {
     cachedState: null,
     lastVolume: 0.5,
+    playlistCache: [], // last library list with artwork
 
     async request(path, method = "POST", body = null) {
         const token = getCiderToken();
@@ -79,11 +245,20 @@ const ciderAPI = {
             headers["Content-Type"] = "application/json";
             opts.body = JSON.stringify(body);
         }
+        const t0 = Date.now();
         try {
             const resp = await fetch(`${CIDER_BASE}${path}`, opts);
+            const ms = Date.now() - t0;
+            if (!resp) {
+                amLog.error("cider.request null", { path: path, ms: ms });
+            } else if (!resp.ok) {
+                amLog.warn("cider.request HTTP", { path: path, status: resp.status, ms: ms });
+            } else if (ms >= 200) {
+                amLog.warn("cider.request SLOW", { path: path, status: resp.status, ms: ms });
+            }
             return resp;
         } catch (err) {
-            console.error(`[AppleMusic:Cider] Network error on ${path}:`, err);
+            amLog.error("cider.request network", { path: path, err: String(err), ms: Date.now() - t0 });
             return null;
         }
     },
@@ -244,13 +419,194 @@ const ciderAPI = {
         return m ? m[1] : null;
     },
 
+    normalizeArtworkUrl(raw) {
+        if (!raw || typeof raw !== "string") return "";
+        return raw
+            .replace(/\{w\}x\{h\}bb/g, "144x144bb")
+            .replace("{w}", "144")
+            .replace("{h}", "144")
+            .replace(/\/600x600bb\.(png|jpg)/g, "/144x144bb.jpg")
+            .replace(/\/1200x1200bb\.(png|jpg)/g, "/144x144bb.jpg")
+            .replace(/\/300x300bb\.(png|jpg)/g, "/144x144bb.jpg");
+    },
+
+    extractArtworkFromItem(item) {
+        if (!item) return "";
+        const art = item.artwork
+            || (item.attributes && item.attributes.artwork)
+            || null;
+        const candidates = [
+            art && art.url,
+            art && art.uri,
+            typeof art === "string" ? art : null,
+            item.artworkUrl,
+            item.image,
+            item.attributes && item.attributes.artworkUrl,
+            item.attributes && item.attributes.url
+        ];
+        for (const c of candidates) {
+            if (typeof c === "string" && c.trim() && /^https?:\/\//i.test(c.trim())) {
+                return this.normalizeArtworkUrl(c.trim());
+            }
+        }
+        return "";
+    },
+
+    normalizePlaylistList(json) {
+        const out = [];
+        const seen = {};
+        const data = json && json.data;
+        const itemsA = data && Array.isArray(data.items) ? data.items : null;
+        const itemsB = Array.isArray(data) ? data : (data && Array.isArray(data.data) ? data.data : null);
+        const list = itemsA || itemsB || (Array.isArray(json) ? json : []);
+        list.forEach((item) => {
+            if (!item) return;
+            const id = item.id
+                || (item.attributes && item.attributes.playParams && item.attributes.playParams.id)
+                || '';
+            if (!id || seen[id]) return;
+            seen[id] = true;
+            const name = item.name
+                || (item.attributes && item.attributes.name)
+                || '';
+            out.push({
+                id: String(id),
+                name: name || String(id),
+                image: this.extractArtworkFromItem(item)
+            });
+        });
+        out.sort((a, b) => a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' }));
+        return out;
+    },
+
+    /** Many user playlists return artwork:null — use the first track cover instead. */
+    async artworkFromFirstTrack(playlistId) {
+        if (!playlistId) return "";
+        try {
+            const resp = await this.request(
+                `/api/v2/library/playlists/${encodeURIComponent(playlistId)}/songs?limit=1`,
+                "GET"
+            );
+            if (!resp || !resp.ok) return "";
+            const json = await resp.json();
+            const items = (json && json.data && Array.isArray(json.data.items))
+                ? json.data.items
+                : (Array.isArray(json && json.data) ? json.data : []);
+            if (!items.length) return "";
+            return this.extractArtworkFromItem(items[0]);
+        } catch (e) {
+            return "";
+        }
+    },
+
+    async enrichMissingArtwork(playlists) {
+        const missing = (playlists || []).filter((p) => p && p.id && !p.image);
+        // Parallel but capped to avoid hammering Cider
+        const chunk = 6;
+        for (let i = 0; i < missing.length; i += chunk) {
+            const slice = missing.slice(i, i + chunk);
+            await Promise.all(slice.map(async (p) => {
+                const art = await this.artworkFromFirstTrack(p.id);
+                if (art) p.image = art;
+            }));
+        }
+        return playlists;
+    },
+
+    async listLibraryPlaylistsFast() {
+        const all = [];
+        const seen = {};
+        let offset = 0;
+        const limit = 100;
+        for (let page = 0; page < 20; page++) {
+            const resp = await this.request(
+                `/api/v2/library/playlists?limit=${limit}&offset=${offset}`,
+                "GET"
+            );
+            if (!resp || !resp.ok) {
+                if (page === 0) {
+                    throw new Error(resp ? (`Cider ${resp.status}`) : "Cider unreachable");
+                }
+                break;
+            }
+            const json = await resp.json();
+            const batch = this.normalizePlaylistList(json);
+            batch.forEach((p) => {
+                if (!seen[p.id]) {
+                    seen[p.id] = true;
+                    all.push(p);
+                }
+            });
+            const total = (json.meta && typeof json.meta.total === "number") ? json.meta.total : null;
+            offset += limit;
+            if (batch.length < limit) break;
+            if (total !== null && offset >= total) break;
+        }
+        all.sort((a, b) => a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' }));
+        this.playlistCache = all;
+        return all;
+    },
+
+    async listLibraryPlaylists() {
+        const all = await this.listLibraryPlaylistsFast();
+        await this.enrichMissingArtwork(all);
+        this.playlistCache = all;
+        return all;
+    },
+
+    async resolvePlaylistArtwork(raw) {
+        const key = (raw || "").trim();
+        if (!key) return "";
+        const match = (list) => (list || []).find((p) =>
+            p.id === key
+            || (p.name && p.name.toLowerCase() === key.toLowerCase())
+            || (p.name && p.name.toLowerCase().startsWith(key.toLowerCase()))
+        );
+
+        const fromCache = match(this.playlistCache);
+        if (fromCache && fromCache.image) return fromCache.image;
+
+        try {
+            if (!this.playlistCache.length) {
+                await this.listLibraryPlaylists();
+            } else {
+                // Re-enrich just this playlist if still missing art
+                const hit = match(this.playlistCache);
+                if (hit && !hit.image) {
+                    hit.image = await this.artworkFromFirstTrack(hit.id);
+                }
+                if (hit && hit.image) return hit.image;
+            }
+            const again = match(this.playlistCache);
+            if (again && again.image) return again.image;
+            if (again && again.id) {
+                const art = await this.artworkFromFirstTrack(again.id);
+                if (art) {
+                    again.image = art;
+                    return art;
+                }
+            }
+        } catch (e) {}
+
+        // Direct id fallback (library playlist id like p.xxx)
+        const id = this.extractPlaylistIdFromUrl(key) || key;
+        if (id.startsWith("p.") || id.startsWith("pl.")) {
+            const art = await this.artworkFromFirstTrack(id);
+            if (art) return art;
+        }
+        return "";
+    },
+
     async playPlaylist(settings) {
         const raw = this.extractPlaylistRaw(settings);
         if (!raw) {
             console.warn("[AppleMusic:Cider] Play Playlist: no playlist id/URL configured");
             return;
         }
-        const shuffle = !!(settings.shuffle || (settings.settings && settings.settings.shuffle));
+        // Default shuffle ON — user always launches playlists random; explicit false still respected
+        const shuffle = (settings.shuffle === false || (settings.settings && settings.settings.shuffle === false))
+            ? false
+            : true;
         const lower = raw.toLowerCase();
         const isUrl = lower.includes("music.apple.com") || lower.startsWith("http://") || lower.startsWith("https://");
         const isId = raw.startsWith("pl.") || raw.startsWith("p.") || /^\d+$/.test(raw);
@@ -398,13 +754,111 @@ function playlistButtonTitle(settings) {
     return raw.slice(0, 14);
 }
 
+const playlistCoverCache = {}; // context -> artwork url
+
+function sendToContext(context, event, payload) {
+    const json = { event: event, context: context, payload: payload };
+    // Always try both paths — AJAZZ often owns one socket while the other is idle.
+    let sent = false;
+    if (streamDeckSocket && streamDeckSocket.readyState === WebSocket.OPEN) {
+        try { streamDeckSocket.send(JSON.stringify(json)); sent = true; } catch (e) {}
+    }
+    if (crimsonAPI.ws && crimsonAPI.ws.readyState === WebSocket.OPEN) {
+        try {
+            crimsonAPI.send({ type: "FORWARD_TO_STREAMDOCK", payload: json });
+            sent = true;
+        } catch (e2) {}
+    }
+    return sent;
+}
+
 function applyPlaylistButtonTitle(context, settings) {
-    const title = playlistButtonTitle(settings);
-    const json = { event: "setTitle", context: context, payload: { title: title, target: 0 } };
+    const s = settings || {};
+    // Cover art replaces the generic icon — keep title empty when we have artwork
+    const hasArt = !!(s.playlist_image || s.image);
+    const title = hasArt ? "" : playlistButtonTitle(s);
+    sendToContext(context, "setTitle", { title: title, target: 0 });
+}
+
+async function applyPlaylistCover(context, settings) {
+    const s = settings || {};
+    let url = (s.playlist_image || s.image || "").trim();
+    if (!url) {
+        const raw = ciderAPI.extractPlaylistRaw(s);
+        if (raw) {
+            url = await ciderAPI.resolvePlaylistArtwork(raw);
+            if (url) {
+                s.playlist_image = url;
+                s.image = url;
+                contextSettings[context] = Object.assign({}, contextSettings[context] || {}, s);
+            }
+        }
+    }
+    if (!url) return;
+    if (playlistCoverCache[context] === url) return;
+    try {
+        const b64 = url.startsWith("data:") ? url : await crimsonAPI.toBase64(url);
+        if (!b64) {
+            console.warn("[AppleMusic] playlist cover toBase64 failed", url.slice(0, 80));
+            return;
+        }
+        playlistCoverCache[context] = url;
+        sendToContext(context, "setImage", { image: b64, target: 0 });
+        // Clear title once cover is on the key
+        sendToContext(context, "setTitle", { title: "", target: 0 });
+    } catch (e) {
+        console.warn("[AppleMusic] playlist cover failed", e);
+    }
+}
+
+function applyPlaylistButton(context, settings) {
+    applyPlaylistButtonTitle(context, settings);
+    applyPlaylistCover(context, settings);
+}
+
+function sendToPropertyInspector(context, action, payload) {
+    const json = {
+        event: "sendToPropertyInspector",
+        context: context,
+        action: action,
+        payload: payload
+    };
     if (streamDeckSocket && streamDeckSocket.readyState === WebSocket.OPEN) {
         streamDeckSocket.send(JSON.stringify(json));
     } else if (crimsonAPI.ws && crimsonAPI.ws.readyState === WebSocket.OPEN) {
         crimsonAPI.send({ type: "FORWARD_TO_STREAMDOCK", payload: json });
+    }
+}
+
+async function pushPlaylistsToPi(context, action) {
+    const token = getCiderToken();
+    try {
+        // Fast path: list first (no per-playlist song fetch), push immediately
+        const playlists = await ciderAPI.listLibraryPlaylistsFast
+            ? await ciderAPI.listLibraryPlaylistsFast()
+            : await ciderAPI.listLibraryPlaylists();
+        sendToPropertyInspector(context, action, {
+            playlists: playlists,
+            ciderToken: token || undefined
+        });
+        // Background: fill missing artwork, re-push once enriched
+        ciderAPI.enrichMissingArtwork(playlists).then((enriched) => {
+            ciderAPI.playlistCache = enriched;
+            sendToPropertyInspector(context, action, {
+                playlists: enriched,
+                ciderToken: token || undefined
+            });
+        }).catch(() => {});
+    } catch (e) {
+        const msg = e && e.message ? String(e.message) : "";
+        const authFail = /UNAUTHORIZED|403/i.test(msg);
+        sendToPropertyInspector(context, action, {
+            playlists: [],
+            ciderToken: token || undefined,
+            error: authFail
+                ? "Jeton Cider manquant ou invalide — colle un apptoken avec scope Library ci-dessous."
+                : ("Impossible de lister les playlists Cider. " + msg)
+        });
     }
 }
 
@@ -426,7 +880,12 @@ function handleHardwareEvent(jsonObj) {
             actionContexts[action].push(context);
         }
         if (action === "com.laoy.streamdock.applemusic.playplaylist") {
-            applyPlaylistButtonTitle(context, contextSettings[context] || jsonObj['payload']?.settings || {});
+            delete playlistCoverCache[context];
+            applyPlaylistButton(context, contextSettings[context] || jsonObj['payload']?.settings || {});
+        }
+        if (action === "com.laoy.streamdock.applemusic.playlistbrowse"
+            || action === "com.laoy.streamdock.applemusic.playlistview") {
+            playlistBrowser.ensureLoaded(false).then(() => playlistBrowser.paint());
         }
         // Immediately fetch state on appearance to display current song/volume
         ciderAPI.fetchState().then(st => {
@@ -436,7 +895,23 @@ function handleHardwareEvent(jsonObj) {
 
     if (event === "didReceiveSettings") {
         if (action === "com.laoy.streamdock.applemusic.playplaylist") {
-            applyPlaylistButtonTitle(context, contextSettings[context] || {});
+            delete playlistCoverCache[context];
+            applyPlaylistButton(context, contextSettings[context] || {});
+        }
+    }
+
+    if (event === "propertyInspectorDidAppear" || event === "sendToPlugin") {
+        if (action === "com.laoy.streamdock.applemusic.playplaylist") {
+            const payload = jsonObj['payload'] || {};
+            if (event === "propertyInspectorDidAppear" || payload.type === "refreshPlaylists" || payload.type === "refresh") {
+                pushPlaylistsToPi(context, action);
+            }
+            if (payload.type === "refreshCover" || payload.type === "settingsUpdated") {
+                const s = Object.assign({}, contextSettings[context] || {}, payload.settings || {});
+                contextSettings[context] = s;
+                delete playlistCoverCache[context];
+                applyPlaylistButton(context, s);
+            }
         }
     }
 
@@ -445,6 +920,7 @@ function handleHardwareEvent(jsonObj) {
             actionContexts[action] = actionContexts[action].filter(c => c !== context);
         }
         delete contextSettings[context];
+        delete playlistCoverCache[context];
     }
 
     if (event === "keyDown" || (event === "dialPress" && jsonObj['payload']?.pressed)) {
@@ -509,19 +985,99 @@ const crimsonAPI = {
         }
     },
     async toBase64(url) {
+        // Prefer Node https — Apple Music CDN often blocks canvas/CORS in the webview.
+        try {
+            const buf = await this.fetchBuffer(url);
+            if (buf && buf.length) {
+                const b64 = buf.toString("base64");
+                const mime = /\.png(\?|$)/i.test(url) ? "image/png" : "image/jpeg";
+                // Resize via Image if possible; otherwise send raw data URL
+                const dataUrl = "data:" + mime + ";base64," + b64;
+                return await this.resizeDataUrl(dataUrl, 144) || dataUrl;
+            }
+        } catch (eNode) {}
+
+        try {
+            const resp = await fetch(url, { mode: "cors", cache: "force-cache" });
+            if (resp && resp.ok) {
+                const blob = await resp.blob();
+                const dataUrl = await new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve(reader.result);
+                    reader.onerror = () => resolve(null);
+                    reader.readAsDataURL(blob);
+                });
+                if (dataUrl) return await this.resizeDataUrl(dataUrl, 144) || dataUrl;
+            }
+        } catch (eFetch) {}
+
         return new Promise((resolve) => {
             const img = new Image();
             img.crossOrigin = "Anonymous";
             img.onload = () => {
-                const canvas = document.createElement("canvas");
-                canvas.width = img.width;
-                canvas.height = img.height;
-                const ctx = canvas.getContext("2d");
-                ctx.drawImage(img, 0, 0);
-                resolve(canvas.toDataURL("image/png"));
+                try {
+                    const canvas = document.createElement("canvas");
+                    canvas.width = 144;
+                    canvas.height = 144;
+                    const ctx = canvas.getContext("2d");
+                    ctx.drawImage(img, 0, 0, 144, 144);
+                    resolve(canvas.toDataURL("image/jpeg", 0.85));
+                } catch (e) {
+                    resolve(null);
+                }
             };
             img.onerror = () => resolve(null);
             img.src = url;
+        });
+    },
+
+    fetchBuffer(url) {
+        return new Promise((resolve, reject) => {
+            try {
+                const lib = url.startsWith("https") ? require("https") : require("http");
+                const req = lib.get(url, { timeout: 8000 }, (res) => {
+                    if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+                        this.fetchBuffer(res.headers.location).then(resolve, reject);
+                        return;
+                    }
+                    if (res.statusCode !== 200) {
+                        reject(new Error("HTTP " + res.statusCode));
+                        res.resume();
+                        return;
+                    }
+                    const chunks = [];
+                    res.on("data", (c) => chunks.push(c));
+                    res.on("end", () => resolve(Buffer.concat(chunks)));
+                });
+                req.on("error", reject);
+                req.on("timeout", () => { try { req.destroy(); } catch (e) {} reject(new Error("timeout")); });
+            } catch (e) {
+                reject(e);
+            }
+        });
+    },
+
+    resizeDataUrl(dataUrl, size) {
+        return new Promise((resolve) => {
+            try {
+                const img = new Image();
+                img.onload = () => {
+                    try {
+                        const canvas = document.createElement("canvas");
+                        canvas.width = size;
+                        canvas.height = size;
+                        const ctx = canvas.getContext("2d");
+                        ctx.drawImage(img, 0, 0, size, size);
+                        resolve(canvas.toDataURL("image/jpeg", 0.85));
+                    } catch (e) {
+                        resolve(dataUrl);
+                    }
+                };
+                img.onerror = () => resolve(dataUrl);
+                img.src = dataUrl;
+            } catch (e) {
+                resolve(dataUrl);
+            }
         });
     }
 };
@@ -584,6 +1140,7 @@ function connectElgatoStreamDeckSocket(inPort, inPluginUUID, inRegisterEvent, in
 }
 
 function handleKeyDown(action, settings) {
+    amLog.info("hw.keyDown", { action: action });
     let endpoint = null;
     let payload = {};
     switch (action) {
@@ -630,6 +1187,14 @@ function handleKeyDown(action, settings) {
             endpoint = "playplaylist";
             payload = settings || {};
             break;
+        case "com.laoy.streamdock.applemusic.playlistview":
+            // Visual button press → play currently browsed playlist
+            playlistBrowser.playCurrent();
+            return;
+        case "com.laoy.streamdock.applemusic.playlistbrowse":
+            // Knob press → play currently browsed playlist
+            playlistBrowser.playCurrent();
+            return;
         case "com.laoy.streamdock.applemusic.volumecontrol":
             endpoint = "mute";
             break;
@@ -666,6 +1231,13 @@ function formatTime(ms) {
 }
 
 function handleDialRotate(action, ticks) {
+    amLog.info("hw.dialRotate", { action: action, ticks: ticks });
+    if (action === "com.laoy.streamdock.applemusic.playlistbrowse") {
+        // One detent = one playlist
+        const step = ticks > 0 ? 1 : (ticks < 0 ? -1 : 0);
+        if (step) playlistBrowser.move(step);
+        return;
+    }
     if (action === "com.laoy.streamdock.applemusic.volumecontrol") {
         ciderAPI.executeCommand("volumecontrol", { ticks: ticks });
         if (crimsonAPI.ws && crimsonAPI.ws.readyState === WebSocket.OPEN) {
@@ -763,6 +1335,9 @@ function applyNowPlaying(state) {
             crimsonAPI.toBase64(state.album_art).then(b64 => {
                 if (b64) {
                     setImageForAction("com.laoy.streamdock.applemusic.songinfo", b64);
+                } else {
+                    // Allow retry next poll if download failed
+                    lastAlbumArt = null;
                 }
             });
         }
@@ -774,46 +1349,74 @@ function applyNowPlaying(state) {
 
 function setTitleForAction(action, title) {
     const contexts = actionContexts[action] || [];
-    contexts.forEach(context => {
-        const json = { "event": "setTitle", "context": context, "payload": { "title": title, "target": 0 } };
-        if (streamDeckSocket && streamDeckSocket.readyState === WebSocket.OPEN) {
-            streamDeckSocket.send(JSON.stringify(json));
-        } else if (crimsonAPI.ws && crimsonAPI.ws.readyState === WebSocket.OPEN) {
-            crimsonAPI.send({ type: "FORWARD_TO_STREAMDOCK", payload: json });
-        }
-    });
+    contexts.forEach(context => sendToContext(context, "setTitle", { title: title, target: 0 }));
 }
 
 function setImageForAction(action, image) {
     const contexts = actionContexts[action] || [];
-    contexts.forEach(context => {
-        const json = { "event": "setImage", "context": context, "payload": { "image": image, "target": 0 } };
-        if (streamDeckSocket && streamDeckSocket.readyState === WebSocket.OPEN) {
-            streamDeckSocket.send(JSON.stringify(json));
-        } else if (crimsonAPI.ws && crimsonAPI.ws.readyState === WebSocket.OPEN) {
-            crimsonAPI.send({ type: "FORWARD_TO_STREAMDOCK", payload: json });
-        }
-    });
+    contexts.forEach(context => sendToContext(context, "setImage", { image: image, target: 0 }));
 }
 
 function updateActionState(action, state) {
     const contexts = actionContexts[action] || [];
-    contexts.forEach(context => {
-        const json = { "event": "setState", "context": context, "payload": { "state": state } };
-        if (streamDeckSocket && streamDeckSocket.readyState === WebSocket.OPEN) {
-            streamDeckSocket.send(JSON.stringify(json));
-        } else if (crimsonAPI.ws && crimsonAPI.ws.readyState === WebSocket.OPEN) {
-            crimsonAPI.send({ type: "FORWARD_TO_STREAMDOCK", payload: json });
-        }
-    });
+    contexts.forEach(context => sendToContext(context, "setState", { state: state }));
 }
 
-// Background autonomous state polling from Cider (updates UI every 900ms)
-setInterval(async () => {
-    const st = await ciderAPI.fetchState();
-    if (st) {
+// Live sync: poll Cider fast so opening Cider / track changes hit the deck without a manual trigger.
+// (StreamDock throttles background timers — also push via crimson WS which wakes the plugin.)
+let _lastCiderConnected = null;
+let _pollBusy = false;
+async function pollCiderLive() {
+    if (_pollBusy) return;
+    _pollBusy = true;
+    const t0 = Date.now();
+    try {
+        const st = await ciderAPI.fetchState();
+        if (!st) {
+            amLog.warn("poll: fetchState returned null");
+            return;
+        }
+        const connected = !!st.cider_connected;
+        if (_lastCiderConnected !== connected) {
+            amLog.info("poll: cider_connected changed", {
+                from: _lastCiderConnected,
+                to: connected,
+                track: st.track_name || "",
+                playing: !!st.is_playing
+            });
+        }
+        if (_lastCiderConnected === false && connected) {
+            lastAlbumArt = null;
+        }
+        // Log track changes (detect lag / missed updates)
+        if (st.track_id && st.track_id !== pollCiderLive._lastTrackId) {
+            amLog.info("poll: track changed", {
+                id: st.track_id,
+                name: st.track_name,
+                artist: st.artist_name,
+                playing: !!st.is_playing
+            });
+            pollCiderLive._lastTrackId = st.track_id;
+        }
+        _lastCiderConnected = connected;
         applyNowPlaying(st);
+        const ms = Date.now() - t0;
+        if (ms >= 250) amLog.warn("FREEZE/SLOW pollCiderLive", { ms: ms, connected: connected });
+    } catch (e) {
+        amLog.error("pollCiderLive exception", String(e && e.message ? e.message : e));
+    } finally {
+        _pollBusy = false;
     }
-}, 900);
+}
+pollCiderLive._lastTrackId = "";
+setInterval(pollCiderLive, 400);
+// Keepalive ping so StreamDock is less likely to throttle the plugin timer
+setInterval(() => {
+    try {
+        if (crimsonAPI.ws && crimsonAPI.ws.readyState === WebSocket.OPEN) {
+            crimsonAPI.send({ type: "PING" });
+        }
+    } catch (e) {}
+}, 5000);
 
 window.connectElgatoStreamDeckSocket = connectElgatoStreamDeckSocket;

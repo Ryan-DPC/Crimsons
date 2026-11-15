@@ -1,4 +1,9 @@
 /// <reference path="streamdeck_ui.js" />
+const spotifyLog = (typeof CrimsonDebug !== "undefined" && CrimsonDebug.create)
+    ? CrimsonDebug.create("spotify")
+    : { enabled: false, info: function () {}, warn: function () {}, error: function () {}, timing: function () { return 0; } };
+spotifyLog.info("plugin boot", { debug: !!spotifyLog.enabled });
+
 const actionContexts = {};
 const contextSettings = {};
 
@@ -347,6 +352,8 @@ function handleActionClick(action, context, settings) {
     if (actionKey === "playpause") endpoint = "playpause";
     if (actionKey === "previous") endpoint = "prev";
     if (actionKey === "playplaylist") endpoint = "play";
+
+    spotifyLog.info("hw.keyDown", { action: action, endpoint: endpoint });
     
     crimsonAPI.send({ 
         type: "SPOTIFY_COMMAND", 

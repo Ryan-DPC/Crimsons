@@ -36,3 +36,21 @@ Plus de pack de base. Il faut lister explicitement les plugins :
 .\scripts\inject_plugins.ps1 -Plugins com.laoy.streamdock.crimson.sdPlugin,com.laoy.streamdock.spotify.sdPlugin
 .\scripts\inject_plugins.ps1 -Plugins com.laoy.streamdock.discord.sdPlugin
 ```
+
+## Dev — logs plugins (OFF en prod)
+
+Par défaut **aucun** fichier log n’est écrit (les installs utilisateurs restent propres).
+
+Sur une machine de test, activer le debug :
+
+```powershell
+# Activer
+New-Item -Force "$env:APPDATA\com.laoy.crimsons\debug.flag" | Out-Null
+# ou: $env:CRIMSON_PLUGIN_DEBUG = "1"
+
+# Désactiver
+Remove-Item "$env:APPDATA\com.laoy.crimsons\debug.flag" -ErrorAction SilentlyContinue
+```
+
+Fichiers : `%APPDATA%\com.laoy.crimsons\logs\<plugin>.log` (rotation ~2 Mo).  
+Helper partagé : `_shared/crimson_debug.js` (copié dans chaque pack `plugin/crimson_debug.js`).
