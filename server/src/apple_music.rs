@@ -20,6 +20,10 @@ pub struct AppleMusicState {
     pub artist_name: String,
     pub album_name: String,
     pub album_art: String,
+    /// Optional data-URL cover fetched by the sidecar (avoids StreamDock CEF CORS).
+    /// Omitted from most payloads when empty to keep WS messages small.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub album_art_data: String,
     pub progress_ms: u32,
     pub duration_ms: u32,
     pub volume_percent: u32,
@@ -28,6 +32,9 @@ pub struct AppleMusicState {
     pub cider_connected: bool,
     pub has_token: bool,
     pub track_id: String,
+    /// Playlist/album container id when Cider exposes it (Play Playlist ▶ matching).
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub container_id: String,
     #[serde(default)]
     pub in_favorites: bool,
     #[serde(default)]
@@ -214,6 +221,7 @@ impl AppleMusicService {
             artist_name: now["artistName"].as_str().unwrap_or("").to_string(),
             album_name: now["albumName"].as_str().unwrap_or("").to_string(),
             album_art: artwork,
+            album_art_data: String::new(),
             progress_ms,
             duration_ms,
             volume_percent: (volume.clamp(0.0, 1.0) * 100.0).round() as u32,
@@ -222,6 +230,7 @@ impl AppleMusicService {
             cider_connected: true,
             has_token: !client.app_token.is_empty(),
             track_id: now["id"].as_str().or_else(|| now["playParams"]["id"].as_str()).unwrap_or("").to_string(),
+            container_id: extract_container_id(now),
             in_favorites: now["inFavorites"].as_bool().unwrap_or(false),
             in_library: now["inLibrary"].as_bool().unwrap_or(false),
         })
@@ -282,6 +291,7 @@ impl AppleMusicService {
             artist_name: attrs["artistName"].as_str().unwrap_or("").to_string(),
             album_name: attrs["albumName"].as_str().unwrap_or("").to_string(),
             album_art: artwork,
+            album_art_data: String::new(),
             progress_ms: 0,
             duration_ms: attrs["durationInMillis"].as_u64().unwrap_or(0) as u32,
             volume_percent: (volume.clamp(0.0, 1.0) * 100.0).round() as u32,
@@ -290,6 +300,14 @@ impl AppleMusicService {
             cider_connected: true,
             has_token: !client.app_token.is_empty(),
             track_id: now["id"].as_str().unwrap_or("").to_string(),
+            container_id: {
+                let from_attrs = extract_container_id(&attrs);
+                if from_attrs.is_empty() {
+                    extract_container_id(&now)
+                } else {
+                    from_attrs
+                }
+            },
             in_favorites: false,
             in_library: false,
         })
@@ -313,27 +331,96 @@ impl AppleMusicService {
         }
     }
 
+    /// Download cover bytes and return a data-URL (for StreamDock setImage without CEF CORS).
+    async fn fetch_album_art_data_url(url: &str) -> Option<String> {
+        if url.is_empty() || url.starts_with("data:") {
+            return None;
+        }
+        let client = reqwest::Client::builder()
+            .timeout(Duration::from_secs(4))
+            .build()
+            .ok()?;
+        let resp = client.get(url).send().await.ok()?;
+        if !resp.status().is_success() {
+            return None;
+        }
+        let mime = resp
+            .headers()
+            .get(reqwest::header::CONTENT_TYPE)
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("image/jpeg")
+            .to_string();
+        let bytes = resp.bytes().await.ok()?;
+        if bytes.is_empty() || bytes.len() > 2_500_000 {
+            return None;
+        }
+        use base64::engine::general_purpose::STANDARD;
+        use base64::Engine;
+        Some(format!("data:{};base64,{}", mime, STANDARD.encode(bytes)))
+    }
+
     pub async fn start_background_polling(self: &Arc<Self>) {
         let self_arc = self.clone();
         tokio::spawn(async move {
-            let mut last_json = String::new();
+            let mut last_sig = String::new();
+            let mut last_art_url = String::new();
+            let mut last_art_data = String::new();
             loop {
                 if !self_arc.is_enabled.load(Ordering::Relaxed) {
                     tokio::time::sleep(POLL_DISABLED_INTERVAL).await;
                     continue;
                 }
 
-                let state = self_arc.fetch_state().await;
-                let payload = json!({ "type": "APPLE_MUSIC_STATE", "data": &state });
-                let encoded = payload.to_string();
-                // Skip cache write + WS fan-out when the serialized snapshot is unchanged.
-                if encoded != last_json {
+                let mut state = self_arc.fetch_state().await;
+
+                // Fetch cover once per URL change (sidecar bypasses StreamDock CEF CORS).
+                if !state.album_art.is_empty() && state.album_art != last_art_url {
+                    if let Some(data) = Self::fetch_album_art_data_url(&state.album_art).await {
+                        last_art_data = data.clone();
+                        last_art_url = state.album_art.clone();
+                        state.album_art_data = data.clone();
+                        let _ = self_arc.sender.0.send(
+                            json!({
+                                "event": "setImageBroadcast",
+                                "payload": { "image": data }
+                            })
+                            .to_string(),
+                        );
+                    } else {
+                        last_art_url = state.album_art.clone();
+                        last_art_data.clear();
+                    }
+                } else if state.album_art.is_empty() {
+                    last_art_url.clear();
+                    last_art_data.clear();
+                } else if !last_art_data.is_empty() {
+                    // Reattach cached data-URL without re-downloading.
+                    state.album_art_data = last_art_data.clone();
+                }
+
+                // Signature ignores sub-second progress spam but still pushes on track /
+                // play-state / volume / second-tick seek changes.
+                let sig = format!(
+                    "{}|{}|{}|{}|{}|{}|{}|{}|{}|{}",
+                    state.is_playing,
+                    state.track_id,
+                    state.track_name,
+                    state.artist_name,
+                    state.album_art,
+                    state.container_id,
+                    state.volume_percent,
+                    state.shuffle_state,
+                    state.repeat_state,
+                    state.progress_ms / 1000
+                );
+                if sig != last_sig {
                     {
                         let mut cache = self_arc.cached_state.write().await;
-                        *cache = state;
+                        *cache = state.clone();
                     }
-                    let _ = self_arc.sender.0.send(encoded.clone());
-                    last_json = encoded;
+                    let payload = json!({ "type": "APPLE_MUSIC_STATE", "data": &state });
+                    let _ = self_arc.sender.0.send(payload.to_string());
+                    last_sig = sig;
                 }
                 tokio::time::sleep(POLL_INTERVAL).await;
             }
@@ -892,6 +979,37 @@ fn find_playlist_id_in_search(raw: &serde_json::Value, needle_lc: &str) -> Optio
     exact.or(partial)
 }
 
+fn extract_container_id(now: &serde_json::Value) -> String {
+    const PATHS: &[&str] = &[
+        "/container/id",
+        "/_container/id",
+        "/containerId",
+        "/playlistId",
+        "/playlist_id",
+        "/playParams/catalogId",
+        "/playParams/parentId",
+        "/playParams/containerId",
+    ];
+    for path in PATHS {
+        if let Some(s) = now.pointer(path).and_then(|v| v.as_str()) {
+            let t = s.trim();
+            if !t.is_empty() {
+                return t.to_string();
+            }
+        }
+    }
+    // Nested object forms: container: { id: "pl.…" }
+    if let Some(obj) = now.get("container").or_else(|| now.get("_container")) {
+        if let Some(s) = obj.get("id").and_then(|v| v.as_str()) {
+            let t = s.trim();
+            if !t.is_empty() {
+                return t.to_string();
+            }
+        }
+    }
+    String::new()
+}
+
 fn extract_playlist_shuffle(params: Option<&serde_json::Value>) -> bool {
     let p = match params {
         Some(v) => v,
@@ -1093,6 +1211,22 @@ mod tests {
             find_playlist_id_in_list(&raw, "night").as_deref(),
             Some("p.2")
         );
+    }
+
+    #[test]
+    fn extract_container_id_from_now_playing() {
+        let now = json!({
+            "name": "Song",
+            "container": { "id": "pl.u-abc", "type": "playlists" }
+        });
+        assert_eq!(extract_container_id(&now), "pl.u-abc");
+
+        let via_params = json!({
+            "playParams": { "id": "song.1", "parentId": "pl.u-parent" }
+        });
+        assert_eq!(extract_container_id(&via_params), "pl.u-parent");
+
+        assert_eq!(extract_container_id(&json!({})), "");
     }
 }
 

@@ -36,6 +36,6 @@
   },
   "com.laoy.streamdock.applemusic.playplaylist": {
     "Name": "Lancer une playlist",
-    "Tooltip": "Lancer une playlist précise (ID ou URL Apple Music)"
+    "Tooltip": "Lance une playlist (garde son nom sur la touche ; ▶ en lecture — ce n’est pas Now Playing)"
   }
 }
