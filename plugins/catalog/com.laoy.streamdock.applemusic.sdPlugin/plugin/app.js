@@ -20,8 +20,10 @@ const playlistArtMemo = {};
 /** StreamDock keys clip centered setTitle — slide a fixed window instead. */
 const MARQUEE_CHARS = 10;
 const MARQUEE_GAP = "   ";
-const MARQUEE_TICK_MS = 280;
-const MARQUEE_PAUSE_MS = 1400;
+/** ~10 Hz / 1-char steps — smoother than 280–500ms jumps; SD handles this fine. */
+const MARQUEE_TICK_MS = 100;
+/** Brief hold at loop start/end so the full window is readable. */
+const MARQUEE_PAUSE_MS = 1200;
 
 /** Dev-only pipeline logger (no-op in prod unless debug.flag / CRIMSON_PLUGIN_DEBUG). */
 const amLog = (typeof CrimsonDebug !== "undefined" && CrimsonDebug.create)
@@ -1555,6 +1557,15 @@ function handleHardwareEvent(jsonObj) {
         // Global art dedupe must reset too: otherwise applySongInfoArt skips setImage
         // when the same track is still playing after coming back to the page.
         lastAlbumArt = null;
+        // Stop marquee timers when no live keys remain (avoid setTitle spam off-page).
+        if (action === "com.laoy.streamdock.applemusic.songinfo"
+            && !(actionContexts[action] || []).length) {
+            songInfoMarquee.stop();
+        }
+        if (action === "com.laoy.streamdock.applemusic.playlistview"
+            && !(actionContexts[action] || []).length) {
+            playlistViewMarquee.stop();
+        }
     }
 
     if (event === "keyDown" || (event === "dialPress" && jsonObj['payload']?.pressed)) {
