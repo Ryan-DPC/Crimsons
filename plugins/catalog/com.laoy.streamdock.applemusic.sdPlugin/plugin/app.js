@@ -567,11 +567,17 @@ const ciderAPI = {
     /**
      * HTTP to Cider with retry/backoff. Cold start / tray often drops the first
      * request until MusicKit wakes — one silent miss made StreamDock keys feel dead.
+     * NEVER wake Cider during passive background polling (GET requests): waking Cider
+     * launches cider:// which forces MusicKit to claim the Apple Music stream lease
+     * and cuts off playback on user's phone, TV, or speakers!
      */
     async request(path, method = "POST", body = null, reqOpts) {
         const retries = (reqOpts && typeof reqOpts.retries === "number")
             ? reqOpts.retries
             : CIDER_CMD_RETRIES;
+        const allowWake = reqOpts && typeof reqOpts.allowWake === "boolean"
+            ? reqOpts.allowWake
+            : (method !== "GET");
         let last = null;
         for (let attempt = 0; attempt <= retries; attempt++) {
             last = await this.requestOnce(path, method, body);
@@ -580,7 +586,7 @@ const ciderAPI = {
                 return last;
             }
             if (attempt < retries) {
-                if (attempt === 0) this.wakeCider();
+                if (attempt === 0 && allowWake) this.wakeCider();
                 await sleepMs(180 * Math.pow(2, attempt));
             }
         }
@@ -822,7 +828,7 @@ const ciderAPI = {
 
     async fetchStateV1() {
         try {
-            const playingResp = await this.request("/api/v1/playback/is-playing", "GET");
+            const playingResp = await this.request("/api/v1/playback/is-playing", "GET", null, { retries: 0, allowWake: false });
             let isPlaying = false;
             if (playingResp && playingResp.ok) {
                 const raw = await playingResp.json();
@@ -830,11 +836,11 @@ const ciderAPI = {
                     ? raw
                     : !!(raw.is_playing ?? raw.data ?? raw.value);
             }
-            const nowResp = await this.request("/api/v1/playback/now-playing", "GET");
+            const nowResp = await this.request("/api/v1/playback/now-playing", "GET", null, { retries: 0, allowWake: false });
             if (!nowResp || !nowResp.ok) return null;
             const nowRaw = await nowResp.json();
             const attrs = nowRaw.attributes || nowRaw.info || (nowRaw.data && nowRaw.data.attributes) || nowRaw;
-            const volResp = await this.request("/api/v1/playback/volume", "GET");
+            const volResp = await this.request("/api/v1/playback/volume", "GET", null, { retries: 0, allowWake: false });
             let vol = 0.5;
             if (volResp && volResp.ok) {
                 const v = await volResp.json();
@@ -869,7 +875,7 @@ const ciderAPI = {
 
     async fetchState() {
         try {
-            const resp = await this.request("/api/v2/playback", "GET", null, { retries: 1 });
+            const resp = await this.request("/api/v2/playback", "GET", null, { retries: 1, allowWake: false });
             if (resp && resp.ok) {
                 const json = await resp.json();
                 const d = json.data || json || {};
@@ -903,6 +909,9 @@ const ciderAPI = {
         switch (endpoint) {
             case "playpause":
                 await this.smartPlayPause();
+                break;
+            case "stop":
+                await this.request("/api/v1/playback/stop", "POST", {});
                 break;
             case "previous":
                 await this.request("/api/v1/playback/previous");
