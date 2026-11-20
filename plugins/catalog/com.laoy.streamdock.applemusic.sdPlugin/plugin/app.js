@@ -40,6 +40,7 @@ let actionContexts = {
     "com.laoy.streamdock.applemusic.shuffle": [],
     "com.laoy.streamdock.applemusic.repeat": [],
     "com.laoy.streamdock.applemusic.songinfo": [],
+    "com.laoy.streamdock.applemusic.upnext": [],
     "com.laoy.streamdock.applemusic.love": [],
     "com.laoy.streamdock.applemusic.addtolibrary": [],
     "com.laoy.streamdock.applemusic.seekforward": [],
@@ -447,6 +448,7 @@ function createTitleMarquee(width) {
 }
 
 const songInfoMarquee = createTitleMarquee(MARQUEE_CHARS);
+const upNextMarquee = createTitleMarquee(MARQUEE_CHARS);
 const playlistViewMarquee = createTitleMarquee(12);
 
 /** Direct Cider HTTP API Client */
@@ -671,6 +673,30 @@ const ciderAPI = {
             return String(ctx.id).trim();
         }
         return "";
+    },
+
+    
+    async fetchNextTrack() {
+        try {
+            const q = await this.fetchQueue();
+            if (q && q.items && Array.isArray(q.items) && q.items.length) {
+                const nextPos = (typeof q.position === "number") ? (q.position + 1) : 1;
+                if (nextPos >= 0 && nextPos < q.items.length) {
+                    return q.items[nextPos];
+                }
+            }
+            const r1 = await this.request("/api/v1/playback/queue", "GET", null, { allowWake: false });
+            if (r1 && r1.ok) {
+                const j1 = await r1.json();
+                const list = Array.isArray(j1) ? j1 : (j1 && j1.queue ? j1.queue : (j1 && j1.data ? j1.data : []));
+                if (Array.isArray(list) && list.length > 1) {
+                    return list[1];
+                }
+            }
+            return null;
+        } catch (e) {
+            return null;
+        }
     },
 
     async fetchQueue() {
@@ -1666,6 +1692,70 @@ async function applySongInfoArt(state) {
     }
 }
 
+
+let _lastUpNextTrackId = "";
+let _lastUpNextArt = "";
+let _lastUpNextFetchedAt = 0;
+let _upNextInFlight = false;
+
+async function applyUpNext(state) {
+    const contexts = actionContexts["com.laoy.streamdock.applemusic.upnext"] || [];
+    if (!contexts.length) return;
+
+    if (!state || !state.cider_connected) {
+        upNextMarquee.stop();
+        setTitleForAction("com.laoy.streamdock.applemusic.upnext", "Cider off");
+        setImageForAction("com.laoy.streamdock.applemusic.upnext", "static/icon/upnext.png");
+        _lastUpNextTrackId = "";
+        _lastUpNextArt = "";
+        return;
+    }
+
+    const now = Date.now();
+    const trackChanged = state.track_id && state.track_id !== _lastUpNextTrackId;
+    if (trackChanged || (now - _lastUpNextFetchedAt > 4000) || !_lastUpNextTrackId) {
+        if (_upNextInFlight) return;
+        _upNextInFlight = true;
+        _lastUpNextFetchedAt = now;
+        _lastUpNextTrackId = state.track_id || "";
+
+        try {
+            const nextItem = await ciderAPI.fetchNextTrack();
+            if (nextItem) {
+                const name = String(nextItem.name || (nextItem.attributes && nextItem.attributes.name) || nextItem.title || "")
+                    .replace(/\s*[\(\[](feat\.|ft\.|with).*?[\)\]]/i, "")
+                    .trim();
+                const artist = String(nextItem.artistName || (nextItem.attributes && nextItem.attributes.artistName) || nextItem.artist || "").trim();
+                const parts = artist ? [name, artist] : [name || "Suivant"];
+                upNextMarquee.set(parts, (title) => {
+                    setTitleForAction("com.laoy.streamdock.applemusic.upnext", title);
+                });
+
+                const artUrl = ciderAPI.extractArtworkFromItem(nextItem);
+                if (artUrl && artUrl !== _lastUpNextArt) {
+                    _lastUpNextArt = artUrl;
+                    try {
+                        const b64 = await crimsonAPI.toBase64(artUrl);
+                        setImageForAction("com.laoy.streamdock.applemusic.upnext", b64 || artUrl);
+                    } catch (e) {
+                        setImageForAction("com.laoy.streamdock.applemusic.upnext", artUrl);
+                    }
+                } else if (!artUrl) {
+                    setImageForAction("com.laoy.streamdock.applemusic.upnext", "static/icon/upnext.png");
+                }
+            } else {
+                upNextMarquee.stop();
+                setTitleForAction("com.laoy.streamdock.applemusic.upnext", "Fin file");
+                setImageForAction("com.laoy.streamdock.applemusic.upnext", "static/icon/upnext.png");
+            }
+        } catch (e) {
+            amLog.warn("applyUpNext failed", String(e));
+        } finally {
+            _upNextInFlight = false;
+        }
+    }
+}
+
 async function applyPlaylistCover(context, settings, opts) {
     const s = Object.assign({}, contextSettings[context] || {}, settings || {});
     const force = !!(opts && opts.force);
@@ -1825,7 +1915,14 @@ function handleHardwareEvent(jsonObj) {
         if (actionContexts[action] && !actionContexts[action].includes(context)) {
             actionContexts[action].push(context);
         }
-        if (action === "com.laoy.streamdock.applemusic.playplaylist") {
+        if (action === "com.laoy.streamdock.applemusic.upnext") {
+            _lastUpNextFetchedAt = 0;
+            delete lastTitleByContext[context];
+            delete lastImageByContext[context];
+            if (ciderAPI.cachedState) {
+                applyUpNext(ciderAPI.cachedState);
+            }
+        } else if (action === "com.laoy.streamdock.applemusic.playplaylist") {
             // Dedupe only for this key — keep playlistArtMemo for instant cover paint.
             invalidatePlaylistPaintCaches(context);
             applyPlaylistButton(
@@ -1855,14 +1952,28 @@ function handleHardwareEvent(jsonObj) {
     }
 
     if (event === "didReceiveSettings") {
-        if (action === "com.laoy.streamdock.applemusic.playplaylist") {
+        if (action === "com.laoy.streamdock.applemusic.upnext") {
+            _lastUpNextFetchedAt = 0;
+            delete lastTitleByContext[context];
+            delete lastImageByContext[context];
+            if (ciderAPI.cachedState) {
+                applyUpNext(ciderAPI.cachedState);
+            }
+        } else if (action === "com.laoy.streamdock.applemusic.playplaylist") {
             invalidatePlaylistPaintCaches(context);
             applyPlaylistButton(context, contextSettings[context] || {}, { force: true });
         }
     }
 
     if (event === "propertyInspectorDidAppear" || event === "sendToPlugin") {
-        if (action === "com.laoy.streamdock.applemusic.playplaylist") {
+        if (action === "com.laoy.streamdock.applemusic.upnext") {
+            _lastUpNextFetchedAt = 0;
+            delete lastTitleByContext[context];
+            delete lastImageByContext[context];
+            if (ciderAPI.cachedState) {
+                applyUpNext(ciderAPI.cachedState);
+            }
+        } else if (action === "com.laoy.streamdock.applemusic.playplaylist") {
             const payload = jsonObj['payload'] || {};
             if (event === "propertyInspectorDidAppear" || payload.type === "refreshPlaylists" || payload.type === "refresh") {
                 pushPlaylistsToPi(context, action);
@@ -2154,6 +2265,7 @@ function handleKeyDown(action, settings, context) {
             endpoint = "previous";
             break;
         case "com.laoy.streamdock.applemusic.next":
+        case "com.laoy.streamdock.applemusic.upnext":
             endpoint = "next";
             break;
         case "com.laoy.streamdock.applemusic.volumeup":
@@ -2334,6 +2446,7 @@ function applyNowPlaying(state) {
     // Long titles use a sliding-window marquee (StreamDock center-clips setTitle).
     applySongInfoTitle(state);
     applySongInfoArt(state);
+    applyUpNext(state);
 
     refreshPlaylistButtons(state);
     // Retry playlist covers when previous toBase64 failed (page return / CORS).

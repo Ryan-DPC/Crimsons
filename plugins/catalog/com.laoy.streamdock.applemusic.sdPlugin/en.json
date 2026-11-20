@@ -45,5 +45,9 @@
   "com.laoy.streamdock.applemusic.playlistview": {
     "Name": "Playlist Preview",
     "Tooltip": "Shows selected playlist cover — press to play"
+  },
+  "com.laoy.streamdock.applemusic.upnext": {
+    "Name": "Up Next",
+    "Tooltip": "Shows next track in queue (Cover + Title)"
   }
 }

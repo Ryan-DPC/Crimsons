@@ -77,5 +77,9 @@
   "com.laoy.streamdock.applemusic.seekcontrol": {
     "Name": "Timeline / Seek (Molette)",
     "Tooltip": "Avancer / Reculer dans le morceau (tourner) et Play/Pause (appuyer)"
+  },
+  "com.laoy.streamdock.applemusic.upnext": {
+    "Name": "À suivre (Piste suivante)",
+    "Tooltip": "Affiche le prochain morceau en file d'attente (Pochette + Titre)"
   }
 }

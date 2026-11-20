@@ -379,6 +379,24 @@
       ],
       "Tooltip": "Avancer / Reculer dans le morceau (tourner) et Play/Pause (appuyer)",
       "Context": "GLOBAL"
+    },
+    {
+      "Name": "Up Next",
+      "UUID": "com.laoy.streamdock.applemusic.upnext",
+      "Icon": "static/icon/upnext.png",
+      "States": [
+        {
+          "Image": "static/icon/upnext.png",
+          "TitleAlignment": "bottom",
+          "FontSize": "9"
+        }
+      ],
+      "Tooltip": "Affiche le prochain morceau en file d'attente (Pochette + Titre)",
+      "Context": "GLOBAL",
+      "Controllers": [
+        "Keypad",
+        "Information"
+      ]
     }
   ]
 }
