@@ -1065,7 +1065,10 @@ const ciderAPI = {
 
     extractArtworkFromItem(item) {
         if (!item) return "";
-        const art = item.artwork
+        const target = (item && item.track) ? item.track : item;
+        const art = target.artwork
+            || (target.attributes && target.attributes.artwork)
+            || item.artwork
             || (item.attributes && item.attributes.artwork)
             || null;
         const candidates = [
@@ -1698,6 +1701,19 @@ let _lastUpNextArt = "";
 let _lastUpNextFetchedAt = 0;
 let _upNextInFlight = false;
 
+function extractTrackInfo(item) {
+    if (!item) return { track: "", artist: "" };
+    const target = (item && item.track) ? item.track : item;
+    const attr = (target && target.attributes) ? target.attributes : target;
+    const name = attr.name || target.name || item.name || attr.title || target.title || "";
+    const artist = attr.artistName || target.artistName || item.artistName || attr.artist || target.artist || "";
+    const track = String(name).replace(/\s*[\(\[](feat\.|ft\.|with).*?[\)\]]/i, "").trim();
+    return {
+        track: track || String(name).trim(),
+        artist: String(artist).trim()
+    };
+}
+
 async function applyUpNext(state) {
     const contexts = actionContexts["com.laoy.streamdock.applemusic.upnext"] || [];
     if (!contexts.length) return;
@@ -1713,7 +1729,7 @@ async function applyUpNext(state) {
 
     const now = Date.now();
     const trackChanged = state.track_id && state.track_id !== _lastUpNextTrackId;
-    if (trackChanged || (now - _lastUpNextFetchedAt > 4000) || !_lastUpNextTrackId) {
+    if (trackChanged || (now - _lastUpNextFetchedAt > 3000) || !_lastUpNextTrackId) {
         if (_upNextInFlight) return;
         _upNextInFlight = true;
         _lastUpNextFetchedAt = now;
@@ -1722,11 +1738,8 @@ async function applyUpNext(state) {
         try {
             const nextItem = await ciderAPI.fetchNextTrack();
             if (nextItem) {
-                const name = String(nextItem.name || (nextItem.attributes && nextItem.attributes.name) || nextItem.title || "")
-                    .replace(/\s*[\(\[](feat\.|ft\.|with).*?[\)\]]/i, "")
-                    .trim();
-                const artist = String(nextItem.artistName || (nextItem.attributes && nextItem.attributes.artistName) || nextItem.artist || "").trim();
-                const parts = artist ? [name, artist] : [name || "Suivant"];
+                const info = extractTrackInfo(nextItem);
+                const parts = info.artist ? [info.track, info.artist] : [info.track || "À suivre"];
                 upNextMarquee.set(parts, (title) => {
                     setTitleForAction("com.laoy.streamdock.applemusic.upnext", title);
                 });
@@ -1745,7 +1758,7 @@ async function applyUpNext(state) {
                 }
             } else {
                 upNextMarquee.stop();
-                setTitleForAction("com.laoy.streamdock.applemusic.upnext", "Fin file");
+                setTitleForAction("com.laoy.streamdock.applemusic.upnext", "Fin de file");
                 setImageForAction("com.laoy.streamdock.applemusic.upnext", "static/icon/upnext.png");
             }
         } catch (e) {
@@ -1917,6 +1930,8 @@ function handleHardwareEvent(jsonObj) {
         }
         if (action === "com.laoy.streamdock.applemusic.upnext") {
             _lastUpNextFetchedAt = 0;
+            _lastUpNextArt = "";
+            _lastUpNextTrackId = "";
             delete lastTitleByContext[context];
             delete lastImageByContext[context];
             if (ciderAPI.cachedState) {
@@ -1954,6 +1969,8 @@ function handleHardwareEvent(jsonObj) {
     if (event === "didReceiveSettings") {
         if (action === "com.laoy.streamdock.applemusic.upnext") {
             _lastUpNextFetchedAt = 0;
+            _lastUpNextArt = "";
+            _lastUpNextTrackId = "";
             delete lastTitleByContext[context];
             delete lastImageByContext[context];
             if (ciderAPI.cachedState) {
@@ -1968,6 +1985,8 @@ function handleHardwareEvent(jsonObj) {
     if (event === "propertyInspectorDidAppear" || event === "sendToPlugin") {
         if (action === "com.laoy.streamdock.applemusic.upnext") {
             _lastUpNextFetchedAt = 0;
+            _lastUpNextArt = "";
+            _lastUpNextTrackId = "";
             delete lastTitleByContext[context];
             delete lastImageByContext[context];
             if (ciderAPI.cachedState) {
