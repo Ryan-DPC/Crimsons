@@ -12,6 +12,9 @@ const DEFAULT_VOLUME_STEP: f64 = 0.05;
 /// plugin poll loops (Hue ~5s, Twitch ~30s, Valorant ~60s, Volume ~2s).
 const POLL_INTERVAL: Duration = Duration::from_millis(900);
 const POLL_DISABLED_INTERVAL: Duration = Duration::from_secs(2);
+/// Cold-start / tray: first RPC often fails until MusicKit wakes.
+const CIDER_READY_ATTEMPTS: u32 = 5;
+const CIDER_CMD_RETRIES: u32 = 3;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct AppleMusicState {
@@ -79,7 +82,7 @@ impl CiderClient {
         Ok(serde_json::from_str(&body).unwrap_or(json!({})))
     }
 
-    async fn post_json(
+    async fn post_json_once(
         &self,
         path: &str,
         body: Option<serde_json::Value>,
@@ -98,6 +101,29 @@ impl CiderClient {
             return Err(format!("Cider POST {} -> {} {}", path, status, text).into());
         }
         Ok(())
+    }
+
+    async fn post_json(
+        &self,
+        path: &str,
+        body: Option<serde_json::Value>,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let mut last_err: Option<Box<dyn std::error::Error + Send + Sync>> = None;
+        for attempt in 0..=CIDER_CMD_RETRIES {
+            match self.post_json_once(path, body.clone()).await {
+                Ok(()) => return Ok(()),
+                Err(e) => {
+                    last_err = Some(e);
+                    if attempt < CIDER_CMD_RETRIES {
+                        if attempt == 0 {
+                            wake_cider();
+                        }
+                        tokio::time::sleep(Duration::from_millis(180 * 2u64.pow(attempt))).await;
+                    }
+                }
+            }
+        }
+        Err(last_err.unwrap_or_else(|| "Cider POST failed".into()))
     }
 
     async fn patch_json(
@@ -180,6 +206,189 @@ impl AppleMusicService {
         } else {
             false
         }
+    }
+
+    /// Ping Cider RPC; wake tray instance and backoff until MusicKit answers.
+    async fn ensure_ready(&self) -> bool {
+        for attempt in 0..CIDER_READY_ATTEMPTS {
+            {
+                let client = self.client.read().await;
+                if client.get_json("/api/v2/playback").await.is_ok()
+                    || client.get_json("/api/v1/playback/is-playing").await.is_ok()
+                {
+                    if attempt > 0 {
+                        tracing::info!("[APPLE_MUSIC] Cider ready after {} attempt(s)", attempt + 1);
+                    }
+                    return true;
+                }
+            }
+            if attempt == 0 {
+                wake_cider();
+            }
+            tokio::time::sleep(Duration::from_millis(220 * 2u64.pow(attempt))).await;
+        }
+        tracing::warn!("[APPLE_MUSIC] Cider RPC not ready after {} attempts", CIDER_READY_ATTEMPTS);
+        false
+    }
+
+    async fn fetch_queue_snapshot(
+        &self,
+        client: &CiderClient,
+    ) -> Option<(Vec<serde_json::Value>, usize, usize)> {
+        let raw = client.get_json("/api/v2/queue?limit=50").await.ok()?;
+        let data = raw.get("data").cloned().unwrap_or(raw.clone());
+        let items = data
+            .get("items")
+            .and_then(|v| v.as_array())
+            .cloned()
+            .unwrap_or_default();
+        let position = data.get("position").and_then(|v| v.as_u64()).unwrap_or(0) as usize;
+        let total = raw
+            .pointer("/meta/total")
+            .and_then(|v| v.as_u64())
+            .map(|v| v as usize)
+            .unwrap_or(items.len());
+        Some((items, position, total))
+    }
+
+    fn playlist_id_from_queue_item(item: &serde_json::Value) -> Option<String> {
+        const PATHS: &[&str] = &[
+            "/containerContext/id",
+            "/container/id",
+            "/context/id",
+            "/playlistId",
+            "/containerId",
+        ];
+        for path in PATHS {
+            if let Some(s) = item.pointer(path).and_then(|v| v.as_str()) {
+                let t = s.trim();
+                if t.starts_with("pl.") || t.starts_with("p.") || t.chars().all(|c| c.is_ascii_digit())
+                {
+                    return Some(t.to_string());
+                }
+            }
+        }
+        if let Some(ctx) = item.get("containerContext") {
+            let ty = ctx.get("type").and_then(|v| v.as_str()).unwrap_or("");
+            if ty.to_lowercase().contains("playlist") {
+                if let Some(s) = ctx.get("id").and_then(|v| v.as_str()) {
+                    let t = s.trim();
+                    if !t.is_empty() {
+                        return Some(t.to_string());
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    async fn resolve_resume_playlist_id(&self, client: &CiderClient) -> Option<String> {
+        if let Some((items, position, _)) = self.fetch_queue_snapshot(client).await {
+            if !items.is_empty() {
+                let idx = position.min(items.len() - 1);
+                if let Some(id) = Self::playlist_id_from_queue_item(&items[idx]) {
+                    save_last_playlist(&id, None);
+                    return Some(id);
+                }
+                for item in &items {
+                    if let Some(id) = Self::playlist_id_from_queue_item(item) {
+                        save_last_playlist(&id, None);
+                        return Some(id);
+                    }
+                }
+            }
+        }
+        let cached = self.cached_state.read().await.container_id.clone();
+        if !cached.is_empty() {
+            return Some(cached);
+        }
+        load_last_playlist().map(|(id, _)| id)
+    }
+
+    /// Play/Pause that reloads the playlist when Cider restored a solo/stopped track.
+    async fn smart_play_pause(
+        &self,
+        client: &CiderClient,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let state = self.fetch_state().await;
+        if state.is_playing {
+            if client.post_json("/api/v2/playback/pause", None).await.is_err() {
+                client.post_json("/api/v1/playback/playpause", None).await?;
+            }
+            return Ok(());
+        }
+
+        let raw_state = client
+            .get_json("/api/v2/playback")
+            .await
+            .ok()
+            .and_then(|raw| {
+                let data = raw.get("data").cloned().unwrap_or(raw);
+                data.get("state")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_lowercase())
+            })
+            .unwrap_or_else(|| {
+                if state.is_playing {
+                    "playing".into()
+                } else {
+                    "stopped".into()
+                }
+            });
+
+        let queue = self.fetch_queue_snapshot(client).await;
+        let remaining_ms = state.duration_ms.saturating_sub(state.progress_ms);
+        let at_end = queue
+            .as_ref()
+            .map(|(_, pos, total)| *total > 0 && *pos + 1 >= *total && remaining_ms < 1500)
+            .unwrap_or(false);
+        let empty_queue = queue
+            .as_ref()
+            .map(|(_, _, total)| *total == 0)
+            .unwrap_or(true);
+        let needs_collection = raw_state == "stopped" || at_end || empty_queue;
+
+        tracing::info!(
+            "[APPLE_MUSIC] smart_play_pause state={} needs_collection={} at_end={} queue={:?}",
+            raw_state,
+            needs_collection,
+            at_end,
+            queue.as_ref().map(|(_, p, t)| (*p, *t))
+        );
+
+        if !needs_collection && raw_state == "paused" {
+            if client.post_json("/api/v2/playback/play", None).await.is_err() {
+                let _ = client.post_json("/api/v1/playback/playpause", None).await;
+            }
+            tokio::time::sleep(Duration::from_millis(450)).await;
+            if self.fetch_state().await.is_playing {
+                return Ok(());
+            }
+            tracing::warn!("[APPLE_MUSIC] play no-op — falling back to play-collection");
+        }
+
+        if let Some(playlist_id) = self.resolve_resume_playlist_id(client).await {
+            let shuffle = load_last_playlist()
+                .map(|(_, s)| s)
+                .unwrap_or(true);
+            self.play_collection_playlist(client, &playlist_id, shuffle)
+                .await?;
+            for _ in 0..8 {
+                tokio::time::sleep(Duration::from_millis(400)).await;
+                if self.fetch_state().await.is_playing {
+                    return Ok(());
+                }
+            }
+            tracing::warn!(
+                "[APPLE_MUSIC] play-collection did not start playing ({})",
+                playlist_id
+            );
+        }
+
+        if client.post_json("/api/v2/playback/toggle", None).await.is_err() {
+            client.post_json("/api/v1/playback/playpause", None).await?;
+        }
+        Ok(())
     }
 
     async fn fetch_state_v2(
@@ -454,6 +663,7 @@ impl AppleMusicService {
         if !self.is_enabled.load(Ordering::Relaxed) {
             return Err("Apple Music service disabled".into());
         }
+        let _ = self.ensure_ready().await;
         let client = self.client.read().await;
         let ep = endpoint.to_lowercase();
         match ep.as_str() {
@@ -468,9 +678,7 @@ impl AppleMusicService {
                 }
             }
             "playpause" | "toggle" => {
-                if client.post_json("/api/v2/playback/toggle", None).await.is_err() {
-                    client.post_json("/api/v1/playback/playpause", None).await?;
-                }
+                self.smart_play_pause(&client).await?;
             }
             "next" => {
                 if client.post_json("/api/v2/playback/next", None).await.is_err() {
@@ -848,6 +1056,7 @@ impl AppleMusicService {
         id: &str,
         shuffle: bool,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        save_last_playlist(id, Some(shuffle));
         let body = json!({ "type": "playlists", "id": id, "shuffle": shuffle });
         if client
             .post_json("/api/v2/playback/play-collection", Some(body.clone()))
@@ -987,7 +1196,6 @@ fn extract_container_id(now: &serde_json::Value) -> String {
         "/containerId",
         "/playlistId",
         "/playlist_id",
-        "/playParams/catalogId",
         "/playParams/parentId",
         "/playParams/containerId",
     ];
@@ -999,6 +1207,16 @@ fn extract_container_id(now: &serde_json::Value) -> String {
             }
         }
     }
+    // catalogId is often the *song* id — only accept playlist-shaped values.
+    if let Some(s) = now
+        .pointer("/playParams/catalogId")
+        .and_then(|v| v.as_str())
+    {
+        let t = s.trim();
+        if t.starts_with("pl.") || t.starts_with("p.") {
+            return t.to_string();
+        }
+    }
     // Nested object forms: container: { id: "pl.…" }
     if let Some(obj) = now.get("container").or_else(|| now.get("_container")) {
         if let Some(s) = obj.get("id").and_then(|v| v.as_str()) {
@@ -1007,6 +1225,10 @@ fn extract_container_id(now: &serde_json::Value) -> String {
                 return t.to_string();
             }
         }
+    }
+    // Fall back to last play-collection we launched (survives reboot solo restore).
+    if let Some((id, _)) = load_last_playlist() {
+        return id;
     }
     String::new()
 }
@@ -1235,13 +1457,105 @@ mod tests {
         });
         assert_eq!(extract_container_id(&via_params), "pl.u-parent");
 
-        assert_eq!(extract_container_id(&json!({})), "");
+        // Numeric catalogId is a song — must NOT be treated as playlist container.
+        let song_only = json!({
+            "playParams": { "id": "i.abc", "catalogId": "1832855874", "kind": "song" }
+        });
+        let extracted = extract_container_id(&song_only);
+        assert!(
+            extracted.is_empty() || extracted.starts_with("pl.") || extracted.starts_with("p."),
+            "unexpected container from song catalogId: {}",
+            extracted
+        );
+    }
+
+    #[test]
+    fn playlist_id_from_queue_container_context() {
+        let item = json!({
+            "track": { "id": "1" },
+            "containerContext": {
+                "type": "playlist",
+                "id": "p.3VKWge8ubkdOYzA",
+                "isManuallyQueued": false
+            }
+        });
+        assert_eq!(
+            AppleMusicService::playlist_id_from_queue_item(&item).as_deref(),
+            Some("p.3VKWge8ubkdOYzA")
+        );
     }
 
 }
 
 fn cider_cache_path() -> std::path::PathBuf {
     crate::storage::get_data_dir().join("cider_cache.json")
+}
+
+fn read_cider_cache() -> serde_json::Value {
+    std::fs::read_to_string(cider_cache_path())
+        .ok()
+        .and_then(|raw| serde_json::from_str(&raw).ok())
+        .unwrap_or_else(|| json!({}))
+}
+
+fn write_cider_cache(patch: serde_json::Value) {
+    let path = cider_cache_path();
+    if let Some(parent) = path.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    let mut cur = read_cider_cache();
+    if let Some(obj) = patch.as_object() {
+        for (k, v) in obj {
+            cur[k] = v.clone();
+        }
+    }
+    let _ = std::fs::write(
+        &path,
+        serde_json::to_string_pretty(&cur).unwrap_or_default(),
+    );
+}
+
+fn load_last_playlist() -> Option<(String, bool)> {
+    let v = read_cider_cache();
+    let id = v
+        .get("lastPlaylistId")
+        .and_then(|x| x.as_str())
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())?;
+    let shuffle = v
+        .get("lastPlaylistShuffle")
+        .and_then(|x| x.as_bool())
+        .unwrap_or(true);
+    Some((id, shuffle))
+}
+
+fn save_last_playlist(id: &str, shuffle: Option<bool>) {
+    let trimmed = id.trim();
+    if trimmed.is_empty() {
+        return;
+    }
+    let mut patch = json!({ "lastPlaylistId": trimmed });
+    if let Some(s) = shuffle {
+        patch["lastPlaylistShuffle"] = json!(s);
+    }
+    write_cider_cache(patch);
+}
+
+/// Focus/wake an already-running Cider (tray/background) so RPC + MusicKit respond.
+fn wake_cider() {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        let _ = std::process::Command::new("cmd")
+            .args(["/C", "start", "", "cider://"])
+            .creation_flags(CREATE_NO_WINDOW)
+            .spawn();
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = std::process::Command::new("xdg-open").arg("cider://").spawn();
+    }
 }
 
 fn load_cider_token() -> String {
@@ -1295,16 +1609,9 @@ fn load_cider_token() -> String {
 }
 
 fn save_cider_token(token: &str) {
-    let path = cider_cache_path();
-    if let Some(parent) = path.parent() {
-        let _ = std::fs::create_dir_all(parent);
-    }
     let cleared = token.is_empty();
-    let _ = std::fs::write(
-        &path,
-        serde_json::to_string_pretty(&json!({ "appToken": token, "cleared": cleared }))
-            .unwrap_or_default(),
-    );
+    // Merge so lastPlaylistId / shuffle survive Connect/Disconnect token writes.
+    write_cider_cache(json!({ "appToken": token, "cleared": cleared }));
 
     let path = crate::storage::get_data_path_from_env();
     let mut data = crate::storage::load_data_from_path(path.clone());

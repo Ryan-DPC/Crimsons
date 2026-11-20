@@ -302,6 +302,12 @@ const playlistBrowser = {
 };
 
 const CIDER_BASE = "http://127.0.0.1:10767";
+const CIDER_READY_ATTEMPTS = 5;
+const CIDER_CMD_RETRIES = 3;
+
+function sleepMs(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 /** Dynamic Cider App Token resolver — prefer live disk sources over stale injected values. */
 function getCiderToken() {
@@ -448,8 +454,90 @@ const ciderAPI = {
     cachedState: null,
     lastVolume: 0.5,
     playlistCache: [], // last library list with artwork
+    apiReady: false,
+    lastWakeAt: 0,
+    lastPlaylistId: "",
+    lastPlaylistShuffle: true,
+    /** In-flight ensureReady — coalesces cold-start keyDown storms. */
+    _readyPromise: null,
 
-    async request(path, method = "POST", body = null) {
+    ciderCachePath() {
+        try {
+            var path = require("path");
+            return path.join(process.env.APPDATA || "", "com.laoy.crimsons", "cider_cache.json");
+        } catch (e) {
+            return "";
+        }
+    },
+
+    readCiderCache() {
+        try {
+            var fs = require("fs");
+            var p = this.ciderCachePath();
+            if (!p || !fs.existsSync(p)) return {};
+            return JSON.parse(fs.readFileSync(p, "utf8")) || {};
+        } catch (e) {
+            return {};
+        }
+    },
+
+    writeCiderCache(patch) {
+        try {
+            var fs = require("fs");
+            var p = this.ciderCachePath();
+            if (!p) return;
+            var cur = this.readCiderCache();
+            var next = Object.assign({}, cur, patch || {});
+            fs.writeFileSync(p, JSON.stringify(next, null, 2), "utf8");
+        } catch (e) {
+            amLog.warn("cider.cache write failed", String(e && e.message ? e.message : e));
+        }
+    },
+
+    loadLastPlaylist() {
+        const raw = this.readCiderCache();
+        if (raw && typeof raw.lastPlaylistId === "string" && raw.lastPlaylistId.trim()) {
+            this.lastPlaylistId = raw.lastPlaylistId.trim();
+        }
+        if (typeof raw.lastPlaylistShuffle === "boolean") {
+            this.lastPlaylistShuffle = raw.lastPlaylistShuffle;
+        }
+        return this.lastPlaylistId;
+    },
+
+    persistLastPlaylist(id, shuffle) {
+        if (!id || typeof id !== "string") return;
+        const trimmed = id.trim();
+        if (!trimmed) return;
+        this.lastPlaylistId = trimmed;
+        if (typeof shuffle === "boolean") this.lastPlaylistShuffle = shuffle;
+        this.writeCiderCache({
+            lastPlaylistId: this.lastPlaylistId,
+            lastPlaylistShuffle: this.lastPlaylistShuffle !== false
+        });
+        amLog.info("cider.persistLastPlaylist", { id: this.lastPlaylistId, shuffle: this.lastPlaylistShuffle });
+    },
+
+    /** Nudge Cider out of tray/background so RPC + MusicKit wake (debounced). */
+    wakeCider() {
+        const now = Date.now();
+        if (now - this.lastWakeAt < 2500) return;
+        this.lastWakeAt = now;
+        amLog.info("cider.wake");
+        try {
+            const { exec } = require("child_process");
+            // cider:// focuses an already-running instance without a second window.
+            exec('cmd /c start "" cider://', { windowsHide: true }, () => {});
+        } catch (e1) {
+            try {
+                const { exec } = require("child_process");
+                const exe = (process.env.LOCALAPPDATA || "") + "\\Programs\\Cider\\Cider.exe";
+                exec('cmd /c start "" "' + exe + '"', { windowsHide: true }, () => {});
+            } catch (e2) {}
+        }
+    },
+
+    async requestOnce(path, method = "POST", body = null) {
         const token = getCiderToken();
         const headers = {};
         if (token) headers["apptoken"] = token;
@@ -476,6 +564,67 @@ const ciderAPI = {
         }
     },
 
+    /**
+     * HTTP to Cider with retry/backoff. Cold start / tray often drops the first
+     * request until MusicKit wakes — one silent miss made StreamDock keys feel dead.
+     */
+    async request(path, method = "POST", body = null, reqOpts) {
+        const retries = (reqOpts && typeof reqOpts.retries === "number")
+            ? reqOpts.retries
+            : CIDER_CMD_RETRIES;
+        let last = null;
+        for (let attempt = 0; attempt <= retries; attempt++) {
+            last = await this.requestOnce(path, method, body);
+            if (last && last.ok) {
+                this.apiReady = true;
+                return last;
+            }
+            if (attempt < retries) {
+                if (attempt === 0) this.wakeCider();
+                await sleepMs(180 * Math.pow(2, attempt));
+            }
+        }
+        return last;
+    },
+
+    async ping() {
+        let resp = await this.requestOnce("/api/v2/playback", "GET");
+        if (resp && resp.ok) return true;
+        resp = await this.requestOnce("/api/v1/playback/is-playing", "GET");
+        return !!(resp && resp.ok);
+    },
+
+    async ensureReady(opts) {
+        if (this.apiReady && (!opts || !opts.force)) {
+            // Cheap re-check — if still up, skip wake/backoff.
+            if (await this.ping()) return true;
+            this.apiReady = false;
+        }
+        if (this._readyPromise) return this._readyPromise;
+        const attempts = (opts && opts.attempts) || CIDER_READY_ATTEMPTS;
+        const work = (async () => {
+            amLog.info("cider.ensureReady start", { attempts: attempts });
+            for (let i = 0; i < attempts; i++) {
+                if (await this.ping()) {
+                    this.apiReady = true;
+                    amLog.info("cider.ensureReady ok", { attempt: i + 1 });
+                    return true;
+                }
+                if (i === 0) this.wakeCider();
+                await sleepMs(220 * Math.pow(2, i));
+            }
+            amLog.warn("cider.ensureReady failed");
+            this.apiReady = false;
+            return false;
+        })();
+        this._readyPromise = work;
+        try {
+            return await work;
+        } finally {
+            if (this._readyPromise === work) this._readyPromise = null;
+        }
+    },
+
     extractContainerId(now) {
         if (!now || typeof now !== "object") return "";
         const candidates = [
@@ -483,13 +632,164 @@ const ciderAPI = {
             now._container && now._container.id,
             now.playlistId,
             now.playlist_id,
-            now.playParams && now.playParams.catalogId,
-            now.playParams && now.playParams.parentId
+            now.playParams && now.playParams.parentId,
+            now.playParams && now.playParams.containerId,
+            // catalogId alone is often the *song* id — only accept playlist-shaped ids.
+            now.playParams && now.playParams.catalogId
+                && /^(pl\.|p\.)/i.test(String(now.playParams.catalogId))
+                ? now.playParams.catalogId
+                : null
         ];
         for (const c of candidates) {
             if (typeof c === "string" && c.trim()) return c.trim();
         }
         return "";
+    },
+
+    extractPlaylistIdFromQueueItem(item) {
+        if (!item || typeof item !== "object") return "";
+        const ctx = item.containerContext || item.container || item.context || null;
+        const candidates = [
+            ctx && ctx.id,
+            ctx && ctx.playlistId,
+            item.playlistId,
+            item.containerId
+        ];
+        for (const c of candidates) {
+            if (typeof c === "string" && c.trim()) {
+                const t = c.trim();
+                if (t.startsWith("pl.") || t.startsWith("p.") || /^\d+$/.test(t)) return t;
+            }
+        }
+        if (ctx && typeof ctx.type === "string" && /playlist/i.test(ctx.type) && ctx.id) {
+            return String(ctx.id).trim();
+        }
+        return "";
+    },
+
+    async fetchQueue() {
+        try {
+            const resp = await this.request("/api/v2/queue?limit=50", "GET");
+            if (!resp || !resp.ok) return null;
+            const json = await resp.json();
+            const data = (json && json.data) || json || {};
+            const items = Array.isArray(data.items) ? data.items : [];
+            const position = typeof data.position === "number" ? data.position : 0;
+            const total = (json && json.meta && typeof json.meta.total === "number")
+                ? json.meta.total
+                : items.length;
+            return { items: items, position: position, total: total };
+        } catch (e) {
+            return null;
+        }
+    },
+
+    async resolveResumePlaylistId(queue) {
+        if (!this.lastPlaylistId) this.loadLastPlaylist();
+        const q = queue || await this.fetchQueue();
+        if (q && q.items && q.items.length) {
+            const idx = Math.min(Math.max(q.position || 0, 0), q.items.length - 1);
+            const fromPos = this.extractPlaylistIdFromQueueItem(q.items[idx]);
+            if (fromPos) {
+                this.persistLastPlaylist(fromPos, this.lastPlaylistShuffle);
+                return fromPos;
+            }
+            for (let i = 0; i < q.items.length; i++) {
+                const id = this.extractPlaylistIdFromQueueItem(q.items[i]);
+                if (id) {
+                    this.persistLastPlaylist(id, this.lastPlaylistShuffle);
+                    return id;
+                }
+            }
+        }
+        if (this.cachedState && this.cachedState.container_id) {
+            return this.cachedState.container_id;
+        }
+        return this.lastPlaylistId || "";
+    },
+
+    /**
+     * Play/Pause that preserves playlist continuum after reboot.
+     * Cider often restores the last song as solo (state=stopped, queue exhausted);
+     * plain /play returns 200 but stays stopped until the collection is reloaded.
+     */
+    async smartPlayPause() {
+        await this.ensureReady({ attempts: CIDER_READY_ATTEMPTS });
+        let rawState = "unknown";
+        try {
+            const stResp = await this.request("/api/v2/playback", "GET");
+            if (stResp && stResp.ok) {
+                const json = await stResp.json();
+                const d = (json && json.data) || json || {};
+                rawState = String(d.state || "").toLowerCase();
+                const now = d.nowPlaying || d.now_playing || {};
+                const time = d.time || {};
+                const vol = typeof d.volume === "number" ? d.volume : 0.5;
+                this.cachedState = this.mapPlaybackState(d, now, time, vol);
+            }
+        } catch (e) {}
+
+        const isPlaying = rawState === "playing" || rawState === "play"
+            || !!(this.cachedState && this.cachedState.is_playing);
+
+        if (isPlaying) {
+            let resp = await this.request("/api/v2/playback/pause");
+            if (!resp || !resp.ok) {
+                resp = await this.request("/api/v1/playback/playpause");
+            }
+            return;
+        }
+
+        const queue = await this.fetchQueue();
+        const remainingMs = this.cachedState
+            ? Math.max(0, (this.cachedState.duration_ms || 0) - (this.cachedState.progress_ms || 0))
+            : 0;
+        const atEnd = !!(queue && queue.total > 0 && queue.position >= queue.total - 1 && remainingMs < 1500);
+        const emptyQueue = !queue || queue.total === 0;
+        const needsCollection = rawState === "stopped" || atEnd || emptyQueue;
+
+        amLog.info("cider.smartPlayPause", {
+            rawState: rawState,
+            needsCollection: needsCollection,
+            atEnd: atEnd,
+            queuePos: queue && queue.position,
+            queueTotal: queue && queue.total,
+            lastPlaylist: this.lastPlaylistId
+        });
+
+        if (!needsCollection && rawState === "paused") {
+            let resp = await this.request("/api/v2/playback/play");
+            if (!resp || !resp.ok) {
+                resp = await this.request("/api/v1/playback/playpause");
+            }
+            await sleepMs(450);
+            const st = await this.fetchState();
+            if (st && st.is_playing) return;
+            amLog.warn("cider.smartPlayPause play no-op — falling back to collection");
+        }
+
+        const playlistId = await this.resolveResumePlaylistId(queue);
+        if (playlistId) {
+            await this.playPlaylist({
+                playlist: playlistId,
+                playlistId: playlistId,
+                shuffle: this.lastPlaylistShuffle !== false
+            });
+            for (let i = 0; i < 8; i++) {
+                await sleepMs(400);
+                const st = await this.fetchState();
+                if (st && st.is_playing) {
+                    amLog.info("cider.smartPlayPause collection playing", { id: playlistId, try: i + 1 });
+                    return;
+                }
+            }
+            amLog.warn("cider.smartPlayPause collection did not start", { id: playlistId });
+        }
+
+        let resp = await this.request("/api/v2/playback/toggle");
+        if (!resp || !resp.ok) {
+            await this.request("/api/v1/playback/playpause");
+        }
     },
 
     mapPlaybackState(d, now, time, vol) {
@@ -569,7 +869,7 @@ const ciderAPI = {
 
     async fetchState() {
         try {
-            const resp = await this.request("/api/v2/playback", "GET");
+            const resp = await this.request("/api/v2/playback", "GET", null, { retries: 1 });
             if (resp && resp.ok) {
                 const json = await resp.json();
                 const d = json.data || json || {};
@@ -577,6 +877,15 @@ const ciderAPI = {
                 const time = d.time || {};
                 const vol = typeof d.volume === "number" ? d.volume : 0.5;
                 this.cachedState = this.mapPlaybackState(d, now, time, vol);
+                // nowPlaying rarely carries container after reboot — use cached playlist id.
+                if (!this.cachedState.container_id) {
+                    if (!this.lastPlaylistId) this.loadLastPlaylist();
+                    if (this.lastPlaylistId) {
+                        this.cachedState.container_id = this.lastPlaylistId;
+                    }
+                } else {
+                    this.persistLastPlaylist(this.cachedState.container_id, this.lastPlaylistShuffle);
+                }
                 return this.cachedState;
             }
         } catch (e) {
@@ -589,9 +898,11 @@ const ciderAPI = {
 
     async executeCommand(endpoint, payload = {}) {
         console.log(`[AppleMusic:Cider] Executing: ${endpoint}`, payload);
+        // Cold start: tray Cider often ignores the first RPC until MusicKit wakes.
+        await this.ensureReady({ attempts: CIDER_READY_ATTEMPTS });
         switch (endpoint) {
             case "playpause":
-                await this.request("/api/v1/playback/playpause");
+                await this.smartPlayPause();
                 break;
             case "previous":
                 await this.request("/api/v1/playback/previous");
@@ -901,6 +1212,7 @@ const ciderAPI = {
     },
 
     async playPlaylist(settings) {
+        await this.ensureReady({ attempts: CIDER_READY_ATTEMPTS });
         const raw = this.extractPlaylistRaw(settings);
         if (!raw) {
             console.warn("[AppleMusic:Cider] Play Playlist: no playlist id/URL configured");
@@ -913,6 +1225,7 @@ const ciderAPI = {
         const lower = raw.toLowerCase();
         const isUrl = lower.includes("music.apple.com") || lower.startsWith("http://") || lower.startsWith("https://");
         const isId = raw.startsWith("pl.") || raw.startsWith("p.") || /^\d+$/.test(raw);
+        let launchedId = "";
 
         if (isUrl) {
             let resp = await this.request("/api/v2/playback/play-url", "POST", { url: raw });
@@ -922,15 +1235,20 @@ const ciderAPI = {
             if ((!resp || !resp.ok)) {
                 const id = this.extractPlaylistIdFromUrl(raw);
                 if (id) {
+                    launchedId = id;
                     await this.request("/api/v2/playback/play-collection", "POST", {
                         type: "playlists", id, shuffle
                     });
                 }
+            } else {
+                launchedId = this.extractPlaylistIdFromUrl(raw) || "";
             }
+            if (launchedId) this.persistLastPlaylist(launchedId, shuffle);
             return;
         }
 
         if (isId) {
+            launchedId = raw;
             let resp = await this.request("/api/v2/playback/play-collection", "POST", {
                 type: "playlists", id: raw, shuffle
             });
@@ -941,6 +1259,7 @@ const ciderAPI = {
                     await this.request("/api/v1/playback/play-url", "POST", { url });
                 }
             }
+            this.persistLastPlaylist(launchedId, shuffle);
             return;
         }
 
@@ -985,8 +1304,12 @@ const ciderAPI = {
         await this.request("/api/v2/playback/play-collection", "POST", {
             type: "playlists", id: resolvedId, shuffle
         });
+        this.persistLastPlaylist(resolvedId, shuffle);
     }
 };
+
+// Warm last-playlist cache at boot so play/pause resume works after reboot.
+try { ciderAPI.loadLastPlaylist(); } catch (eBoot) {}
 
 /** Prefer live /local/ws-token over injected global (stale after server restart). */
 function crimsonAuthToken() {
