@@ -37,8 +37,7 @@
       "Tooltip": "Toggle play/pause in Cider",
       "Context": "GLOBAL",
       "Controllers": [
-        "Keypad",
-        "Information"
+        "Keypad"
       ]
     },
     {

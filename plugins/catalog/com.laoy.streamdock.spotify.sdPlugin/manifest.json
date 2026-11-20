@@ -18,8 +18,7 @@
         "showTitle": true
       },
       "Controllers": [
-        "Keypad",
-        "Information"
+        "Keypad"
       ],
       "UserTitleEnabled": true,
       "SupportedInMultiActions": true,
