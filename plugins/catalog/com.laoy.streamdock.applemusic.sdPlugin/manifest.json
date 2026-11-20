@@ -35,7 +35,11 @@
         }
       ],
       "Tooltip": "Toggle play/pause in Cider",
-      "Context": "GLOBAL"
+      "Context": "GLOBAL",
+      "Controllers": [
+        "Keypad",
+        "Information"
+      ]
     },
     {
       "Name": "Previous",
@@ -49,7 +53,10 @@
         }
       ],
       "Tooltip": "Previous track",
-      "Context": "GLOBAL"
+      "Context": "GLOBAL",
+      "Controllers": [
+        "Keypad"
+      ]
     },
     {
       "Name": "Next",
@@ -63,7 +70,10 @@
         }
       ],
       "Tooltip": "Next track",
-      "Context": "GLOBAL"
+      "Context": "GLOBAL",
+      "Controllers": [
+        "Keypad"
+      ]
     },
     {
       "Name": "Volume Up",
@@ -77,7 +87,10 @@
         }
       ],
       "Tooltip": "Increase Cider volume",
-      "Context": "GLOBAL"
+      "Context": "GLOBAL",
+      "Controllers": [
+        "Keypad"
+      ]
     },
     {
       "Name": "Volume Down",
@@ -91,7 +104,10 @@
         }
       ],
       "Tooltip": "Decrease Cider volume",
-      "Context": "GLOBAL"
+      "Context": "GLOBAL",
+      "Controllers": [
+        "Keypad"
+      ]
     },
     {
       "Name": "Shuffle",
@@ -110,7 +126,10 @@
         }
       ],
       "Tooltip": "Toggle shuffle",
-      "Context": "GLOBAL"
+      "Context": "GLOBAL",
+      "Controllers": [
+        "Keypad"
+      ]
     },
     {
       "Name": "Repeat",
@@ -129,7 +148,10 @@
         }
       ],
       "Tooltip": "Cycle repeat mode",
-      "Context": "GLOBAL"
+      "Context": "GLOBAL",
+      "Controllers": [
+        "Keypad"
+      ]
     },
     {
       "Name": "Now Playing",
@@ -144,7 +166,11 @@
         }
       ],
       "Tooltip": "Show current track title + artist (scrolling) — open PI to connect Cider",
-      "Context": "GLOBAL"
+      "Context": "GLOBAL",
+      "Controllers": [
+        "Keypad",
+        "Information"
+      ]
     },
     {
       "Name": "Love / Favorite",
@@ -163,7 +189,10 @@
         }
       ],
       "Tooltip": "Toggle Favorite / Love in Apple Music",
-      "Context": "GLOBAL"
+      "Context": "GLOBAL",
+      "Controllers": [
+        "Keypad"
+      ]
     },
     {
       "Name": "Add to Library",
@@ -177,7 +206,10 @@
         }
       ],
       "Tooltip": "Add current song to your Apple Music library",
-      "Context": "GLOBAL"
+      "Context": "GLOBAL",
+      "Controllers": [
+        "Keypad"
+      ]
     },
     {
       "Name": "Forward +15s",
@@ -191,7 +223,10 @@
         }
       ],
       "Tooltip": "Fast forward 15 seconds",
-      "Context": "GLOBAL"
+      "Context": "GLOBAL",
+      "Controllers": [
+        "Keypad"
+      ]
     },
     {
       "Name": "Rewind -15s",
@@ -205,7 +240,10 @@
         }
       ],
       "Tooltip": "Rewind 15 seconds",
-      "Context": "GLOBAL"
+      "Context": "GLOBAL",
+      "Controllers": [
+        "Keypad"
+      ]
     },
     {
       "Name": "Clear Queue",
@@ -219,7 +257,10 @@
         }
       ],
       "Tooltip": "Clear the Apple Music queue",
-      "Context": "GLOBAL"
+      "Context": "GLOBAL",
+      "Controllers": [
+        "Keypad"
+      ]
     },
     {
       "Name": "Play Playlist",
@@ -234,7 +275,10 @@
         }
       ],
       "Tooltip": "Launch a specific Apple Music playlist (paste id or music.apple.com URL)",
-      "Context": "GLOBAL"
+      "Context": "GLOBAL",
+      "Controllers": [
+        "Keypad"
+      ]
     },
     {
       "Name": "Playlist Browser (Molette)",
@@ -266,7 +310,11 @@
         }
       ],
       "Tooltip": "Shows the playlist selected by the browser knob — press to play",
-      "Context": "GLOBAL"
+      "Context": "GLOBAL",
+      "Controllers": [
+        "Keypad",
+        "Information"
+      ]
     },
     {
       "Name": "Volume (Molette)",

@@ -1,7 +1,18 @@
 {
+  "Description": "Contrôle des lumières Philips Hue pour StreamDock",
+  "Name": "Philips Hue",
+  "Category": "Philips Hue",
+  "com.laoy.streamdock.hue.toggle": {
+    "Name": "Allumer / Éteindre",
+    "Tooltip": "Allumer ou éteindre vos lumières Philips Hue"
+  },
+  "com.laoy.streamdock.hue.scene": {
+    "Name": "Scène Lumineuse",
+    "Tooltip": "Activer une scène d'éclairage Philips Hue"
+  },
   "Localization": {
-    "Toggle Light": "Changer État Lumière (Bientôt)",
-    "Set Scene": "Appliquer Scène (Bientôt)",
+    "Toggle Light": "Allumer / Éteindre",
+    "Set Scene": "Scène Lumineuse",
     "OFF": "ÉTEINT",
     "ON": "ALLUMÉ"
   }

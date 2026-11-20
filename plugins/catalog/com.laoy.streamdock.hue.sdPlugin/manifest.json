@@ -21,7 +21,11 @@
       "UUID": "com.laoy.streamdock.hue.toggle",
       "Tooltip": "Allumer ou éteindre vos lumières Philips Hue",
       "Context": "GLOBAL",
-      "PropertyInspectorPath": "pi/index.html"
+      "PropertyInspectorPath": "pi/index.html",
+      "Controllers": [
+        "Keypad",
+        "Information"
+      ]
     },
     {
       "Icon": "static/icon/hue_scene.png",
@@ -39,7 +43,10 @@
       "UUID": "com.laoy.streamdock.hue.scene",
       "Tooltip": "Activer une scène d'éclairage Philips Hue",
       "Context": "GLOBAL",
-      "PropertyInspectorPath": "pi/index.html"
+      "PropertyInspectorPath": "pi/index.html",
+      "Controllers": [
+        "Keypad"
+      ]
     }
   ],
   "Author": "Laoy",

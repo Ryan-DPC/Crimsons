@@ -38,7 +38,9 @@
           "TitleAlignment": "center"
         }
       ],
-      "Controllers": [],
+      "Controllers": [
+        "Keypad"
+      ],
       "UserTitleEnabled": true,
       "SupportedInMultiActions": true,
       "Tooltip": "spotify operation",
@@ -56,7 +58,9 @@
           "TitleAlignment": "center"
         }
       ],
-      "Controllers": [],
+      "Controllers": [
+        "Keypad"
+      ],
       "UserTitleEnabled": true,
       "SupportedInMultiActions": true,
       "Tooltip": "spotify operation",
@@ -74,7 +78,9 @@
           "TitleAlignment": "center"
         }
       ],
-      "Controllers": [],
+      "Controllers": [
+        "Keypad"
+      ],
       "UserTitleEnabled": true,
       "SupportedInMultiActions": true,
       "Tooltip": "spotify operation",
@@ -96,7 +102,9 @@
           "TitleAlignment": "center"
         }
       ],
-      "Controllers": [],
+      "Controllers": [
+        "Keypad"
+      ],
       "UserTitleEnabled": true,
       "SupportedInMultiActions": true,
       "Tooltip": "spotify operation",
@@ -117,7 +125,9 @@
       "Settings": {
         "playOption": "play"
       },
-      "Controllers": [],
+      "Controllers": [
+        "Keypad"
+      ],
       "UserTitleEnabled": true,
       "SupportedInMultiActions": true,
       "Tooltip": "spotify operation",
@@ -138,7 +148,9 @@
       "Settings": {
         "showCover": true
       },
-      "Controllers": [],
+      "Controllers": [
+        "Keypad"
+      ],
       "UserTitleEnabled": true,
       "SupportedInMultiActions": true,
       "Tooltip": "spotify operation",
@@ -159,7 +171,9 @@
       "Settings": {
         "showCover": false
       },
-      "Controllers": [],
+      "Controllers": [
+        "Keypad"
+      ],
       "UserTitleEnabled": true,
       "SupportedInMultiActions": true,
       "Tooltip": "spotify operation",
@@ -180,7 +194,9 @@
       "Settings": {
         "showCover": false
       },
-      "Controllers": [],
+      "Controllers": [
+        "Keypad"
+      ],
       "UserTitleEnabled": true,
       "SupportedInMultiActions": true,
       "Tooltip": "spotify operation",
@@ -207,7 +223,9 @@
         }
       ],
       "Settings": {},
-      "Controllers": [],
+      "Controllers": [
+        "Keypad"
+      ],
       "UserTitleEnabled": true,
       "SupportedInMultiActions": true,
       "Tooltip": "spotify operation",
@@ -234,7 +252,9 @@
         }
       ],
       "Settings": {},
-      "Controllers": [],
+      "Controllers": [
+        "Keypad"
+      ],
       "UserTitleEnabled": true,
       "SupportedInMultiActions": true,
       "Tooltip": "spotify operation",
@@ -255,7 +275,10 @@
       "Settings": {
         "mode": "title-artist"
       },
-      "Controllers": [],
+      "Controllers": [
+        "Keypad",
+        "Information"
+      ],
       "UserTitleEnabled": true,
       "SupportedInMultiActions": true,
       "Tooltip": "spotify operation",
@@ -278,7 +301,9 @@
         "step": 10,
         "show": true
       },
-      "Controllers": [],
+      "Controllers": [
+        "Keypad"
+      ],
       "UserTitleEnabled": true,
       "SupportedInMultiActions": true,
       "Tooltip": "spotify operation",
@@ -287,7 +312,7 @@
     },
     {
       "Icon": "static/icon/n1spotify_volume_down@2x.png",
-      "Name": "音量减",
+      "Name": "Volume -",
       "DisableAutomaticStates": true,
       "KeyboardSupport": true,
       "States": [
@@ -301,7 +326,9 @@
         "step": 10,
         "show": true
       },
-      "Controllers": [],
+      "Controllers": [
+        "Keypad"
+      ],
       "UserTitleEnabled": true,
       "SupportedInMultiActions": true,
       "Tooltip": "spotify operation",
@@ -310,7 +337,7 @@
     },
     {
       "Icon": "static/icon/n1spotify_volume_set@2x.png",
-      "Name": "设置音量",
+      "Name": "Définir Volume",
       "DisableAutomaticStates": true,
       "KeyboardSupport": true,
       "States": [
@@ -324,7 +351,9 @@
         "volume": 50,
         "show": true
       },
-      "Controllers": [],
+      "Controllers": [
+        "Keypad"
+      ],
       "UserTitleEnabled": true,
       "SupportedInMultiActions": true,
       "Tooltip": "spotify operation",
@@ -333,7 +362,7 @@
     },
     {
       "Icon": "static/icon/n1spotify_volume_mute@2x.png",
-      "Name": "静音",
+      "Name": "Couper le Son",
       "DisableAutomaticStates": true,
       "KeyboardSupport": true,
       "States": [
@@ -351,7 +380,9 @@
       "Settings": {
         "show": true
       },
-      "Controllers": [],
+      "Controllers": [
+        "Keypad"
+      ],
       "UserTitleEnabled": true,
       "SupportedInMultiActions": true,
       "Tooltip": "spotify operation",
@@ -360,7 +391,7 @@
     },
     {
       "Icon": "static/icon/n1spotify_144_prevornext.png",
-      "Name": "上一首<< | >>下一首",
+      "Name": "Précédent / Suivant (Molette)",
       "DisableAutomaticStates": true,
       "KeyboardSupport": true,
       "States": [
@@ -385,7 +416,7 @@
     },
     {
       "Icon": "static/icon/n1spotify_volume_set@2x.png",
-      "Name": "音量调节",
+      "Name": "Volume (Molette)",
       "DisableAutomaticStates": true,
       "KeyboardSupport": true,
       "States": [

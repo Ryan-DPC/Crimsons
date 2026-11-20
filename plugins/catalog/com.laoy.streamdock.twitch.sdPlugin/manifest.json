@@ -15,7 +15,10 @@
       "SupportedInMultiActions": true,
       "UUID": "com.laoy.streamdock.twitch.chat",
       "Tooltip": "Envoyer un message prédéfini dans votre chat Twitch",
-      "Context": "GLOBAL"
+      "Context": "GLOBAL",
+      "Controllers": [
+        "Keypad"
+      ]
     },
     {
       "Icon": "static/icon/twitch_ad.png",
@@ -32,7 +35,10 @@
       "SupportedInMultiActions": true,
       "UUID": "com.laoy.streamdock.twitch.ad",
       "Tooltip": "Lancer une pause publicitaire de 30 secondes",
-      "Context": "GLOBAL"
+      "Context": "GLOBAL",
+      "Controllers": [
+        "Keypad"
+      ]
     },
     {
       "Icon": "static/icon/twitch_viewers.png",
@@ -50,7 +56,11 @@
       "SupportedInMultiActions": true,
       "UUID": "com.laoy.streamdock.twitch.viewers",
       "Tooltip": "Afficher le nombre de spectateurs en direct sur votre chaîne",
-      "Context": "GLOBAL"
+      "Context": "GLOBAL",
+      "Controllers": [
+        "Keypad",
+        "Information"
+      ]
     }
   ],
   "Author": "Laoy",

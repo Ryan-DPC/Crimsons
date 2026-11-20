@@ -19,7 +19,7 @@
     "Tooltip": "Augmenter le volume"
   },
   "com.laoy.streamdock.applemusic.volumedown": {
-    "Name": "Volume −",
+    "Name": "Volume -",
     "Tooltip": "Baisser le volume"
   },
   "com.laoy.streamdock.applemusic.shuffle": {
@@ -31,19 +31,51 @@
     "Tooltip": "Changer le mode répétition"
   },
   "com.laoy.streamdock.applemusic.songinfo": {
-    "Name": "En cours",
-    "Tooltip": "Piste en cours"
+    "Name": "En cours (Now Playing)",
+    "Tooltip": "Piste en cours (Titre + Artiste + Pochette)"
+  },
+  "com.laoy.streamdock.applemusic.love": {
+    "Name": "Favori / Love",
+    "Tooltip": "Ajouter/retirer des morceaux préférés"
+  },
+  "com.laoy.streamdock.applemusic.addtolibrary": {
+    "Name": "Ajouter à la bibliothèque",
+    "Tooltip": "Ajouter le morceau en cours à la bibliothèque Apple Music"
+  },
+  "com.laoy.streamdock.applemusic.seekforward": {
+    "Name": "Avancer +15s",
+    "Tooltip": "Avancer de 15 secondes dans la piste"
+  },
+  "com.laoy.streamdock.applemusic.seekbackward": {
+    "Name": "Reculer -15s",
+    "Tooltip": "Reculer de 15 secondes dans la piste"
+  },
+  "com.laoy.streamdock.applemusic.clearqueue": {
+    "Name": "Vider la file d'attente",
+    "Tooltip": "Vider la liste de lecture Apple Music"
   },
   "com.laoy.streamdock.applemusic.playplaylist": {
     "Name": "Lancer une playlist",
-    "Tooltip": "Lance une playlist (garde son nom sur la touche ; ▶ en lecture — ce n’est pas Now Playing)"
+    "Tooltip": "Lance une playlist configurée"
   },
   "com.laoy.streamdock.applemusic.playlistbrowse": {
     "Name": "Parcourir playlists (Molette)",
-    "Tooltip": "Scroll les playlists — appuyer pour lancer"
+    "Tooltip": "Faire défiler les playlists (tourner) et lancer (appuyer)"
   },
   "com.laoy.streamdock.applemusic.playlistview": {
     "Name": "Aperçu playlist",
-    "Tooltip": "Affiche la playlist sélectionnée — appuyer pour lancer"
+    "Tooltip": "Affiche la playlist sélectionnée par la molette"
+  },
+  "com.laoy.streamdock.applemusic.volumecontrol": {
+    "Name": "Volume (Molette)",
+    "Tooltip": "Ajuster le volume (tourner) et couper le son (appuyer)"
+  },
+  "com.laoy.streamdock.applemusic.previousornext": {
+    "Name": "Précédent / Suivant (Molette)",
+    "Tooltip": "Piste suivante/précédente (tourner) et Play/Pause (appuyer)"
+  },
+  "com.laoy.streamdock.applemusic.seekcontrol": {
+    "Name": "Timeline / Seek (Molette)",
+    "Tooltip": "Avancer / Reculer dans le morceau (tourner) et Play/Pause (appuyer)"
   }
 }

@@ -3,7 +3,9 @@
     {
       "Icon": "static/icon/lol_autoaccept.png",
       "Name": "Auto-Accept (Toggle)",
-      "Controllers": ["Keypad"],
+      "Controllers": [
+        "Keypad"
+      ],
       "States": [
         {
           "Image": "static/icon/lol_autoaccept.png"
@@ -14,7 +16,10 @@
     {
       "Icon": "static/icon/lol_stats.png",
       "Name": "Rank Stats",
-      "Controllers": ["Keypad"],
+      "Controllers": [
+        "Keypad",
+        "Information"
+      ],
       "States": [
         {
           "Image": "static/icon/lol_stats.png"
@@ -25,7 +30,10 @@
     {
       "Icon": "static/icon/lol_champion.png",
       "Name": "Current Champion",
-      "Controllers": ["Keypad"],
+      "Controllers": [
+        "Keypad",
+        "Information"
+      ],
       "States": [
         {
           "Image": "static/icon/lol_champion.png"
@@ -36,7 +44,9 @@
     {
       "Icon": "static/icon/lol_inject.png",
       "Name": "Inject Rune Build",
-      "Controllers": ["Keypad"],
+      "Controllers": [
+        "Keypad"
+      ],
       "PropertyInspector": "propertyInspector/inject/index.html",
       "States": [
         {
@@ -48,7 +58,9 @@
     {
       "Icon": "static/icon/lol_inject.png",
       "Name": "Rune Selector (Knob)",
-      "Controllers": ["Knob"],
+      "Controllers": [
+        "Knob"
+      ],
       "DisableAutomaticStates": true,
       "States": [
         {
@@ -60,7 +72,9 @@
     {
       "Icon": "static/icon/lol_volume.png",
       "Name": "Audio Volume (Knob)",
-      "Controllers": ["Knob"],
+      "Controllers": [
+        "Knob"
+      ],
       "DisableAutomaticStates": true,
       "States": [
         {
@@ -72,7 +86,10 @@
     {
       "Icon": "static/icon/lol_infoboard.png",
       "Name": "Connection Status",
-      "Controllers": ["Keypad"],
+      "Controllers": [
+        "Keypad",
+        "Information"
+      ],
       "States": [
         {
           "Image": "static/icon/lol_infoboard.png"
@@ -83,7 +100,10 @@
     {
       "Icon": "static/icon/lol_account.png",
       "Name": "Account Info",
-      "Controllers": ["Keypad"],
+      "Controllers": [
+        "Keypad",
+        "Information"
+      ],
       "States": [
         {
           "Image": "static/icon/lol_account.png"
@@ -92,7 +112,6 @@
       "UUID": "com.laoy.streamdock.crimson.account"
     }
   ],
-
   "Author": "Laoy",
   "Description": "CRIMSONS League of Legends Controller",
   "Icon": "static/icon/lol_logo.png",

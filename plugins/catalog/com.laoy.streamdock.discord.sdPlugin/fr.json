@@ -1,0 +1,21 @@
+{
+  "Description": "Contrôles vocaux Discord pour StreamDock",
+  "Name": "Discord",
+  "Category": "Discord",
+  "com.laoy.streamdock.discord.togglemute": {
+    "Name": "Couper le Micro",
+    "Tooltip": "Activer / couper le microphone"
+  },
+  "com.laoy.streamdock.discord.toggledeafen": {
+    "Name": "Couper le Casque",
+    "Tooltip": "Activer / couper le son du casque"
+  },
+  "com.laoy.streamdock.discord.joinvoice": {
+    "Name": "Salon Vocal",
+    "Tooltip": "Rejoindre ou quitter un salon vocal"
+  },
+  "com.laoy.streamdock.discord.togglecamera": {
+    "Name": "Caméra",
+    "Tooltip": "Activer / couper la caméra"
+  }
+}

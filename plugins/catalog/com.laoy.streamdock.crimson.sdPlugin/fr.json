@@ -1,0 +1,37 @@
+{
+  "Description": "Contrôleur League of Legends CRIMSONS",
+  "Name": "League of Legends",
+  "Category": "League of Legends",
+  "com.laoy.streamdock.crimson.autoaccept": {
+    "Name": "Auto-Accept (Match)",
+    "Tooltip": "Accepter automatiquement les parties trouvées"
+  },
+  "com.laoy.streamdock.crimson.stats": {
+    "Name": "Statistiques Classées",
+    "Tooltip": "Afficher le rang et les stats"
+  },
+  "com.laoy.streamdock.crimson.champion": {
+    "Name": "Champion Actuel",
+    "Tooltip": "Afficher le champion joué et la maîtrise"
+  },
+  "com.laoy.streamdock.crimson.inject": {
+    "Name": "Injecter Runes",
+    "Tooltip": "Injecter la page de runes optimale"
+  },
+  "com.laoy.streamdock.crimson.runeknob": {
+    "Name": "Sélecteur de Runes (Molette)",
+    "Tooltip": "Parcourir et appliquer les pages de runes"
+  },
+  "com.laoy.streamdock.crimson.volumeknob": {
+    "Name": "Volume LoL (Molette)",
+    "Tooltip": "Ajuster le volume audio du jeu LoL"
+  },
+  "com.laoy.streamdock.crimson.infoboard": {
+    "Name": "Statut Connexion",
+    "Tooltip": "Statut de connexion client League of Legends"
+  },
+  "com.laoy.streamdock.crimson.account": {
+    "Name": "Infos Compte",
+    "Tooltip": "Pseudo, niveau et statut du compte LoL"
+  }
+}

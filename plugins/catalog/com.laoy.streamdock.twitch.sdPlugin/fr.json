@@ -1,7 +1,22 @@
 {
+  "Description": "Actions créateur et modération Twitch pour StreamDock",
+  "Name": "Twitch",
+  "Category": "Twitch",
+  "com.laoy.streamdock.twitch.chat": {
+    "Name": "Message Chat",
+    "Tooltip": "Envoyer un message prédéfini dans votre chat Twitch"
+  },
+  "com.laoy.streamdock.twitch.ad": {
+    "Name": "Lancer Publicité (30s)",
+    "Tooltip": "Lancer une pause publicitaire de 30 secondes"
+  },
+  "com.laoy.streamdock.twitch.viewers": {
+    "Name": "Compteur Viewers",
+    "Tooltip": "Afficher le nombre de spectateurs en direct sur votre chaîne"
+  },
   "Localization": {
-    "Send Chat Message": "Envoyer un message de chat (Bientôt)",
-    "Run Ad": "Lancer une publicité (Bientôt)",
-    "Viewer Count": "Nombre de spectateurs (Bientôt)"
+    "Send Chat Message": "Message Chat",
+    "Run Ad": "Lancer Publicité (30s)",
+    "Viewer Count": "Compteur Viewers"
   }
 }
