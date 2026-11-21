@@ -6,6 +6,7 @@ type MenuId = 'file' | 'help' | null;
 interface TitlebarMenusProps {
   appVersion: string;
   onOpenSettings: () => void;
+  onOpenProfile?: () => void;
   onQuit: () => void;
 }
 
@@ -16,6 +17,7 @@ function openExternal(url: string) {
 export default function TitlebarMenus({
   appVersion,
   onOpenSettings,
+  onOpenProfile,
   onQuit,
 }: TitlebarMenusProps) {
   const [openMenu, setOpenMenu] = useState<MenuId>(null);
@@ -58,6 +60,7 @@ export default function TitlebarMenus({
       id: 'file',
       label: 'File',
       items: [
+        ...(onOpenProfile ? [{ label: 'Mon Profil', action: () => run(onOpenProfile) }] : []),
         { label: 'Settings', action: () => run(onOpenSettings) },
         { label: 'Open Store', action: () => run(() => openExternal(PLUGIN_STORE_BASE_URL)) },
         { label: 'Quit', action: () => run(onQuit), danger: true },
@@ -81,7 +84,7 @@ export default function TitlebarMenus({
 
   return (
     <>
-      <div ref={rootRef} className="flex items-center gap-0.5" data-tauri-drag-region="false">
+      <div ref={rootRef} className="flex items-center gap-0.5 no-drag">
         {menus.map((menu) => (
           <div key={menu.id} className="relative">
             <button

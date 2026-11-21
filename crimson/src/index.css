@@ -4,6 +4,14 @@
   color-scheme: dark;
 }
 
+.no-drag {
+  -webkit-app-region: no-drag;
+}
+
+.drag-region {
+  -webkit-app-region: drag;
+}
+
 body {
   margin: 0;
   padding: 0;

@@ -261,13 +261,13 @@ function App() {
   return (
     <div className={`flex flex-col h-screen bg-[#050505] text-white selection:bg-red-500/30 font-sans overflow-hidden ${appData?.darkGlassMode ? 'dark-glass' : ''} ${appData?.reducedAnimations ? 'reduced-animations' : ''}`}>
       {/* Desktop titlebar: Logo | File View Help  ……  avatar · bell · window controls */}
-      <header data-tauri-drag-region className="flex items-center justify-between px-3 py-1.5 bg-[#050505] border-b border-white/5 z-50 select-none gap-2">
+      <header className="flex items-center justify-between px-3 py-1.5 bg-[#050505] border-b border-white/5 z-50 select-none gap-2">
         {/* LEFT: brand mark + classic desktop menus */}
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 shrink-0 no-drag">
           <button
             type="button"
             onClick={() => setTab('home')}
-            className="flex items-center hover:opacity-90 transition-opacity"
+            className="flex items-center hover:opacity-90 transition-opacity no-drag"
             title="Hub"
           >
             <div className="relative w-7 h-7 flex items-center justify-center rounded-full border border-white/10 overflow-hidden bg-black/20">
@@ -278,6 +278,7 @@ function App() {
           <TitlebarMenus
             appVersion={appVersion}
             onOpenSettings={() => setTab('settings')}
+            onOpenProfile={() => setTab('profile')}
             onQuit={() => handleWindowCommand('close')}
           />
           {isLolEnabled && (
@@ -288,16 +289,20 @@ function App() {
           )}
         </div>
 
-        <div data-tauri-drag-region className="flex-1 min-w-4 self-stretch" />
+        <div data-tauri-drag-region className="flex-1 min-w-4 self-stretch drag-region cursor-default" />
 
         {/* RIGHT: avatar → notifications → window controls */}
-        <div className="flex items-center gap-1.5 shrink-0" data-tauri-drag-region="none">
+        <div className="flex items-center gap-1.5 shrink-0 no-drag">
           {isLolEnabled && sum ? (
             <button
               type="button"
-              onClick={() => setTab('profile')}
-              data-tauri-drag-region="none"
-              className="rounded-full focus:outline-none focus-visible:ring-1 focus-visible:ring-white/30"
+              onClick={(e) => {
+                e.stopPropagation();
+                setTab(tab === 'profile' ? 'home' : 'profile');
+              }}
+              className={`rounded-full focus:outline-none focus-visible:ring-1 focus-visible:ring-white/30 cursor-pointer no-drag transition-all ${
+                tab === 'profile' ? 'ring-2 ring-red-500 shadow-[0_0_12px_rgba(239,68,68,0.5)]' : ''
+              }`}
               title="Mon Profil"
             >
               <img
@@ -309,21 +314,29 @@ function App() {
           ) : (
             <button
               type="button"
-              onClick={() => setTab('profile')}
-              data-tauri-drag-region="none"
-              className="w-7 h-7 bg-white/5 border border-white/10 rounded-full flex items-center justify-center text-white/80 hover:text-white hover:bg-white/10 hover:border-white/20 transition-all font-bold text-[10px]"
+              onClick={(e) => {
+                e.stopPropagation();
+                setTab(tab === 'profile' ? 'home' : 'profile');
+              }}
+              className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-[10px] transition-all cursor-pointer no-drag ${
+                tab === 'profile'
+                  ? 'bg-red-600/30 border border-red-500/60 text-white shadow-[0_0_12px_rgba(220,38,38,0.4)]'
+                  : 'bg-white/5 border border-white/10 text-white/80 hover:text-white hover:bg-white/10 hover:border-white/20'
+              }`}
               title="Mon Profil"
             >
               {(user?.email?.[0] || 'C').toUpperCase()}
             </button>
           )}
-          <div className="relative" data-tauri-drag-region="none">
+          <div className="relative no-drag">
             <button
               type="button"
               data-notification-trigger="true"
-              data-tauri-drag-region="none"
-              onClick={() => setShowNotifications(prev => !prev)}
-              className={`relative w-7 h-7 flex items-center justify-center rounded transition-colors ${
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowNotifications(prev => !prev);
+              }}
+              className={`relative w-7 h-7 flex items-center justify-center rounded transition-colors no-drag ${
                 showNotifications
                   ? 'bg-white/15 text-white'
                   : 'hover:bg-white/10 text-white/50 hover:text-white'
@@ -348,14 +361,14 @@ function App() {
 
           <div className="w-px h-4 bg-white/10 mx-1" />
 
-          <div className="flex items-center gap-0.5">
-            <button onClick={() => handleWindowCommand('minimize')} className="w-7 h-7 flex items-center justify-center rounded hover:bg-white/10 text-white/50 hover:text-white transition-colors" title="Minimize">
+          <div className="flex items-center gap-0.5 no-drag">
+            <button onClick={() => handleWindowCommand('minimize')} className="w-7 h-7 flex items-center justify-center rounded hover:bg-white/10 text-white/50 hover:text-white transition-colors no-drag" title="Minimize">
               <div className="w-2.5 h-[1.5px] bg-current" />
             </button>
-            <button onClick={() => handleWindowCommand('maximize')} className="w-7 h-7 flex items-center justify-center rounded hover:bg-white/10 text-white/50 hover:text-white transition-colors" title="Maximize">
+            <button onClick={() => handleWindowCommand('maximize')} className="w-7 h-7 flex items-center justify-center rounded hover:bg-white/10 text-white/50 hover:text-white transition-colors no-drag" title="Maximize">
               <div className="w-2.5 h-2.5 border-[1.5px] border-current" />
             </button>
-            <button onClick={() => handleWindowCommand('close')} title="Close" className="group w-7 h-7 flex items-center justify-center rounded hover:bg-red-500 text-white/50 hover:text-white transition-colors">
+            <button onClick={() => handleWindowCommand('close')} title="Close" className="group w-7 h-7 flex items-center justify-center rounded hover:bg-red-500 text-white/50 hover:text-white transition-colors no-drag">
               <svg width="9" height="9" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M1 1L9 9M9 1L1 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="group-hover:stroke-white"/>
               </svg>
