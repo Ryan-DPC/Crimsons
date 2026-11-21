@@ -311,8 +311,7 @@
       "Tooltip": "Shows the playlist selected by the browser knob — press to play",
       "Context": "GLOBAL",
       "Controllers": [
-        "Keypad",
-        "Information"
+        "Keypad"
       ]
     },
     {
@@ -392,6 +391,24 @@
         }
       ],
       "Tooltip": "Affiche le prochain morceau en file d'attente (Pochette + Titre)",
+      "Context": "GLOBAL",
+      "Controllers": [
+        "Keypad",
+        "Information"
+      ]
+    },
+    {
+      "Name": "Playlist Carousel",
+      "UUID": "com.laoy.streamdock.applemusic.playlistcarousel",
+      "Icon": "static/icon/play_playlist.png",
+      "States": [
+        {
+          "Image": "static/icon/play_playlist.png",
+          "TitleAlignment": "bottom",
+          "FontSize": "9"
+        }
+      ],
+      "Tooltip": "Défilement automatique de vos playlists toutes les 15s (Pochette + Nom)",
       "Context": "GLOBAL",
       "Controllers": [
         "Keypad",

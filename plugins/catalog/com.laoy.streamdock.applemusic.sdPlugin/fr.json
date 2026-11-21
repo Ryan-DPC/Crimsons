@@ -81,5 +81,9 @@
   "com.laoy.streamdock.applemusic.upnext": {
     "Name": "À suivre (Piste suivante)",
     "Tooltip": "Affiche le prochain morceau en file d'attente (Pochette + Titre)"
+  },
+  "com.laoy.streamdock.applemusic.playlistcarousel": {
+    "Name": "Carrousel Playlists (Défilement 15s)",
+    "Tooltip": "Fait défiler automatiquement vos playlists toutes les 15 secondes (Pochette + Titre)"
   }
 }

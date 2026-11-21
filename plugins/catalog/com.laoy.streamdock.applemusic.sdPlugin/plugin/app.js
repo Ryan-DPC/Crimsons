@@ -49,6 +49,7 @@ let actionContexts = {
     "com.laoy.streamdock.applemusic.playplaylist": [],
     "com.laoy.streamdock.applemusic.playlistbrowse": [],
     "com.laoy.streamdock.applemusic.playlistview": [],
+    "com.laoy.streamdock.applemusic.playlistcarousel": [],
     "com.laoy.streamdock.applemusic.volumecontrol": [],
     "com.laoy.streamdock.applemusic.previousornext": [],
     "com.laoy.streamdock.applemusic.seekcontrol": []
@@ -450,6 +451,113 @@ function createTitleMarquee(width) {
 const songInfoMarquee = createTitleMarquee(MARQUEE_CHARS);
 const upNextMarquee = createTitleMarquee(MARQUEE_CHARS);
 const playlistViewMarquee = createTitleMarquee(12);
+
+const playlistCarouselMarquee = createTitleMarquee(12);
+
+/** Carrousel automatique de playlists pour écran Kanban / touches */
+const playlistCarousel = {
+    index: 0,
+    timer: null,
+    intervalMs: 15000,
+    lastCoverUrl: "",
+    lastCoverCtx: {},
+
+    current() {
+        const list = playlistBrowser.list || [];
+        if (!list.length) return null;
+        const i = ((this.index % list.length) + list.length) % list.length;
+        return list[i];
+    },
+
+    start() {
+        if (this.timer) return;
+        this.timer = setInterval(() => {
+            const contexts = actionContexts["com.laoy.streamdock.applemusic.playlistcarousel"] || [];
+            if (!contexts.length) {
+                this.stop();
+                return;
+            }
+            this.next();
+        }, this.intervalMs);
+    },
+
+    stop() {
+        if (this.timer) {
+            clearInterval(this.timer);
+            this.timer = null;
+        }
+        playlistCarouselMarquee.stop();
+    },
+
+    next() {
+        const list = playlistBrowser.list || [];
+        if (!list.length) return;
+        this.index = (this.index + 1) % list.length;
+        this.paint();
+    },
+
+    async paint(opts) {
+        const contexts = actionContexts["com.laoy.streamdock.applemusic.playlistcarousel"] || [];
+        if (!contexts.length) return;
+
+        await playlistBrowser.ensureLoaded();
+        const cur = this.current();
+        if (!cur) {
+            playlistCarouselMarquee.stop();
+            contexts.forEach(ctx => {
+                sendToContext(ctx, "setTitle", { title: "Playlists", target: 0 });
+                sendToContext(ctx, "setImage", { image: "static/icon/play_playlist.png", target: 0 });
+            });
+            return;
+        }
+
+        const name = String(cur.name || "Playlist");
+        playlistCarouselMarquee.set([name], (title) => {
+            const ctxs = actionContexts["com.laoy.streamdock.applemusic.playlistcarousel"] || [];
+            ctxs.forEach(ctx => setTitleForContext(ctx, title));
+        });
+
+        if (cur.image) {
+            this.applyCover(cur.image);
+        } else if (cur.id) {
+            ciderAPI.artworkFromFirstTrack(cur.id).then((art) => {
+                if (art && this.current() && this.current().id === cur.id) {
+                    cur.image = art;
+                    this.applyCover(art);
+                }
+            }).catch(() => {});
+        }
+    },
+
+    async applyCover(url) {
+        if (!url) return;
+        const contexts = actionContexts["com.laoy.streamdock.applemusic.playlistcarousel"] || [];
+        if (!contexts.length) return;
+        try {
+            let b64 = url.startsWith("data:") ? url : await crimsonAPI.toBase64(url);
+            contexts.forEach((ctx) => {
+                if (this.lastCoverCtx[ctx] === url) return;
+                this.lastCoverCtx[ctx] = url;
+                sendToContext(ctx, "setImage", { image: b64 || url, target: 0 });
+            });
+            this.lastCoverUrl = url;
+        } catch (e) {}
+    },
+
+    async playCurrent() {
+        const cur = this.current();
+        if (!cur) return;
+        await ciderAPI.playPlaylist({
+            playlist: cur.id || cur.name,
+            playlistId: cur.id || "",
+            playlistName: cur.name || "",
+            shuffle: true
+        });
+        setTitleForAction("com.laoy.streamdock.applemusic.playlistcarousel", "▶ " + String(cur.name || "").slice(0, 10));
+        setTimeout(() => this.paint(), 1500);
+    }
+};
+
 
 /** Direct Cider HTTP API Client */
 const ciderAPI = {
@@ -1928,7 +2036,12 @@ function handleHardwareEvent(jsonObj) {
         if (actionContexts[action] && !actionContexts[action].includes(context)) {
             actionContexts[action].push(context);
         }
-        if (action === "com.laoy.streamdock.applemusic.upnext") {
+        if (action === "com.laoy.streamdock.applemusic.playlistcarousel") {
+            delete lastTitleByContext[context];
+            delete lastImageByContext[context];
+            playlistCarousel.paint({ force: true });
+            playlistCarousel.start();
+        } else if (action === "com.laoy.streamdock.applemusic.upnext") {
             _lastUpNextFetchedAt = 0;
             _lastUpNextArt = "";
             _lastUpNextTrackId = "";
@@ -2340,6 +2453,9 @@ function handleKeyDown(action, settings, context) {
         case "com.laoy.streamdock.applemusic.playlistview":
             // Visual button press → play currently browsed playlist
             playlistBrowser.playCurrent();
+            return;
+        case "com.laoy.streamdock.applemusic.playlistcarousel":
+            playlistCarousel.playCurrent();
             return;
         case "com.laoy.streamdock.applemusic.playlistbrowse":
             // Knob press → play currently browsed playlist

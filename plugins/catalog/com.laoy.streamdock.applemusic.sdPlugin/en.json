@@ -49,5 +49,9 @@
   "com.laoy.streamdock.applemusic.upnext": {
     "Name": "Up Next",
     "Tooltip": "Shows next track in queue (Cover + Title)"
+  },
+  "com.laoy.streamdock.applemusic.playlistcarousel": {
+    "Name": "Playlist Carousel",
+    "Tooltip": "Auto-cycles through your playlists every 15s (Cover + Title)"
   }
 }
