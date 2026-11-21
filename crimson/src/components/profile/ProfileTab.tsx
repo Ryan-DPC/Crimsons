@@ -1,15 +1,55 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLCU } from '../../contexts/LCUContext';
 import { 
   User, ShieldCheck, Key, LogOut, Check, AlertCircle, 
-  Sparkles, Lock, ArrowLeft, Copy
+  Sparkles, Lock, ArrowLeft, Copy, Gamepad2
 } from 'lucide-react';
 import { SUPABASE_URL } from '../../lib/supabase';
 
 export default function ProfileTab() {
   const { user, isPremium, session, signOut } = useAuth();
-  const { setTab } = useLCU();
+  const { setTab, sum, v, appData } = useLCU();
+
+  const isLolEnabled = appData?.plugins?.leagueOfLegends ?? false;
+
+  const [cachedGame, setCachedGame] = useState<{
+    plugin: string;
+    username: string;
+    avatarUrl: string;
+  } | null>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('crimsons_saved_game_profile') || 'null');
+    } catch {
+      return null;
+    }
+  });
+
+  useEffect(() => {
+    if (isLolEnabled && sum && v) {
+      const username = sum.gameName
+        ? (sum.tagLine ? `${sum.gameName}#${sum.tagLine}` : sum.gameName)
+        : (sum.displayName || '');
+      const avatarUrl = `https://ddragon.leagueoflegends.com/cdn/${v}/img/profileicon/${sum.profileIconId}.png`;
+      const profile = { plugin: 'League of Legends', username, avatarUrl };
+      setCachedGame(profile);
+      try {
+        localStorage.setItem('crimsons_saved_game_profile', JSON.stringify(profile));
+      } catch {}
+    }
+  }, [isLolEnabled, sum, v]);
+
+  const activeGame = isLolEnabled
+    ? (sum && v
+        ? {
+            plugin: 'League of Legends',
+            username: sum.gameName
+              ? (sum.tagLine ? `${sum.gameName}#${sum.tagLine}` : sum.gameName)
+              : (sum.displayName || ''),
+            avatarUrl: `https://ddragon.leagueoflegends.com/cdn/${v}/img/profileicon/${sum.profileIconId}.png`,
+          }
+        : cachedGame?.plugin === 'League of Legends' ? cachedGame : null)
+    : null;
 
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -87,13 +127,26 @@ export default function ProfileTab() {
       {/* Top Header Navigation */}
       <div className="flex items-center justify-between border-b border-white/5 pb-8">
         <div className="flex items-center gap-5">
-          {/* Refined Dark Matte Avatar */}
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-white/10 to-black/60 border border-white/10 flex items-center justify-center text-white text-2xl font-black font-mono shadow-xl">
-            {initial}
-          </div>
+          {/* Avatar PDP (Jeu actif ou initial matte) */}
+          {activeGame?.avatarUrl ? (
+            <div className="relative w-16 h-16 rounded-2xl overflow-hidden border border-white/10 shadow-xl bg-black/40">
+              <img
+                src={activeGame.avatarUrl}
+                alt={activeGame.username || 'Avatar'}
+                className="w-full h-full object-cover"
+              />
+            </div>
+          ) : (
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-white/10 to-black/60 border border-white/10 flex items-center justify-center text-white text-2xl font-black font-mono shadow-xl">
+              {initial}
+            </div>
+          )}
+
           <div>
             <div className="flex items-center gap-3">
-              <h2 className="text-2xl font-black text-white tracking-wide">{user?.email}</h2>
+              <h2 className="text-2xl font-black text-white tracking-wide">
+                {activeGame?.username || user?.email}
+              </h2>
               {isPremium && (
                 <span className="px-2.5 py-0.5 rounded-full bg-gradient-to-r from-red-600/30 to-red-500/10 border border-red-500/30 text-red-400 text-[10px] font-black uppercase tracking-wider flex items-center gap-1">
                   <Sparkles className="w-3 h-3 text-red-400" />
@@ -106,15 +159,22 @@ export default function ProfileTab() {
                 <ShieldCheck className="w-3.5 h-3.5" />
                 Compte Vérifié
               </span>
-              <span className="text-white/20">•</span>
-              <span className="text-white/40">Serveur PostgreSQL Centralisé</span>
+              {activeGame && (
+                <>
+                  <span className="text-white/20">•</span>
+                  <span className="text-white/40 flex items-center gap-1">
+                    <Gamepad2 className="w-3 h-3 text-red-400" />
+                    {activeGame.plugin}
+                  </span>
+                </>
+              )}
             </div>
           </div>
         </div>
 
         <button
           onClick={() => setTab('home')}
-          className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-white/70 hover:text-white text-[11px] font-black uppercase tracking-wider transition-all flex items-center gap-2"
+          className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-white/70 hover:text-white text-[11px] font-black uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
           Retour
@@ -131,11 +191,22 @@ export default function ProfileTab() {
               </div>
               <div>
                 <h3 className="text-sm font-black text-white uppercase tracking-widest font-mono">Informations du Compte</h3>
-                <span className="text-[10px] text-white/30 uppercase font-bold tracking-wider">Identifiants et statut</span>
+                <span className="text-[10px] text-white/30 uppercase font-bold tracking-wider">Identifiants et profil</span>
               </div>
             </div>
 
             <div className="space-y-4">
+              {activeGame?.username && (
+                <div className="p-4 rounded-xl bg-black/40 border border-white/5">
+                  <span className="text-[9px] font-black text-white/40 uppercase tracking-widest block mb-1">
+                    Pseudo ({activeGame.plugin})
+                  </span>
+                  <span className="text-xs font-mono font-bold text-white select-all">
+                    {activeGame.username}
+                  </span>
+                </div>
+              )}
+
               <div className="p-4 rounded-xl bg-black/40 border border-white/5">
                 <span className="text-[9px] font-black text-white/40 uppercase tracking-widest block mb-1">Adresse Email</span>
                 <span className="text-xs font-mono text-white select-all">{user?.email}</span>
@@ -150,19 +221,11 @@ export default function ProfileTab() {
                 </div>
                 <button
                   onClick={handleCopyId}
-                  className="p-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white/50 hover:text-white transition-colors"
+                  className="p-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white/50 hover:text-white transition-colors cursor-pointer"
                   title="Copier l'UUID"
                 >
                   {copied ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
                 </button>
-              </div>
-
-              <div className="p-4 rounded-xl bg-black/40 border border-white/5 flex items-center justify-between">
-                <div>
-                  <span className="text-[9px] font-black text-white/40 uppercase tracking-widest block mb-0.5">Statut de l'email</span>
-                  <span className="text-xs font-bold text-green-400 uppercase tracking-wider">Vérifié & Authentifié</span>
-                </div>
-                <ShieldCheck className="w-5 h-5 text-green-400/80" />
               </div>
             </div>
           </div>
@@ -171,7 +234,7 @@ export default function ProfileTab() {
           <div className="pt-4 border-t border-white/5">
             <button
               onClick={handleSignOut}
-              className="w-full py-3.5 bg-red-600/10 hover:bg-red-600/20 border border-red-500/20 text-red-400 hover:text-red-300 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2"
+              className="w-full py-3.5 bg-red-600/10 hover:bg-red-600/20 border border-red-500/20 text-red-400 hover:text-red-300 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 cursor-pointer"
             >
               <LogOut className="w-4 h-4" />
               Se déconnecter
@@ -251,7 +314,7 @@ export default function ProfileTab() {
             <button
               type="submit"
               disabled={loading || !newPassword || !confirmPassword}
-              className="w-full py-3.5 bg-red-600 hover:bg-red-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all shadow-[0_0_20px_rgba(220,38,38,0.25)] flex items-center justify-center gap-2"
+              className="w-full py-3.5 bg-red-600 hover:bg-red-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all shadow-[0_0_20px_rgba(220,38,38,0.25)] flex items-center justify-center gap-2 cursor-pointer"
             >
               <Lock className="w-4 h-4" />
               {loading ? 'Modification...' : 'Mettre à jour le mot de passe'}

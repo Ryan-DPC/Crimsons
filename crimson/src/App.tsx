@@ -65,6 +65,38 @@ function App() {
     }
   });
 
+  const [cachedGameProfile, setCachedGameProfile] = useState<{
+    plugin: string;
+    username: string;
+    avatarUrl: string;
+  } | null>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('crimsons_saved_game_profile') || 'null');
+    } catch {
+      return null;
+    }
+  });
+
+  useEffect(() => {
+    if (isLolEnabled && sum && v) {
+      const username = sum.gameName
+        ? (sum.tagLine ? `${sum.gameName}#${sum.tagLine}` : sum.gameName)
+        : (sum.displayName || '');
+      const avatarUrl = `https://ddragon.leagueoflegends.com/cdn/${v}/img/profileicon/${sum.profileIconId}.png`;
+      const profile = { plugin: 'League of Legends', username, avatarUrl };
+      setCachedGameProfile(profile);
+      try {
+        localStorage.setItem('crimsons_saved_game_profile', JSON.stringify(profile));
+      } catch {}
+    }
+  }, [isLolEnabled, sum, v]);
+
+  const activeAvatarUrl = isLolEnabled
+    ? (sum && v
+        ? `https://ddragon.leagueoflegends.com/cdn/${v}/img/profileicon/${sum.profileIconId}.png`
+        : cachedGameProfile?.plugin === 'League of Legends' ? cachedGameProfile.avatarUrl : null)
+    : null;
+
   const allNotifications: NotificationItem[] = [
     ...(availableVersion ? [{
       id: `update-${availableVersion}`,
@@ -102,14 +134,6 @@ function App() {
         onClick: () => setTab('lobby'),
       },
     }] : []),
-    ...(isLolEnabled && !lolConnected ? [{
-      id: 'lol-waiting',
-      type: 'info' as const,
-      title: 'League of Legends en attente',
-      message: 'Lancez le client de jeu pour synchroniser votre lobby et vos runes.',
-      timestamp: 'En attente',
-      read: readNotifIds.includes('lol-waiting'),
-    }] : []),
     ...(spotifyConnected ? [{
       id: 'spotify-connected',
       type: 'success' as const,
@@ -118,14 +142,6 @@ function App() {
       timestamp: 'Multimédia',
       read: readNotifIds.includes('spotify-connected'),
     }] : []),
-    {
-      id: `welcome-${appVersion}`,
-      type: 'info' as const,
-      title: `Crimsons v${appVersion}`,
-      message: 'Système opérationnel connecté au cluster PostgreSQL centralisé.',
-      timestamp: 'Système',
-      read: readNotifIds.includes(`welcome-${appVersion}`),
-    },
   ];
 
   const activeNotifications = allNotifications.filter(n => !dismissedNotifIds.includes(n.id));
@@ -293,7 +309,7 @@ function App() {
 
         {/* RIGHT: avatar → notifications → window controls */}
         <div className="flex items-center gap-1.5 shrink-0 no-drag">
-          {isLolEnabled && sum ? (
+          {activeAvatarUrl ? (
             <button
               type="button"
               onClick={(e) => {
@@ -306,8 +322,8 @@ function App() {
               title="Mon Profil"
             >
               <img
-                src={`https://ddragon.leagueoflegends.com/cdn/${v}/img/profileicon/${sum.profileIconId}.png`}
-                className="w-7 h-7 rounded-full border border-white/10 shadow-lg"
+                src={activeAvatarUrl}
+                className="w-7 h-7 rounded-full border border-white/10 shadow-lg object-cover"
                 alt="Profile"
               />
             </button>
@@ -454,30 +470,32 @@ function App() {
           </div>
         </div>
 
-        <div className="flex items-center gap-8">
-          {rank.tier && rank.tier !== 'UNRANKED' && rank.tier !== 'NA' && rank.tier !== 'NONE' && rank.division !== 'NA' && rank.division !== 'NONE' && (
-            <div className="flex items-center gap-3">
-              <div className="flex flex-col items-end">
-                <div className="text-[10px] font-black text-white/20 tracking-tighter uppercase">Solo / Duo</div>
-                <div className="text-xs font-black text-white/80">{rank.tier} {rank.division} <span className="text-red-500/60 ml-1">{rank.lp} LP</span></div>
+        {isLolEnabled && lolConnected && (
+          <div className="flex items-center gap-8">
+            {rank.tier && rank.tier !== 'UNRANKED' && rank.tier !== 'NA' && rank.tier !== 'NONE' && rank.division !== 'NA' && rank.division !== 'NONE' && (
+              <div className="flex items-center gap-3">
+                <div className="flex flex-col items-end">
+                  <div className="text-[10px] font-black text-white/20 tracking-tighter uppercase">Solo / Duo</div>
+                  <div className="text-xs font-black text-white/80">{rank.tier} {rank.division} <span className="text-red-500/60 ml-1">{rank.lp} LP</span></div>
+                </div>
+                <div className="p-1.5 bg-white/5 rounded-lg border border-white/10">
+                  <ShieldAlert className="w-4 h-4 text-white/40" />
+                </div>
               </div>
-              <div className="p-1.5 bg-white/5 rounded-lg border border-white/10">
-                <ShieldAlert className="w-4 h-4 text-white/40" />
+            )}
+            {rank.tftTier && rank.tftTier !== 'UNRANKED' && rank.tftTier !== 'NA' && rank.tftTier !== 'NONE' && rank.tftDivision !== 'NA' && rank.tftDivision !== 'NONE' && (
+              <div className="flex items-center gap-3 border-l border-white/5 pl-6">
+                <div className="flex flex-col items-end">
+                  <div className="text-[10px] font-black text-white/20 tracking-tighter uppercase">TFT Rank</div>
+                  <div className="text-xs font-black text-white/80">{rank.tftTier} {rank.tftDivision} <span className="text-blue-500/60 ml-1">{rank.tftLp} LP</span></div>
+                </div>
+                <div className="p-1.5 bg-white/5 rounded-lg border border-white/10">
+                  <Activity className="w-4 h-4 text-white/40" />
+                </div>
               </div>
-            </div>
-          )}
-          {rank.tftTier && rank.tftTier !== 'UNRANKED' && rank.tftTier !== 'NA' && rank.tftTier !== 'NONE' && rank.tftDivision !== 'NA' && rank.tftDivision !== 'NONE' && (
-            <div className="flex items-center gap-3 border-l border-white/5 pl-6">
-              <div className="flex flex-col items-end">
-                <div className="text-[10px] font-black text-white/20 tracking-tighter uppercase">TFT Rank</div>
-                <div className="text-xs font-black text-white/80">{rank.tftTier} {rank.tftDivision} <span className="text-blue-500/60 ml-1">{rank.tftLp} LP</span></div>
-              </div>
-              <div className="p-1.5 bg-white/5 rounded-lg border border-white/10">
-                <Activity className="w-4 h-4 text-white/40" />
-              </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </footer>
 
       {/* Close Configuration Dialog */}

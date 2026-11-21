@@ -3,6 +3,7 @@ export interface Summoner {
     accountId: number;
     displayName: string;
     gameName?: string;
+    tagLine?: string;
     profileIconId: number;
     summonerLevel: number;
 }
