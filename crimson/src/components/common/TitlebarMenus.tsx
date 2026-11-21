@@ -1,12 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { PLUGIN_STORE_BASE_URL } from '../../lib/pluginStore';
 
-type MenuId = 'file' | 'view' | 'help' | null;
+type MenuId = 'file' | 'help' | null;
 
 interface TitlebarMenusProps {
   appVersion: string;
   onOpenSettings: () => void;
-  onFocusHub: () => void;
   onQuit: () => void;
 }
 
@@ -17,7 +16,6 @@ function openExternal(url: string) {
 export default function TitlebarMenus({
   appVersion,
   onOpenSettings,
-  onFocusHub,
   onQuit,
 }: TitlebarMenusProps) {
   const [openMenu, setOpenMenu] = useState<MenuId>(null);
@@ -63,14 +61,6 @@ export default function TitlebarMenus({
         { label: 'Settings', action: () => run(onOpenSettings) },
         { label: 'Open Store', action: () => run(() => openExternal(PLUGIN_STORE_BASE_URL)) },
         { label: 'Quit', action: () => run(onQuit), danger: true },
-      ],
-    },
-    {
-      id: 'view',
-      label: 'View',
-      items: [
-        { label: 'Hub', action: () => run(onFocusHub) },
-        { label: 'Refresh', action: () => run(() => window.location.reload()) },
       ],
     },
     {

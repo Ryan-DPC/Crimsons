@@ -15,6 +15,7 @@ import logoRed from './assets/logos/logo_red_transparent.png';
 import logoMark from './assets/logos/logo_mark_only.png';
 import OnboardingModal from './components/common/OnboardingModal';
 import TitlebarMenus from './components/common/TitlebarMenus';
+import NotificationPanel, { type NotificationItem } from './components/common/NotificationPanel';
 
 // Icons
 import { 
@@ -28,7 +29,7 @@ function App() {
     tab, setTab, 
     rank, appData, updateSetting,
     updateStatus, updateProgress, availableVersion, installUpdate,
-    lolConnected,
+    lolConnected, serverConnected,
     sum, v,
     loginSpotify, spotifyConnected,
   } = useLCU();
@@ -46,6 +47,113 @@ function App() {
   const [showCloseDialog, setShowCloseDialog] = useState(false);
   const [showUpdateNotif, setShowUpdateNotif] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [dismissedNotifIds, setDismissedNotifIds] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('crimsons_dismissed_notifs') || '[]');
+    } catch {
+      return [];
+    }
+  });
+  const [readNotifIds, setReadNotifIds] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('crimsons_read_notifs') || '[]');
+    } catch {
+      return [];
+    }
+  });
+
+  const allNotifications: NotificationItem[] = [
+    ...(availableVersion ? [{
+      id: `update-${availableVersion}`,
+      type: 'update' as const,
+      title: `Mise à jour v${availableVersion}`,
+      message: 'Une nouvelle version de Crimsons est disponible et prête à être installée.',
+      timestamp: 'Récent',
+      read: readNotifIds.includes(`update-${availableVersion}`),
+      action: {
+        label: 'Installer',
+        onClick: () => installUpdate(),
+      },
+    }] : []),
+    ...(!serverConnected ? [{
+      id: 'server-offline',
+      type: 'warning' as const,
+      title: 'Moteur Phantom hors-ligne',
+      message: 'Le serveur local (port 40510) ne répond pas. Vérifiez son exécution.',
+      timestamp: 'Système',
+      read: readNotifIds.includes('server-offline'),
+      action: {
+        label: 'Paramètres',
+        onClick: () => setTab('settings'),
+      },
+    }] : []),
+    ...(isLolEnabled && lolConnected && sum ? [{
+      id: 'lol-connected',
+      type: 'success' as const,
+      title: 'League Client connecté',
+      message: `Invocateur ${sum.displayName || sum.gameName} synchronisé. Détection de lobby active.`,
+      timestamp: 'En jeu',
+      read: readNotifIds.includes('lol-connected'),
+      action: {
+        label: 'Lobby',
+        onClick: () => setTab('lobby'),
+      },
+    }] : []),
+    ...(isLolEnabled && !lolConnected ? [{
+      id: 'lol-waiting',
+      type: 'info' as const,
+      title: 'League of Legends en attente',
+      message: 'Lancez le client de jeu pour synchroniser votre lobby et vos runes.',
+      timestamp: 'En attente',
+      read: readNotifIds.includes('lol-waiting'),
+    }] : []),
+    ...(spotifyConnected ? [{
+      id: 'spotify-connected',
+      type: 'success' as const,
+      title: 'Spotify connecté',
+      message: 'Contrôles de lecture et affichage des médias synchronisés.',
+      timestamp: 'Multimédia',
+      read: readNotifIds.includes('spotify-connected'),
+    }] : []),
+    {
+      id: `welcome-${appVersion}`,
+      type: 'info' as const,
+      title: `Crimsons v${appVersion}`,
+      message: 'Système opérationnel connecté au cluster PostgreSQL centralisé.',
+      timestamp: 'Système',
+      read: readNotifIds.includes(`welcome-${appVersion}`),
+    },
+  ];
+
+  const activeNotifications = allNotifications.filter(n => !dismissedNotifIds.includes(n.id));
+  const hasUnread = activeNotifications.some(n => !n.read);
+
+  const handleDismissNotif = (id: string) => {
+    setDismissedNotifIds(prev => {
+      const next = [...prev, id];
+      try { localStorage.setItem('crimsons_dismissed_notifs', JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
+
+  const handleMarkAllRead = () => {
+    const allIds = activeNotifications.map(n => n.id);
+    setReadNotifIds(prev => {
+      const next = Array.from(new Set([...prev, ...allIds]));
+      try { localStorage.setItem('crimsons_read_notifs', JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
+
+  const handleClearAllNotifs = () => {
+    const allIds = activeNotifications.map(n => n.id);
+    setDismissedNotifIds(prev => {
+      const next = Array.from(new Set([...prev, ...allIds]));
+      try { localStorage.setItem('crimsons_dismissed_notifs', JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (!appData) return;
@@ -168,7 +276,6 @@ function App() {
           <TitlebarMenus
             appVersion={appVersion}
             onOpenSettings={() => setTab('settings')}
-            onFocusHub={() => setTab('home')}
             onQuit={() => handleWindowCommand('close')}
           />
           {isLolEnabled && (
@@ -206,14 +313,32 @@ function App() {
               {(user?.email?.[0] || 'C').toUpperCase()}
             </button>
           )}
-          <button
-            type="button"
-            className="relative w-7 h-7 flex items-center justify-center rounded hover:bg-white/10 text-white/50 hover:text-white transition-colors"
-            title="Notifications"
-          >
-            <Bell className="w-3.5 h-3.5" />
-            <div className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-red-500 rounded-full border border-black" />
-          </button>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowNotifications(prev => !prev)}
+              className={`relative w-7 h-7 flex items-center justify-center rounded transition-colors ${
+                showNotifications
+                  ? 'bg-white/15 text-white'
+                  : 'hover:bg-white/10 text-white/50 hover:text-white'
+              }`}
+              title="Notifications"
+            >
+              <Bell className="w-3.5 h-3.5" />
+              {hasUnread && (
+                <div className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-red-500 rounded-full border border-black animate-pulse" />
+              )}
+            </button>
+
+            <NotificationPanel
+              isOpen={showNotifications}
+              onClose={() => setShowNotifications(false)}
+              notifications={activeNotifications}
+              onDismiss={handleDismissNotif}
+              onMarkAllAsRead={handleMarkAllRead}
+              onClearAll={handleClearAllNotifs}
+            />
+          </div>
 
           <div className="w-px h-4 bg-white/10 mx-1" />
 
