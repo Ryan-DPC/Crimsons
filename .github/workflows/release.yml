@@ -49,32 +49,21 @@ jobs:
       # du module, React ne monte jamais et l'application affiche un ecran noir.
       - name: Write frontend env
         run: |
-          printf 'VITE_SUPABASE_URL=%s\n'      "$(printf '%s' "$VITE_SUPABASE_URL"      | tr -d '\r\n')" >  .env
-          printf 'VITE_SUPABASE_ANON_KEY=%s\n' "$(printf '%s' "$VITE_SUPABASE_ANON_KEY" | tr -d '\r\n')" >> .env
+          printf 'VITE_SUPABASE_URL=%s\n'      "https://store.hoopslive.ch"      >  .env
+          printf 'VITE_SUPABASE_ANON_KEY=%s\n' "crimsons_vps_token_key_2026"     >> .env
         working-directory: crimson
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
       - name: Build frontend
         run: npm run build
         working-directory: crimson
       - name: Verify Supabase config is inlined
         run: |
-          # tr -d : un secret enregistre avec un saut de ligne parasite donne une
-          # valeur que Vite rogne a l'inline, rendant la comparaison fausse.
-          URL="$(printf '%s' "$VITE_SUPABASE_URL" | tr -d '\r\n')"
-          if [ -z "$URL" ]; then
-            echo "::error::Secret VITE_SUPABASE_URL absent du depot."
-            exit 1
-          fi
+          URL="https://store.hoopslive.ch"
           if ! grep -qF "$URL" dist/assets/*.js; then
-            echo "::error::Configuration Supabase absente du bundle : l'application afficherait un ecran noir."
+            echo "::error::Configuration Supabase/API absente du bundle : l'application afficherait un ecran noir."
             exit 1
           fi
-          echo "Configuration Supabase bien presente dans le bundle."
+          echo "Configuration API bien presente dans le bundle."
         working-directory: crimson
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
       - name: Upload dist
         uses: actions/upload-artifact@v4
         with:
@@ -116,13 +105,8 @@ jobs:
         shell: pwsh
         working-directory: crimson
         run: |
-          $url = ($env:VITE_SUPABASE_URL      -replace '[\r\n]', '')
-          $key = ($env:VITE_SUPABASE_ANON_KEY -replace '[\r\n]', '')
-          "VITE_SUPABASE_URL=$url"      | Set-Content .env -Encoding utf8
-          "VITE_SUPABASE_ANON_KEY=$key" | Add-Content .env -Encoding utf8
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          "VITE_SUPABASE_URL=https://store.hoopslive.ch"        | Set-Content .env -Encoding utf8
+          "VITE_SUPABASE_ANON_KEY=crimsons_vps_token_key_2026"   | Add-Content .env -Encoding utf8
 
       - name: Build Sidecar
         # Pose nom et icone sur le sidecar. Absent du build Tauri plus bas :
@@ -165,22 +149,16 @@ jobs:
       - name: Verify Supabase config in shipped bundle
         shell: pwsh
         run: |
-          $url = ($env:VITE_SUPABASE_URL -replace '[\r\n]', '')
-          if ([string]::IsNullOrWhiteSpace($url)) {
-            Write-Error "Secret VITE_SUPABASE_URL absent du depot."
-            exit 1
-          }
+          $url = "https://store.hoopslive.ch"
           $files = Get-ChildItem "crimson/dist/assets/*.js" -ErrorAction SilentlyContinue
           if (-not $files) { Write-Error "Aucun bundle JS dans crimson/dist/assets."; exit 1 }
           $found = $false
           foreach ($f in $files) { if ((Get-Content $f.FullName -Raw).Contains($url)) { $found = $true } }
           if (-not $found) {
-            Write-Error "Configuration Supabase absente du bundle embarque : l'application afficherait un ecran noir."
+            Write-Error "Configuration Supabase/API absente du bundle embarque : l'application afficherait un ecran noir."
             exit 1
           }
-          Write-Host "Configuration Supabase bien presente dans le bundle embarque."
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          Write-Host "Configuration API bien presente dans le bundle embarque."
 
       - name: Generate Auto-Updater Metadata
         if: startsWith(github.ref, 'refs/tags/')

@@ -18,7 +18,7 @@ function formatLoginError(err: unknown): string {
         || lower.includes('network request failed')
         || err instanceof TypeError
     ) {
-        return 'Impossible de joindre le serveur d’auth (réseau / DNS / antivirus). Vérifie ta connexion, désactive VPN/proxy, ou autorise *.supabase.co.';
+        return 'Impossible de joindre le serveur d’authentification. Vérifie ta connexion internet ou désactive ton VPN/proxy.';
     }
     if (lower.includes('invalid login credentials') || lower.includes('invalid_credentials')) {
         return 'Email ou mot de passe incorrect.';
