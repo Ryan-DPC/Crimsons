@@ -46,9 +46,14 @@ export default function NotificationPanel({
   useEffect(() => {
     if (!isOpen) return;
     const onPointerDown = (e: PointerEvent) => {
-      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
-        onClose();
+      if (panelRef.current && panelRef.current.contains(e.target as Node)) {
+        return;
       }
+      const target = e.target as HTMLElement | null;
+      if (target?.closest('[data-notification-trigger]')) {
+        return;
+      }
+      onClose();
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();

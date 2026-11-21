@@ -8,7 +8,9 @@ import HomeTab from './components/home/HomeTab';
 import LobbyTab from './components/lobby/LobbyTab';
 import HistoryTab from './components/history/HistoryTab';
 import SettingsTab from './components/settings/SettingsTab';
+import ProfileTab from './components/profile/ProfileTab';
 import DebugTab from './components/debug/DebugTab';
+import UpdateOverlay from './components/common/UpdateOverlay';
 import { useAuth } from './contexts/AuthContext';
 import LoginScreen from './components/auth/LoginScreen';
 import logoRed from './assets/logos/logo_red_transparent.png';
@@ -289,13 +291,14 @@ function App() {
         <div data-tauri-drag-region className="flex-1 min-w-4 self-stretch" />
 
         {/* RIGHT: avatar → notifications → window controls */}
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0" data-tauri-drag-region="none">
           {isLolEnabled && sum ? (
             <button
               type="button"
-              onClick={() => setTab('settings')}
+              onClick={() => setTab('profile')}
+              data-tauri-drag-region="none"
               className="rounded-full focus:outline-none focus-visible:ring-1 focus-visible:ring-white/30"
-              title="Account"
+              title="Mon Profil"
             >
               <img
                 src={`https://ddragon.leagueoflegends.com/cdn/${v}/img/profileicon/${sum.profileIconId}.png`}
@@ -306,16 +309,19 @@ function App() {
           ) : (
             <button
               type="button"
-              onClick={() => setTab('settings')}
-              className="w-7 h-7 bg-red-600/20 border border-red-500/30 rounded-full flex items-center justify-center text-red-500 font-black text-[10px] hover:bg-red-600/30 transition-colors"
-              title="Account"
+              onClick={() => setTab('profile')}
+              data-tauri-drag-region="none"
+              className="w-7 h-7 bg-white/5 border border-white/10 rounded-full flex items-center justify-center text-white/80 hover:text-white hover:bg-white/10 hover:border-white/20 transition-all font-bold text-[10px]"
+              title="Mon Profil"
             >
               {(user?.email?.[0] || 'C').toUpperCase()}
             </button>
           )}
-          <div className="relative">
+          <div className="relative" data-tauri-drag-region="none">
             <button
               type="button"
+              data-notification-trigger="true"
+              data-tauri-drag-region="none"
               onClick={() => setShowNotifications(prev => !prev)}
               className={`relative w-7 h-7 flex items-center justify-center rounded transition-colors ${
                 showNotifications
@@ -375,6 +381,7 @@ function App() {
           <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden scrollbar-hide">
             <div className="max-w-[1600px] mx-auto p-8 min-h-full flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-1000">
               {tab === 'home' && <HomeTab />}
+              {tab === 'profile' && <ProfileTab />}
               {tab === 'settings' && <SettingsTab />}
               {tab === 'debug' && <DebugTab />}
             </div>
@@ -493,6 +500,14 @@ function App() {
             <p className="text-center text-[9px] text-white/30 uppercase tracking-widest mt-4">Vous pourrez changer ceci dans les paramètres.</p>
           </div>
         </div>
+      )}
+
+      {/* Full-Screen Update Transition Overlay (Style Steam / Discord) */}
+      {updateStatus === 'installing' && (
+        <UpdateOverlay
+          version={availableVersion || appVersion}
+          progress={updateProgress}
+        />
       )}
 
       {/* Onboarding Welcome Tutorial */}

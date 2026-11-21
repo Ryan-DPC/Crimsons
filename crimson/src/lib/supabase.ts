@@ -83,6 +83,9 @@ const crimsonAuthStorage: SupportedStorage = {
     },
 };
 
+export const SUPABASE_URL = supabaseUrl;
+export const SUPABASE_ANON_KEY = supabaseAnonKey;
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     auth: {
         persistSession: true,
