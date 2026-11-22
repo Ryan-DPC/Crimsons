@@ -1,10 +1,12 @@
+import { useState } from 'react';
 import { useLCU } from '../../contexts/LCUContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { getChampIcon } from '../../utils/lolDisplay';
+import ChampionPickerModal from '../common/ChampionPickerModal';
 import { 
     Disc3, MessageSquare, Laptop, Music, MicOff, Mic, Headphones, 
     MonitorPlay, Play, Pause, SkipForward, SkipBack, 
-    ShoppingBag, ExternalLink
+    ShoppingBag, ExternalLink, X
 } from 'lucide-react';
 import { PLUGIN_STORE_BASE_URL, pluginStoreUrl } from '../../lib/pluginStore';
 
@@ -81,9 +83,29 @@ export default function HomeTab() {
     const { 
         appData, updateSetting, sum, v, hist, champs, seasonStats, 
         spotifyState, discordState, spotifyCommand, discordCommand, discordConnected,
-        appleMusicState, appleMusicCommand, togglePlugin, setTab
+        appleMusicState, appleMusicCommand, togglePlugin, setTab,
+        toggleAutoPick, toggleAutoBan
     } = useLCU();
     const { isPremium } = useAuth();
+    
+    const [pickerMode, setPickerMode] = useState<'pick' | 'ban' | null>(null);
+
+    const handleSelectChampion = (champId: number | null) => {
+        if (!pickerMode) return;
+        if (pickerMode === 'pick') {
+            if (champId === null) {
+                if (appData?.autoPick) toggleAutoPick(appData.autoPick);
+            } else if (appData?.autoPick !== champId) {
+                toggleAutoPick(champId);
+            }
+        } else {
+            if (champId === null) {
+                if (appData?.autoBan) toggleAutoBan(appData.autoBan);
+            } else if (appData?.autoBan !== champId) {
+                toggleAutoBan(champId);
+            }
+        }
+    };
     
     // Defaults: all plugins off until the user enables them (matches Settings + server).
     const isLolEnabled = appData?.plugins?.leagueOfLegends ?? false;
@@ -394,18 +416,77 @@ export default function HomeTab() {
                         <div className="flex flex-col gap-3 mt-4">
                             <span className="text-[10px] font-black text-white/40 uppercase tracking-widest border-b border-white/5 pb-2">Auto Selection</span>
                             <div className="flex items-center gap-3">
-                                <div className="flex-1 bg-[#0a0a0c] border border-white/5 rounded-xl p-3 flex items-center gap-3 relative overflow-hidden transition-colors hover:border-blue-500/30">
-                                    {appData?.autoPick ? <img src={getChampIcon(appData.autoPick, champs, v)} className="absolute inset-0 w-full h-full object-cover opacity-10" /> : null}
+                                <button
+                                    type="button"
+                                    onClick={() => setPickerMode('pick')}
+                                    className="flex-1 bg-[#0a0a0c] hover:bg-white/[0.03] border border-white/5 hover:border-blue-500/40 rounded-xl p-3 flex items-center gap-3 relative overflow-hidden transition-all cursor-pointer group text-left"
+                                    title="Choisir le champion Auto-Pick"
+                                >
+                                    {appData?.autoPick ? (
+                                        <img
+                                            src={getChampIcon(appData.autoPick, champs, v)}
+                                            className="absolute inset-0 w-full h-full object-cover opacity-15 group-hover:opacity-25 transition-opacity pointer-events-none"
+                                            alt=""
+                                        />
+                                    ) : null}
                                     <span className="text-[10px] font-black text-blue-500 uppercase tracking-widest relative z-10 shrink-0">Pick</span>
-                                    <span className="text-white text-xs font-bold relative z-10 truncate">{appData?.autoPick ? champs.find(c => c.id === appData.autoPick)?.name : 'None'}</span>
-                                </div>
-                                <div className="flex-1 bg-[#0a0a0c] border border-white/5 rounded-xl p-3 flex items-center gap-3 relative overflow-hidden transition-colors hover:border-red-500/30">
-                                    {appData?.autoBan ? <img src={getChampIcon(appData.autoBan, champs, v)} className="absolute inset-0 w-full h-full object-cover opacity-10" /> : null}
+                                    <span className="text-white text-xs font-bold relative z-10 truncate flex-1">
+                                        {appData?.autoPick ? (champs.find(c => c.id === appData.autoPick)?.name || 'Champion') : 'None'}
+                                    </span>
+                                    {appData?.autoPick ? (
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                toggleAutoPick(appData.autoPick);
+                                            }}
+                                            className="relative z-20 p-1 hover:bg-white/10 rounded-md text-white/30 hover:text-white transition-colors"
+                                            title="Désactiver l'auto-pick"
+                                        >
+                                            <X className="w-3.5 h-3.5" />
+                                        </button>
+                                    ) : (
+                                        <span className="text-[9px] text-white/20 group-hover:text-blue-400 font-mono relative z-10">Choisir</span>
+                                    )}
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setPickerMode('ban')}
+                                    className="flex-1 bg-[#0a0a0c] hover:bg-white/[0.03] border border-white/5 hover:border-red-500/40 rounded-xl p-3 flex items-center gap-3 relative overflow-hidden transition-all cursor-pointer group text-left"
+                                    title="Choisir le champion Auto-Ban"
+                                >
+                                    {appData?.autoBan ? (
+                                        <img
+                                            src={getChampIcon(appData.autoBan, champs, v)}
+                                            className="absolute inset-0 w-full h-full object-cover opacity-15 group-hover:opacity-25 transition-opacity pointer-events-none"
+                                            alt=""
+                                        />
+                                    ) : null}
                                     <span className="text-[10px] font-black text-red-500 uppercase tracking-widest relative z-10 shrink-0">Ban</span>
-                                    <span className="text-white text-xs font-bold relative z-10 truncate">{appData?.autoBan ? champs.find(c => c.id === appData.autoBan)?.name : 'None'}</span>
-                                </div>
+                                    <span className="text-white text-xs font-bold relative z-10 truncate flex-1">
+                                        {appData?.autoBan ? (champs.find(c => c.id === appData.autoBan)?.name || 'Champion') : 'None'}
+                                    </span>
+                                    {appData?.autoBan ? (
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                toggleAutoBan(appData.autoBan);
+                                            }}
+                                            className="relative z-20 p-1 hover:bg-white/10 rounded-md text-white/30 hover:text-white transition-colors"
+                                            title="Désactiver l'auto-ban"
+                                        >
+                                            <X className="w-3.5 h-3.5" />
+                                        </button>
+                                    ) : (
+                                        <span className="text-[9px] text-white/20 group-hover:text-red-400 font-mono relative z-10">Choisir</span>
+                                    )}
+                                </button>
                             </div>
-                            <span className="text-[9px] text-white/30 uppercase font-bold mt-2">Edit selections in your Settings</span>
+                            <span className="text-[9px] text-white/30 uppercase font-bold mt-1">
+                                Cliquez sur Pick ou Ban pour choisir un champion
+                            </span>
                         </div>
                     </>
                 )}
@@ -561,6 +642,19 @@ export default function HomeTab() {
                 )}
 
             </div>
+
+            {/* Champion Picker Modal for Auto-Pick & Auto-Ban */}
+            {pickerMode && (
+                <ChampionPickerModal
+                    isOpen={Boolean(pickerMode)}
+                    onClose={() => setPickerMode(null)}
+                    mode={pickerMode}
+                    currentChampionId={pickerMode === 'pick' ? (appData?.autoPick || null) : (appData?.autoBan || null)}
+                    champs={champs}
+                    v={v}
+                    onSelect={handleSelectChampion}
+                />
+            )}
         </div>
     );
 }
