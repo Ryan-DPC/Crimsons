@@ -168,7 +168,7 @@ const SettingsTab = () => {
                                         </div>
                                     )}
                                     {(updateStatus === 'idle' || updateStatus === 'up-to-date' || updateStatus === 'checking') && (
-                                        <button onClick={checkUpdates} disabled={updateStatus === 'checking'} className="px-8 py-3 bg-white/5 hover:bg-white/10 text-white/60 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all">
+                                        <button onClick={() => checkUpdates()} disabled={updateStatus === 'checking'} className="px-8 py-3 bg-white/5 hover:bg-white/10 text-white/60 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all">
                                             Vérifier
                                         </button>
                                     )}

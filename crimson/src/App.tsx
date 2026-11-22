@@ -48,6 +48,12 @@ function App() {
   const [appVersion, setAppVersion] = useState<string>('1.1.0');
   const [showCloseDialog, setShowCloseDialog] = useState(false);
   const [showUpdateNotif, setShowUpdateNotif] = useState(true);
+
+  useEffect(() => {
+    if (availableVersion) {
+      setShowUpdateNotif(true);
+    }
+  }, [availableVersion]);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [dismissedNotifIds, setDismissedNotifIds] = useState<string[]>(() => {

@@ -95,7 +95,7 @@ interface LCUContextType {
     doImport: (build: RuneBuild, index: number) => Promise<void>;
     handleSecondaryClick: (buildIndex: number, runeId: number, slotIndex: number) => void;
     handleShardClick: (buildIndex: number, rIdx: number, shardId: number) => void;
-    checkUpdates: () => Promise<void>;
+    checkUpdates: (silent?: boolean) => Promise<void>;
     installUpdate: (url?: string) => Promise<void>;
     loginSpotify: (clientId: string, clientSecret: string) => Promise<void>;
     spotifyCommand: (endpoint: string) => void;
@@ -163,14 +163,21 @@ export const LCUProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const hasFetchedInitialState = useRef<boolean>(false);
     const champsRef = useRef<any[]>([]);
 
+    const lastCheckTime = useRef<number>(0);
+
     // --- UPDATER ---
-    const checkUpdates = async () => {
+    const checkUpdates = async (silent?: boolean | unknown) => {
+        const isSilent = silent === true;
         if (updateStatus === 'installing') return;
-        setUpdateStatus('checking');
+        if (!isSilent) setUpdateStatus('checking');
         try {
             const { getVersion } = await import('@tauri-apps/api/app');
             const currentV = await getVersion();
-            const resp = await fetch('https://api.github.com/repos/Ryan-DPC/Crimsons/releases');
+            const resp = await fetch(`https://api.github.com/repos/Ryan-DPC/Crimsons/releases?t=${Date.now()}`, {
+                cache: 'no-store',
+                headers: { 'Accept': 'application/vnd.github.v3+json' }
+            });
+            lastCheckTime.current = Date.now();
             if (resp.ok) {
                 const data = await resp.json();
                 let highestV = currentV;
@@ -200,18 +207,50 @@ export const LCUProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     setRemoteUpdateAssetUrl(bestUrl);
                     setUpdateStatus('available');
                 } else {
-                    setUpdateStatus('up-to-date');
-                    setTimeout(() => setUpdateStatus('idle'), 4000);
+                    if (!isSilent) {
+                        setUpdateStatus('up-to-date');
+                        setTimeout(() => setUpdateStatus('idle'), 4000);
+                    } else if (updateStatus !== 'available') {
+                        setUpdateStatus('idle');
+                    }
                 }
-            } else { setUpdateStatus('idle'); }
-        } catch { setUpdateStatus('idle'); }
+            } else {
+                if (!isSilent && updateStatus !== 'available') setUpdateStatus('idle');
+            }
+        } catch {
+            if (!isSilent && updateStatus !== 'available') setUpdateStatus('idle');
+        }
     };
 
     useEffect(() => {
-        const init = async () => {
-            await checkUpdates();
+        // 1. Initial check at startup
+        checkUpdates(true);
+
+        // 2. Periodic background check every 3 minutes (180,000 ms)
+        const interval = setInterval(() => {
+            checkUpdates(true);
+        }, 3 * 60 * 1000);
+
+        // 3. Re-check when window regains focus or visibility if at least 60s elapsed
+        const onVisibilityChange = () => {
+            if (document.visibilityState === 'visible' && Date.now() - lastCheckTime.current > 60 * 1000) {
+                checkUpdates(true);
+            }
         };
-        init();
+        const onFocus = () => {
+            if (Date.now() - lastCheckTime.current > 60 * 1000) {
+                checkUpdates(true);
+            }
+        };
+
+        document.addEventListener('visibilitychange', onVisibilityChange);
+        window.addEventListener('focus', onFocus);
+
+        return () => {
+            clearInterval(interval);
+            document.removeEventListener('visibilitychange', onVisibilityChange);
+            window.removeEventListener('focus', onFocus);
+        };
     }, []);
 
     const installUpdate = async (url?: string) => {
