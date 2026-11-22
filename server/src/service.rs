@@ -15,7 +15,7 @@ pub fn start_auto_accept_service(
     is_auto_accept_enabled: std::sync::Arc<std::sync::atomic::AtomicBool>
 ) {
     tokio::spawn(async move {
-        let mut interval = interval(Duration::from_millis(1000));
+        let mut interval = interval(Duration::from_millis(500));
         let mut loop_count = 0u64;
         loop {
             interval.tick().await;
@@ -74,7 +74,7 @@ fn check_and_accept(sender: &WsSender) -> Result<(), String> {
     }
 
     tracing::info!("Service: Ready-check InProgress — auto-accepting");
-    lcu::lcu_request("POST".into(), "/lol-matchmaking/v1/ready-check/accept".into(), None)?;
+    lcu::lcu_request("POST".into(), "/lol-matchmaking/v1/ready-check/accept".into(), Some("{}".into()))?;
 
     let _ = sender.0.send(json!({
         "type": "NATIVE_NOTIFICATION",

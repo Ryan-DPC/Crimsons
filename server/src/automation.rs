@@ -15,7 +15,14 @@ pub fn parse_champ_id(value: &Value) -> Option<u64> {
 
 /// LCU ready-check is active when state is InProgress and the local player has not answered.
 pub fn should_auto_accept(state: &str, player_response: &str, auto_accept_enabled: bool) -> bool {
-    auto_accept_enabled && state == "InProgress" && player_response == "None"
+    if !auto_accept_enabled {
+        return false;
+    }
+    let is_in_progress = state.eq_ignore_ascii_case("InProgress");
+    let not_answered = player_response.is_empty()
+        || player_response.eq_ignore_ascii_case("None")
+        || (!player_response.eq_ignore_ascii_case("Accepted") && !player_response.eq_ignore_ascii_case("Declined"));
+    is_in_progress && not_answered
 }
 
 pub fn handle_champ_select_standalone(data: &Value) {
@@ -91,7 +98,7 @@ pub fn handle_ready_check(data: &Value) {
     match lcu::lcu_request(
         "POST".into(),
         "/lol-matchmaking/v1/ready-check/accept".into(),
-        None,
+        Some("{}".into()),
     ) {
         Ok(_) => tracing::info!("Automation: Auto-accept OK"),
         Err(e) => tracing::warn!("Automation: Auto-accept failed: {}", e),
@@ -121,6 +128,9 @@ mod tests {
     #[test]
     fn ready_check_accepts_in_progress_only() {
         assert!(should_auto_accept("InProgress", "None", true));
+        assert!(should_auto_accept("inprogress", "", true));
+        assert!(should_auto_accept("InProgress", "none", true));
+        assert!(!should_auto_accept("InProgress", "Declined", true));
         assert!(!should_auto_accept("Proposed", "None", true));
         assert!(!should_auto_accept("InProgress", "Accepted", true));
         assert!(!should_auto_accept("InProgress", "None", false));

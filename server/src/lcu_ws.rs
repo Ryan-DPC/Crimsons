@@ -42,7 +42,7 @@ pub async fn start_lcu_ws(sender: WsSender, is_enabled: std::sync::Arc<std::sync
 
         match connect_async_danger_tls(request).await {
             Ok((mut ws_stream, _)) => {
-                println!("Connected to LCU WebSocket");
+                tracing::info!("Connected to LCU WebSocket");
                 
                 // Subscribe to all events
                 let subscribe_msg = json!([5, "OnJsonApiEvent"]).to_string();
@@ -107,7 +107,7 @@ pub async fn start_lcu_ws(sender: WsSender, is_enabled: std::sync::Arc<std::sync
                 }
             },
             Err(e) => {
-                println!("Failed to connect to LCU WebSocket: {}", e);
+                tracing::warn!("Failed to connect to LCU WebSocket: {}", e);
                 sleep(Duration::from_secs(5)).await;
             }
         }
@@ -149,9 +149,16 @@ impl ServerCertVerifier for NoCertificateVerification {
 
     fn supported_verify_schemes(&self) -> Vec<rustls::SignatureScheme> {
         vec![
+            rustls::SignatureScheme::RSA_PKCS1_SHA256,
+            rustls::SignatureScheme::RSA_PKCS1_SHA384,
+            rustls::SignatureScheme::RSA_PKCS1_SHA512,
             rustls::SignatureScheme::RSA_PSS_SHA256,
-            rustls::SignatureScheme::ED25519,
+            rustls::SignatureScheme::RSA_PSS_SHA384,
+            rustls::SignatureScheme::RSA_PSS_SHA512,
             rustls::SignatureScheme::ECDSA_NISTP256_SHA256,
+            rustls::SignatureScheme::ECDSA_NISTP384_SHA384,
+            rustls::SignatureScheme::ECDSA_NISTP521_SHA512,
+            rustls::SignatureScheme::ED25519,
         ]
     }
 }

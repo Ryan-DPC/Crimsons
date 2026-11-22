@@ -74,12 +74,19 @@ pub fn get_lcu_info() -> Result<LcuInfo, String> {
         }
     }
 
-    // Method 2: Global Fallback (Default path)
-    let lockfile = "C:\\Riot Games\\League of Legends\\lockfile";
-    if let Ok(content) = fs::read_to_string(lockfile) {
-        if let Some(info) = parse_lockfile(&content) {
-            if let Ok(mut cache) = LCU_CACHE.lock() { *cache = Some(info.clone()); }
-            return Ok(info);
+    // Method 2: Global Fallback (Default paths on all common drives)
+    let default_paths = [
+        "C:\\Riot Games\\League of Legends\\lockfile",
+        "D:\\Riot Games\\League of Legends\\lockfile",
+        "E:\\Riot Games\\League of Legends\\lockfile",
+        "F:\\Riot Games\\League of Legends\\lockfile",
+    ];
+    for path in &default_paths {
+        if let Ok(content) = fs::read_to_string(path) {
+            if let Some(info) = parse_lockfile(&content) {
+                if let Ok(mut cache) = LCU_CACHE.lock() { *cache = Some(info.clone()); }
+                return Ok(info);
+            }
         }
     }
 
@@ -150,10 +157,22 @@ fn handle_response(response: ureq::Response) -> Result<String, String> {
 }
 
 fn handle_error(err: ureq::Error) -> Result<String, String> {
-    let count = LCU_FAIL_COUNT.fetch_add(1, Ordering::Relaxed) + 1;
-    if count >= 10 {
-        if let Ok(mut cache) = LCU_CACHE.lock() { *cache = None; }
-        LCU_FAIL_COUNT.store(0, Ordering::Relaxed);
+    match &err {
+        ureq::Error::Status(code, _) => {
+            // An HTTP status code (such as 404 when not in queue / not in champ select)
+            // proves the LCU HTTP server is alive and responding! Do NOT increment fail count.
+            LCU_FAIL_COUNT.store(0, Ordering::Relaxed);
+            tracing::debug!("LCU responded with HTTP status {}: alive", code);
+        }
+        ureq::Error::Transport(_) => {
+            // Only genuine connection failures (process closed, socket closed, timeout)
+            // count towards disconnecting LCU.
+            let count = LCU_FAIL_COUNT.fetch_add(1, Ordering::Relaxed) + 1;
+            if count >= 5 {
+                if let Ok(mut cache) = LCU_CACHE.lock() { *cache = None; }
+                LCU_FAIL_COUNT.store(0, Ordering::Relaxed);
+            }
+        }
     }
     Err(err.to_string())
 }
